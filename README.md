@@ -13,8 +13,8 @@ El objetivo es centralizar la gestión de cursos, usuarios e inscripciones, reem
 [👉 Acceder al documento (Google Docs)](https://docs.google.com/document/d/15fb_XbemLbfUFUt47p7reJpIal8EccnyGDD2Dhbd5Ds/edit?usp=sharing)
 
 # 👥 Integrantes
-Astore Rodrigo
-Ferrino Nahuel
+- Astore Rodrigo
+- Ferrino Nahuel
 
 # 🎯 Objetivo del sistema
 Desarrollar un sistema backend que permita:
