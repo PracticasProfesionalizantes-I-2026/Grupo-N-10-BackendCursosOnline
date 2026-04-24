@@ -1,7 +1,7 @@
 # 🚀 Proyeto - Backend para Plataforma de Cursos Online (LMS)
-Materia: Práctica Profesionalizante I
-Profesores: Majluf Gabriel – Spila Oscar
-Carrera: Tecnicatura Superior en Desarrollo de Software – 2026
+- Materia: Práctica Profesionalizante I
+- Profesores: Majluf Gabriel – Spila Oscar
+- Carrera: Tecnicatura Superior en Desarrollo de Software – 2026
 
 # 📌 Descripción
 Este proyecto consiste en el desarrollo de un backend para una plataforma de cursos online (LMS).
