@@ -45,10 +45,9 @@ Este proyecto busca solucionar estos problemas mediante una arquitectura organiz
 📅 El informe se encuentra en construcción y actualización constante
 
 # 🔜 Próximos pasos
-- Completar análisis y requerimientos
-- Diseñar la arquitectura del sistema
-- Definir tecnologías a utilizar
-- Comenzar desarrollo del backend
+- Terminar de definir requerimientos
+- Empezar a plasmar un prototipo de interfaz
+- Desarrollar el flujo del prototipo de interfaz
 
 # ℹ️ Notas
 Este repositorio se irá actualizando progresivamente a medida que avance el desarrollo del proyecto.
