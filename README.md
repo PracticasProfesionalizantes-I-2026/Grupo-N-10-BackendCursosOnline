@@ -23,6 +23,13 @@
 
 ---
 
+# 📄 Documentación del Proyecto
+
+## 📑 Informe General
+[👉 Acceder al documento del proyecto](https://docs.google.com/document/d/15fb_XbemLbfUFUt47p7reJpIal8EccnyGDD2Dhbd5Ds/edit?usp=sharing)
+
+---
+
 # 📌 Descripción del Proyecto
 
 Este proyecto consiste en el desarrollo de una plataforma LMS (*Learning Management System*) orientada a la gestión integral de cursos online.
@@ -129,13 +136,6 @@ El prototipo visual del sistema se está desarrollando mediante Lovable.
 
 ## 🔗 Acceso al prototipo
 > https://lumencursos.lovable.app
-
----
-
-# 📄 Documentación del Proyecto
-
-## 📑 Informe General
-[👉 Acceder al documento del proyecto](https://docs.google.com/document/d/15fb_XbemLbfUFUt47p7reJpIal8EccnyGDD2Dhbd5Ds/edit?usp=sharing)
 
 ---
 
