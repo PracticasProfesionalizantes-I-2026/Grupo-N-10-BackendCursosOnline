@@ -37,6 +37,11 @@
 
 ---
 
+## 👤 Acceso a los Actores y Casos de Uso
+[👉 Acceder al documento de los actores y casos de uso](https://docs.google.com/document/d/17OEERgNYoin4sw_rBZ4ow-Ebes76yrq-qI-I8FQLAAc/edit?usp=sharing)
+
+---
+
 # 📌 Descripción del Proyecto
 
 Este proyecto consiste en el desarrollo de una plataforma LMS (*Learning Management System*) orientada a la gestión integral de cursos online.
