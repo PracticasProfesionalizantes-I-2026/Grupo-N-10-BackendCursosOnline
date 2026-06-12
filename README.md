@@ -1,10 +1,7 @@
 # 🚀 Plataforma LMS — Sistema de Gestión de Cursos Online
 
 ![Estado](https://img.shields.io/badge/Estado-En%20Desarrollo-yellow)
-![Fase](https://img.shields.io/badge/Fase-Análisis%20y%20Prototipado-blue)
 ![Materia](https://img.shields.io/badge/Materia-Práctica%20Profesionalizante%20I-orange)
-![Backend](https://img.shields.io/badge/Backend-En%20Planificación-success)
-![Frontend](https://img.shields.io/badge/Frontend-Prototipado%20UI%2FUX-purple)
 
 ---
 
@@ -27,6 +24,16 @@
 
 ## 📑 Informe General
 [👉 Acceder al documento del proyecto](https://docs.google.com/document/d/15fb_XbemLbfUFUt47p7reJpIal8EccnyGDD2Dhbd5Ds/edit?usp=sharing)
+
+---
+
+## 🔗 Acceso al Prototipo
+[👉 Acceder a la interfaz del proyecto](https://lumencursos.lovable.app)
+
+---
+
+## 🔄 Acceso al Flujo del Prototipo
+[👉 Acceder al flujo del prototipo](https://app.milanote.com/1WnFDc1yxxjZba?p=D2zKZdXPa1w)
 
 ---
 
@@ -91,12 +98,12 @@ Durante la primera versión del sistema se trabajará sobre:
 - Registro de usuarios.
 - Inicio de sesión y autenticación.
 - Gestión de roles.
-- CRUD de cursos.
+- Creación y administración de cursos.
+- Gestión de módulos.
 - Inscripción de alumnos.
 - Seguimiento de progreso.
 - Paneles según tipo de usuario.
 - Validaciones básicas del sistema.
-- Flujo inicial de interfaz.
 
 ---
 
@@ -115,86 +122,11 @@ Este proyecto busca resolver dichas problemáticas mediante una arquitectura só
 
 ---
 
-# 🖥️ Estado Actual del Proyecto
-
-## 🟡 Etapa actual: Análisis + Prototipado UI/UX
-
-Actualmente el equipo se encuentra trabajando en:
-
-- Definición de requerimientos funcionales y no funcionales.
-- Diseño del flujo del sistema.
-- Prototipado de interfaces.
-- Organización de arquitectura inicial.
-- Modelado de funcionalidades.
-- Diseño de experiencia de usuario.
-
----
-
 # 🎨 Prototipo de Interfaz
 
-El prototipo visual del sistema se está desarrollando mediante Lovable.
+El prototipo visual y el flujo de navegación del sistema fueron diseñados utilizando Lovable y herramientas de diagramación colaborativa.
 
-## 🔗 Acceso al prototipo
-> https://lumencursos.lovable.app
-
----
-
-# 🏗️ Arquitectura del Proyecto
-
-La plataforma será desarrollada bajo una arquitectura escalable orientada a separar responsabilidades entre:
-
-- Backend
-- Frontend
-- Base de datos
-- Gestión de autenticación
-- APIs
-- Interfaces de usuario
-
----
-
-# 🔧 Tecnologías Previstas
-
-## Backend
-- Node.js
-- Express.js
-
-## Base de Datos
-- MySQL / PostgreSQL
-
-## Frontend
-- React
-
-## Control de Versiones
-- Git
-- GitHub
-
-## Diseño UI/UX
-- Lovable
-
----
-
-# 📈 Roadmap del Proyecto
-
-## ✅ Etapas completadas
-- Idea del proyecto
-- Investigación inicial
-- Identificación de problemática
-- Definición general del sistema
-
-## 🔄 Etapas en desarrollo
-- Requerimientos
-- Casos de uso
-- Flujos del sistema
-- Prototipo UI/UX
-- Arquitectura inicial
-
-## 🔜 Próximas etapas
-- Desarrollo backend
-- Desarrollo frontend
-- Integración de base de datos
-- Testing
-- Deploy
-- Documentación técnica final
+Los enlaces correspondientes se encuentran disponibles en la sección de documentación del proyecto.
 
 ---
 
@@ -203,6 +135,7 @@ La plataforma será desarrollada bajo una arquitectura escalable orientada a sep
 El repositorio irá evolucionando progresivamente a medida que avance el desarrollo del sistema.
 
 Se incorporarán:
+
 - código fuente,
 - documentación técnica,
 - diagramas,
