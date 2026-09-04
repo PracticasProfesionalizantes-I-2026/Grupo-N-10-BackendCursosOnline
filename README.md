@@ -31,3 +31,13 @@ Contiene la definición general de Lumen, incluyendo alcance, requerimientos, es
 Contiene los actores identificados y las especificaciones de los casos de uso del sistema.
 
 [Acceder a Actores y Casos de Uso](https://docs.google.com/document/d/1D-hUx1-MSs4RW2Y_sViKkLizYKCBs-DG/edit?usp=drive_link&ouid=115498353339163244987&rtpof=true&sd=true)
+
+## 🖥️ Prototipo
+
+Lumen cuenta actualmente con un prototipo frontend funcional y navegable que permite recorrer las principales pantallas y flujos definidos para el sistema.
+
+[Acceder al prototipo de Lumen](lumen-bay-phi.vercel.app)
+
+## 🚧 Estado del Proyecto
+
+**Estado actual:** Documentación funcional revisada y prototipo frontend desarrollado y desplegado.
