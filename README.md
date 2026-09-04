@@ -31,9 +31,3 @@ Contiene la definición general de Lumen, incluyendo alcance, requerimientos, es
 Contiene los actores identificados y las especificaciones de los casos de uso del sistema.
 
 [Acceder a Actores y Casos de Uso](https://docs.google.com/document/d/1D-hUx1-MSs4RW2Y_sViKkLizYKCBs-DG/edit?usp=drive_link&ouid=115498353339163244987&rtpof=true&sd=true)
-
-## 🚧 Estado del Proyecto
-
-**Estado actual:** Documentación funcional revisada.
-
-**Próxima etapa:** Desarrollo del prototipo frontend.
