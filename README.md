@@ -36,7 +36,7 @@ Contiene los actores identificados y las especificaciones de los casos de uso de
 
 Lumen cuenta actualmente con un prototipo frontend funcional y navegable que permite recorrer las principales pantallas y flujos definidos para el sistema.
 
-[Acceder al prototipo de Lumen](lumen-bay-phi.vercel.app)
+[Acceder al prototipo de Lumen](https://lumen-bay-phi.vercel.app)
 
 ## 🚧 Estado del Proyecto
 
