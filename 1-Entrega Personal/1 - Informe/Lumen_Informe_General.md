@@ -1,4 +1,4 @@
-# LUMEN
+# **LUMEN**
 
 **Sistema de Gestión de Cursos Online (LMS)**
 
@@ -91,25 +91,25 @@ Lumen ofrece la oportunidad de ordenar la gestión de cursos online en un único
 
 ### 2.1 Funciones principales
 
-1. **Registro de usuarios:** Alumno y Profesor pueden crear una cuenta pública, seleccionar su tipo de usuario y completar los datos personales requeridos. El Administrador no se registra públicamente.
+**1. Registro de usuarios:** Alumno y Profesor pueden crear una cuenta pública, seleccionar su tipo de usuario y completar los datos personales requeridos. El Administrador no se registra públicamente.
 
-2. **Inicio de sesión:** Los usuarios registrados pueden acceder con sus credenciales y visualizar las funciones correspondientes a su rol.
+**2. Inicio de sesión:** Los usuarios registrados pueden acceder con sus credenciales y visualizar las funciones correspondientes a su rol.
 
-3. **Gestión de roles y permisos:** El sistema diferencia Alumno, Profesor y Administrador y restringe las operaciones según la matriz de permisos.
+**3. Gestión de roles y permisos:** El sistema diferencia Alumno, Profesor y Administrador y restringe las operaciones según la matriz de permisos.
 
-4. **Creación de cursos:** El Profesor prepara un curso, puede guardarlo como BORRADOR, agrega módulos con duración y lo envía a revisión administrativa.
+**4. Creación de cursos:** El Profesor prepara un curso, puede guardarlo como BORRADOR, agrega módulos con duración y lo envía a revisión administrativa.
 
-5. **Auditoría de cursos:** El Administrador revisa solicitudes de creación o modificación y puede aprobar, rechazar o solicitar cambios.
+**5. Auditoría de cursos:** El Administrador revisa solicitudes de creación o modificación y puede aprobar, rechazar o solicitar cambios.
 
-6. **Actualización y re-auditoría:** El Profesor puede modificar cursos propios; los cambios deben volver a revisión antes de considerarse aprobados.
+**6. Actualización y re-auditoría:** El Profesor puede modificar cursos propios; los cambios deben volver a revisión antes de considerarse aprobados.
 
-7. **Consulta de cursos:** El Alumno puede consultar los cursos PUBLICADOS disponibles para inscripción.
+**7. Consulta de cursos:** El Alumno puede consultar los cursos PUBLICADOS disponibles para inscripción.
 
-8. **Inscripciones:** El Alumno solicita inscripción a un curso PUBLICADO. La solicitud queda PENDIENTE hasta que el Administrador la aprueba o rechaza.
+**8. Inscripciones:** El Alumno solicita inscripción a un curso PUBLICADO. La solicitud queda PENDIENTE hasta que el Administrador la aprueba o rechaza.
 
-9. **Seguimiento del progreso:** El sistema representa el avance del Alumno mediante porcentaje y estados asociados a módulos o actividades completadas.
+**9. Seguimiento del progreso:** El sistema representa el avance del Alumno mediante porcentaje y estados asociados a módulos o actividades completadas.
 
-10. **Administración y reportes:** El Administrador gestiona usuarios y cursos y consulta reportes básicos mediante un rango de fechas Desde/Hasta.
+**10. Administración y reportes:** El Administrador gestiona usuarios y cursos y consulta reportes básicos mediante un rango de fechas Desde/Hasta.
 
 ## 3. Contexto del Negocio
 
@@ -202,9 +202,9 @@ La entrega práctica actual se centra en documentación y prototipado frontend. 
 
 - **RF-15:** El sistema debe publicar un curso cuando la auditoría sea aprobada, dejándolo disponible para consulta e inscripción.
 
-- **RF-16:** El sistema debe permitir que el Profesor modifique únicamente cursos propios; al confirmar cambios, estos deben generar una nueva revisión administrativa antes de considerarse aprobados.
+- **RF-16:** El sistema debe permitir que el Profesor modifique únicamente cursos propios. La edición de un curso BORRADOR conserva ese estado hasta que el Profesor solicita su envío a revisión. Las modificaciones de un curso PUBLICADO y las correcciones de un curso en CAMBIOS SOLICITADOS deben generar una nueva revisión administrativa al confirmarse, antes de considerarse aprobadas.
 
-- **RF-17:** El sistema debe permitir que Profesor y Administrador pausen cursos según sus permisos.
+- **RF-17:** El sistema debe permitir que Profesor y Administrador pausen cursos PUBLICADOS y reanuden cursos PAUSADOS según sus permisos. El Profesor solo puede hacerlo sobre cursos propios.
 
 - **RF-18:** El sistema debe permitir que el Administrador finalice un curso cuando corresponda.
 
@@ -340,7 +340,7 @@ Transiciones principales: BORRADOR -> EN REVISIÓN -> PUBLICADO / CAMBIOS SOLICI
 | Editar curso | No | Sí, únicamente propio y sujeto a nueva auditoría | Sí |
 | Enviar curso a revisión | No | Sí, propio | Sí |
 | Auditar curso | No | No | Sí |
-| Pausar curso | No | Sí, propio | Sí |
+| Pausar / reanudar curso | No | Sí, propio | Sí |
 | Finalizar curso | No | No | Sí |
 | Solicitar inscripción | Sí | No | No |
 | Resolver solicitudes de inscripción | No | No | Sí |

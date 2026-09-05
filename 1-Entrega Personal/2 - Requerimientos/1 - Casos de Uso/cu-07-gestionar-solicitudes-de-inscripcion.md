@@ -1,7 +1,9 @@
 # Caso de Uso: Gestionar Solicitudes de Inscripción
 
-> Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y adaptada a la
-> sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
+> Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
+> según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
+> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
+> técnica; el documento fuente define actualmente un prototipo frontend académico.
 
 | Campo | Valor |
 | --- | --- |
@@ -9,91 +11,64 @@
 | **Nombre** | Gestionar Solicitudes de Inscripción |
 | **Actor Principal** | Administrador |
 | **Alcance / Nivel** | Sistema Lumen; meta de usuario |
-| **Stakeholders e intereses** | Administrador → resolver solicitudes pendientes; Alumno → conocer la decisión y obtener acceso si es aprobado; Profesor → mantener la nómina válida de su curso |
-| **Disparador (Trigger)** | El Administrador accede a las solicitudes de inscripción pendientes |
-| **Prioridad / Frecuencia** | Alta; frecuencia alta |
-| **Reglas de negocio relacionadas** | RN-20 (solo una solicitud PENDIENTE puede aprobarse o rechazarse); RN-21 (APROBADA concede acceso); RN-22 (CANCELADA retira el acceso activo) |
+| **Stakeholders e intereses** | Administrador → resolver solicitudes pendientes; Alumno → conocer el resultado y acceder solo con aprobación; Profesor → mantener participantes autorizados |
+| **Disparador (Trigger)** | El Administrador accede a las solicitudes de inscripción pendientes. |
+| **Prioridad / Frecuencia** | No especificada en el documento fuente |
+| **Reglas de negocio relacionadas** | RN-10 y RN-11 |
+| **Referencias funcionales** | RF-23 y RF-24; RN-10 y RN-11. |
+| **Autores / Fecha** | Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026) |
+
+**Actores involucrados:**
+
+- **Principal:** Administrador
+- **Secundarios:** Alumno
 
 ---
 
 ### 1. BREVE DESCRIPCIÓN
 
-Permite que un Administrador revise solicitudes de inscripción pendientes, las
-apruebe o rechace y, cuando corresponda, cancele una inscripción aprobada.
+Permite que un Administrador revise solicitudes de inscripción pendientes y las apruebe o rechace.
 
 ### 2. PRECONDICIONES
 
-- El Administrador debe haber iniciado sesión con un Token JWT válido.
-- Debe existir al menos una solicitud PENDIENTE para aprobar o rechazar.
-- Para cancelar, debe existir una inscripción APROBADA.
+- El Administrador debe haber iniciado sesión.
+- Para resolver una solicitud, la inscripción seleccionada debe estar PENDIENTE.
 
 ### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 200)
 
-1. El actor consulta `GET /api/inscripciones?estado=PENDIENTE`.
-2. El Sistema devuelve las solicitudes PENDIENTES.
-3. El actor selecciona una solicitud y consulta su Alumno y curso relacionado.
-4. El actor envía `PATCH /api/inscripciones/{inscripcionId}` con el nuevo estado
-   `APROBADA`.
-5. La **Capa de Presentación** valida el formato de la decisión.
-6. La **Capa de Negocio** verifica que la solicitud continúe PENDIENTE, aplicando
-   **RN-20**.
-7. La **Capa de Persistencia** cambia la inscripción a **APROBADA** y habilita el
-   acceso al curso, aplicando **RN-21**.
-8. El Sistema devuelve **200 OK** con la inscripción resuelta.
+1. El Administrador accede a la gestión de inscripciones.
+2. El sistema muestra las solicitudes PENDIENTES. **Reglas aplicables:** **RN-10**.
+3. El Administrador selecciona una solicitud.
+4. El sistema muestra el Alumno y el curso relacionado.
+5. El Administrador selecciona "Aprobar".
+6. El sistema cambia la inscripción a APROBADA. **Reglas aplicables:** **RN-10**.
+7. El sistema habilita el curso dentro de los cursos del Alumno. **Reglas aplicables:** **RN-11**.
+8. El sistema informa que la solicitud fue aprobada.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
 
-* **4a. Rechazar inscripción (HTTP 200 OK):**
-  1. Si en el Paso 4 el Administrador selecciona `RECHAZADA`, la Capa de Negocio
-     verifica **RN-20**.
-  2. La Capa de Persistencia cambia la solicitud a RECHAZADA.
-  3. El Sistema devuelve **200 OK** y el Alumno no obtiene acceso al curso. Fin
-     del caso de uso.
+* **5a. Rechazar inscripción — A1 (HTTP 200 OK):**
+  1. El Administrador selecciona "Rechazar". **Reglas aplicables:** **RN-10**.
+  2. El sistema cambia la inscripción a RECHAZADA.
+  3. El Alumno no obtiene acceso al curso.
 
-* **2a. Cancelar inscripción aprobada (HTTP 200 OK):**
-  1. Si en el Paso 2 el Administrador consulta una inscripción APROBADA que debe
-     anularse, envía el estado `CANCELADA`.
-  2. La Capa de Negocio valida la transición y la Capa de Persistencia cambia el
-     estado.
-  3. El Sistema retira el acceso activo conforme a **RN-22** y devuelve
-     **200 OK**. Fin del caso de uso.
+* **2a. No hay solicitudes PENDIENTES — A2 (HTTP 200 OK):**
+  1. El sistema informa que no hay solicitudes pendientes para resolver.
+  2. El caso finaliza sin modificar inscripciones.
 
-* **1a. Usuario no autenticado (HTTP 401 Unauthorized):**
-  1. Si en el Paso 1 no se presenta un Token JWT válido, el Sistema devuelve
-     **401 Unauthorized**. Fin del caso de uso.
+* **5b. La solicitud ya fue resuelta — A3 (HTTP 409 Conflict):**
+  1. Antes de aplicar la decisión, el sistema detecta que la inscripción ya no está PENDIENTE. **Reglas aplicables:** **RN-10**.
+  2. Muestra el estado actual y no vuelve a aprobarla o rechazarla. Si está APROBADA y debe cancelarse, corresponde CU-13.
 
-* **4b. Rol no autorizado (HTTP 403 Forbidden):**
-  1. Si en el Paso 4 la cuenta autenticada no posee rol Administrador, la Capa de
-     Negocio impide resolver la inscripción.
-  2. El Sistema devuelve **403 Forbidden**. Fin del caso de uso.
+### 5. SUB-VARIACIONES (opcional)
 
-* **3a. Inscripción inexistente (HTTP 404 Not Found):**
-  1. Si en el Paso 3 no existe la inscripción indicada, la Capa de Negocio no
-     encuentra el recurso.
-  2. El Sistema devuelve **404 Not Found**. Fin del caso de uso.
-
-* **6a. Solicitud ya resuelta (HTTP 409 Conflict):**
-  1. Si en el Paso 6 la solicitud ya no está PENDIENTE, se incumple **RN-20**.
-  2. La Capa de Negocio rechaza una segunda resolución.
-  3. El Sistema devuelve **409 Conflict**. Fin del caso de uso.
-
-* **5a. Estado solicitado inválido (HTTP 400 Bad Request):**
-  1. Si en el Paso 5 el estado no es APROBADA, RECHAZADA o CANCELADA, la Capa de
-     Presentación rechaza la petición.
-  2. El Sistema devuelve **400 Bad Request**. Fin del caso de uso.
-
-### 5. SUB-VARIACIONES
-
-1. La resolución de una solicitud PENDIENTE puede ser APROBADA o RECHAZADA.
-2. La cancelación es una transición distinta y solo parte de una inscripción
-   APROBADA.
+- No se especifican sub-variaciones adicionales en el documento fuente.
 
 ### 6. POSTCONDICIONES
 
 - La solicitud queda APROBADA o RECHAZADA.
-- Si queda APROBADA, el Alumno obtiene acceso al curso según **RN-21**.
-- Si una inscripción aprobada se cancela, queda CANCELADA y se retira el acceso
-  según **RN-22**.
+- Si es APROBADA, el Alumno obtiene acceso al curso.
+- Si es RECHAZADA, el Alumno no obtiene acceso. El estado resultante puede consultarse mediante CU-12.
 
 ---
 
@@ -103,32 +78,29 @@ apruebe o rechace y, cuando corresponda, cancele una inscripción aprobada.
 
 | Código HTTP | Nombre Técnico | Contexto de Aplicación en el Caso de Uso |
 | --- | --- | --- |
-| `200` | OK | La inscripción fue consultada o cambió a un estado permitido. |
-| `400` | Bad Request | El estado solicitado no pertenece al conjunto admitido. |
-| `401` | Unauthorized | No existe una autenticación válida. |
-| `403` | Forbidden | El usuario autenticado no posee rol Administrador. |
-| `404` | Not Found | La inscripción indicada no existe. |
-| `409` | Conflict | La inscripción no se encuentra en el estado requerido para la transición. |
+| `200` | OK | resultado satisfactorio de Gestionar Solicitudes de Inscripción; A1: Rechazar inscripción; A2: No hay solicitudes PENDIENTES. |
+| `409` | Conflict | A3: La solicitud ya fue resuelta. |
+
+### Nota: Validación vs. Verificación aplicada
+
+- **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
+- **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
 ### Matriz de trazabilidad CU-07 → Test
 
-| Paso del CU | Excepción / Código | Test unitario (Negocio) | Test de integración (HTTP) |
+| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
 | --- | --- | --- | --- |
-| Paso 1. Consultar pendientes | `200 OK` | `GetEnrollmentsAsync_WithPendingFilter_ReturnsPendingRequests` | `GetPendingEnrollments_AsAdmin_Returns200OK` |
-| Paso 2. Mostrar solicitudes | `200 OK` | `GetEnrollmentsAsync_ExcludesResolvedRequests` | `GetPendingEnrollments_ReturnsOnlyPendingRequests` |
-| Paso 3. Consultar detalle | `200 OK` | `GetEnrollmentAsync_IncludesStudentAndCourse` | `GetEnrollment_ReturnsRelatedStudentAndCourse` |
-| Paso 4. Enviar aprobación | `200 OK` | — (entrada HTTP) | `ResolveEnrollment_WithApprovedState_AcceptsRequest` |
-| Paso 5. Validar decisión | `200 OK` | `ResolveEnrollmentAsync_WithAllowedState_ContinuesResolution` | `ResolveEnrollment_WithAllowedState_Returns200OK` |
-| Paso 6. Verificar pendiente | `200 OK` | `ResolveEnrollmentAsync_WhenPending_AllowsResolution` | `ResolveEnrollment_WhenPending_Returns200OK` |
-| Paso 7. Aprobar y habilitar | `200 OK` | `ResolveEnrollmentAsync_WhenApproved_GrantsCourseAccess` | `ResolveEnrollment_WhenApproved_PersistsAccess` |
-| Paso 8. Responder resolución | `200 OK` | `ResolveEnrollmentAsync_WhenApproved_ReturnsResolvedEnrollment` | `ResolveEnrollment_WhenApproved_Returns200OK` |
-| 4a. Rechazar | `200 OK` | `ResolveEnrollmentAsync_WhenRejected_DoesNotGrantAccess` | `ResolveEnrollment_WhenRejected_Returns200OK` |
-| 2a. Cancelar aprobada | `200 OK` | `CancelEnrollmentAsync_WhenApproved_RevokesCourseAccess` | `CancelEnrollment_WhenApproved_Returns200OK` |
-| 1a. Sin autenticación | `401 Unauthorized` | — (autenticación HTTP) | `GetPendingEnrollments_WithoutToken_Returns401Unauthorized` |
-| 4b. Rol no autorizado | `403 Forbidden` | `ResolveEnrollmentAsync_AsNonAdmin_ThrowsForbiddenException` | `ResolveEnrollment_AsTeacher_Returns403Forbidden` |
-| 3a. Inscripción inexistente | `404 Not Found` | `GetEnrollmentAsync_WithUnknownId_ThrowsEnrollmentNotFoundException` | `GetEnrollment_WithUnknownId_Returns404NotFound` |
-| 6a. Solicitud resuelta | `409 Conflict` | `ResolveEnrollmentAsync_WhenNotPending_ThrowsEnrollmentStateException` | `ResolveEnrollment_WhenNotPending_Returns409Conflict` |
-| 5a. Estado inválido | `400 Bad Request` | `ResolveEnrollmentAsync_WithInvalidState_ThrowsValidationException` | `ResolveEnrollment_WithInvalidState_Returns400BadRequest` |
+| Paso 1. Flujo principal | `200 OK` | `CU07_Step01_WhenValidState_ContinuesUseCase` | `CU07_Step01_WhenValidRequest_Returns200OK` |
+| Paso 2. Flujo principal | `200 OK` | `CU07_Step02_WhenValidState_ContinuesUseCase` | `CU07_Step02_WhenValidRequest_Returns200OK` |
+| Paso 3. Flujo principal | `200 OK` | `CU07_Step03_WhenValidState_ContinuesUseCase` | `CU07_Step03_WhenValidRequest_Returns200OK` |
+| Paso 4. Flujo principal | `200 OK` | `CU07_Step04_WhenValidState_ContinuesUseCase` | `CU07_Step04_WhenValidRequest_Returns200OK` |
+| Paso 5. Flujo principal | `200 OK` | `CU07_Step05_WhenValidState_ContinuesUseCase` | `CU07_Step05_WhenValidRequest_Returns200OK` |
+| Paso 6. Flujo principal | `200 OK` | `CU07_Step06_WhenValidState_ContinuesUseCase` | `CU07_Step06_WhenValidRequest_Returns200OK` |
+| Paso 7. Flujo principal | `200 OK` | `CU07_Step07_WhenValidState_ContinuesUseCase` | `CU07_Step07_WhenValidRequest_Returns200OK` |
+| Paso 8. Flujo principal | `200 OK` | `CU07_Step08_WhenValidState_ContinuesUseCase` | `CU07_Step08_WhenValidRequest_Returns200OK` |
+| 5a. Rechazar inscripción (A1) | `200 OK` | `CU07_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU07_Alt01_WhenConditionOccurs_Returns200OK` |
+| 2a. No hay solicitudes PENDIENTES (A2) | `200 OK` | `CU07_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU07_Alt02_WhenConditionOccurs_Returns200OK` |
+| 5b. La solicitud ya fue resuelta (A3) | `409 Conflict` | `CU07_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU07_Alt03_WhenConditionOccurs_Returns409Conflict` |
 
-> Los nombres de tests establecen el contrato de trazabilidad del caso de uso y
-> deberán coincidir con la suite automatizada cuando se implemente.
+> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
+> suite automatizada cuando exista una implementación backend.

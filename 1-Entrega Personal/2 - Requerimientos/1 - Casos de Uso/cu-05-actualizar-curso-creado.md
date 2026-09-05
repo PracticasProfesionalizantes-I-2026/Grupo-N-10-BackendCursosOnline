@@ -1,102 +1,80 @@
 # Caso de Uso: Actualizar Curso Creado
 
-> Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y adaptada a la
-> sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
+> Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
+> según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
+> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
+> técnica; el documento fuente define actualmente un prototipo frontend académico.
 
 | Campo | Valor |
 | --- | --- |
 | **ID del Caso de Uso** | CU-05 |
 | **Nombre** | Actualizar Curso Creado |
-| **Actor Principal** | Profesor |
+| **Actor Principal** | Profesor / Administrador |
 | **Alcance / Nivel** | Sistema Lumen; meta de usuario |
-| **Stakeholders e intereses** | Profesor → mantener actualizados sus cursos; Administrador → auditar cada cambio antes de publicarlo; Alumnos → recibir contenido revisado sin perder la versión vigente |
-| **Disparador (Trigger)** | El Profesor selecciona “Editar Curso” sobre uno de sus cursos |
-| **Prioridad / Frecuencia** | Alta; frecuencia media |
-| **Reglas de negocio relacionadas** | RN-07 (datos obligatorios del curso); RN-08 (al menos un módulo); RN-09 (duración igual a la suma de módulos); RN-10 (envío genera auditoría); RN-14 (solo el Profesor propietario puede editar); RN-15 (un curso FINALIZADO no se edita); RN-16 (los cambios no se publican sin auditoría) |
+| **Stakeholders e intereses** | Profesor y Administrador → mantener actualizada la información del curso; Administrador auditor → revisar modificaciones; Alumno → consultar contenido aprobado |
+| **Disparador (Trigger)** | El Profesor accede a sus cursos o solicitudes de auditoría, o el Administrador a la gestión de cursos, y selecciona "Editar Curso". |
+| **Prioridad / Frecuencia** | No especificada en el documento fuente |
+| **Reglas de negocio relacionadas** | RN-03 a RN-07 y RN-15 |
+| **Referencias funcionales** | RF-09 a RF-16 y RF-31; RN-03 a RN-07 y RN-15; permiso de edición del Administrador. |
+| **Autores / Fecha** | Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026) |
+
+**Actores involucrados:**
+
+- **Principal:** Profesor / Administrador
+- **Secundarios:** Administrador, en la auditoría posterior del CU-04.
 
 ---
 
 ### 1. BREVE DESCRIPCIÓN
 
-Permite que un Profesor modifique un curso propio y envíe la nueva versión a
-auditoría administrativa antes de su publicación.
+Permite retomar un BORRADOR o modificar un curso PUBLICADO o con CAMBIOS SOLICITADOS. El Profesor actúa únicamente sobre cursos propios y el Administrador desde la gestión general de cursos. Guardar un BORRADOR y enviar modificaciones a auditoría son resultados diferentes.
 
 ### 2. PRECONDICIONES
 
-- El Profesor debe haber iniciado sesión con un Token JWT válido.
-- El curso debe existir y pertenecer al Profesor, conforme a **RN-14**.
-- El curso no debe encontrarse FINALIZADO, conforme a **RN-15**.
+- El usuario debe haber iniciado sesión como Profesor o Administrador.
+- El curso debe existir. Si actúa un Profesor, debe pertenecerle.
+- Para este flujo, el curso está PUBLICADO o en CAMBIOS SOLICITADOS; la edición de un BORRADOR se describe en A3.
 
 ### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 200)
 
-1. El actor consulta uno de sus cursos mediante `GET /api/cursos/{cursoId}`.
-2. El Sistema devuelve la información actual, sus módulos y duraciones.
-3. El actor envía una petición `PUT /api/cursos/{cursoId}` con los datos,
-   módulos o duraciones modificados y confirma el envío a revisión.
-4. La **Capa de Presentación** valida el esquema y los campos obligatorios de
-   **RN-07**.
-5. La **Capa de Negocio** verifica la propiedad del curso y que no esté
-   FINALIZADO, aplicando **RN-14** y **RN-15**.
-6. La **Capa de Negocio** valida los módulos y recalcula la duración total,
-   aplicando **RN-08** y **RN-09**.
-7. La **Capa de Persistencia** registra los cambios como una nueva versión no
-   publicada, conforme a **RN-16**.
-8. El Sistema cambia el curso a **EN REVISIÓN** y genera una nueva solicitud de
-   auditoría, aplicando **RN-10**.
-9. El Sistema devuelve **200 OK** con la versión actualizada y la confirmación de
-   envío a revisión.
+1. El Profesor accede a sus cursos o a sus solicitudes de auditoría; el Administrador accede a la gestión de cursos.
+2. El sistema muestra los cursos accesibles según el rol y, cuando corresponda, el estado de la auditoría y las observaciones recibidas.
+3. El usuario selecciona el curso y solicita editarlo. El sistema verifica el rol y la propiedad cuando actúa un Profesor. **Reglas aplicables:** **RN-03**.
+4. El sistema muestra los datos actuales y los módulos del curso.
+5. El usuario modifica los datos del curso o sus módulos, con nombre, descripción, duración y contenido o recursos. **Reglas aplicables:** **RN-15**.
+6. El sistema valida los datos obligatorios y la existencia de al menos un módulo, y recalcula la duración total como suma de sus duraciones. **Reglas aplicables:** **RN-04**, **RN-05**.
+7. El usuario confirma el envío de los cambios a revisión.
+8. El sistema registra las modificaciones, cambia el curso a EN REVISIÓN y genera la solicitud de auditoría del CU-04. **Reglas aplicables:** **RN-06**, **RN-07**.
+9. El sistema informa el resultado y lo muestra en las solicitudes de auditoría del usuario.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
 
-* **3a. Curso con cambios solicitados (HTTP 200 OK):**
-  1. Si en el Paso 3 el curso está en CAMBIOS SOLICITADOS, el Profesor corrige la
-     información indicada por la auditoría.
-  2. Al confirmar, el Sistema vuelve a aplicar las validaciones de los Pasos 4 a
-     6.
-  3. El curso vuelve a EN REVISIÓN y el Sistema devuelve **200 OK**. Fin del caso
-     de uso.
+* **6a. Datos obligatorios incompletos o curso sin módulos — A1 (HTTP 400 Bad Request):**
+  1. El sistema identifica los datos pendientes o la ausencia de módulos. **Reglas aplicables:** **RN-04**.
+  2. No envía los cambios a revisión; el usuario corrige la información y vuelve al paso 6.
 
-* **4a. Información obligatoria incompleta (HTTP 400 Bad Request):**
-  1. Si en el Paso 4 faltan datos exigidos por **RN-07**, la Capa de Presentación
-     identifica los campos pendientes.
-  2. El Sistema devuelve **400 Bad Request** y no registra la versión. Fin del
-     caso de uso.
+* **4a. Corregir CAMBIOS SOLICITADOS — A2 (HTTP 200 OK):**
+  1. El usuario consulta las observaciones de la auditoría y corrige la información indicada. **Reglas aplicables:** **RN-07**.
+  2. Continúa desde el paso 6; al confirmar el envío, el curso vuelve a EN REVISIÓN.
 
-* **6a. Curso sin módulos válidos (HTTP 409 Conflict):**
-  1. Si en el Paso 6 el curso queda sin módulos válidos, se incumple **RN-08**.
-  2. La Capa de Negocio rechaza el envío a revisión.
-  3. El Sistema devuelve **409 Conflict**. Fin del caso de uso.
+* **3a. Retomar un BORRADOR — A3 (HTTP 200 OK):**
+  1. El usuario selecciona un curso BORRADOR y actualiza sus datos o módulos.
+  2. Si elige "Guardar como borrador", el sistema conserva la información, recalcula la duración y mantiene BORRADOR.
+  3. Si elige "Enviar a revisión", continúa desde el paso 6; solo un envío válido cambia BORRADOR a EN REVISIÓN.
 
-* **1a. Usuario no autenticado (HTTP 401 Unauthorized):**
-  1. Si en el Paso 1 no se presenta un Token JWT válido, el Sistema devuelve
-     **401 Unauthorized**. Fin del caso de uso.
+* **3b. Profesor intenta editar un curso ajeno — A4 (HTTP 403 Forbidden):**
+  1. El sistema detecta que el curso no pertenece al Profesor. **Reglas aplicables:** **RN-03**.
+  2. Restringe la edición y conserva la información y el estado del curso.
 
-* **5a. Curso ajeno (HTTP 403 Forbidden):**
-  1. Si en el Paso 5 el curso pertenece a otro Profesor, se incumple **RN-14**.
-  2. La Capa de Negocio impide la modificación.
-  3. El Sistema devuelve **403 Forbidden**. Fin del caso de uso.
+### 5. SUB-VARIACIONES (opcional)
 
-* **1b. Curso inexistente (HTTP 404 Not Found):**
-  1. Si en el Paso 1 no existe el curso indicado, la Capa de Negocio no encuentra
-     el recurso.
-  2. El Sistema devuelve **404 Not Found**. Fin del caso de uso.
-
-* **5b. Curso finalizado (HTTP 409 Conflict):**
-  1. Si en el Paso 5 el curso está FINALIZADO, se incumple **RN-15**.
-  2. La Capa de Negocio rechaza la modificación.
-  3. El Sistema devuelve **409 Conflict**. Fin del caso de uso.
-
-### 5. SUB-VARIACIONES
-
-1. El Profesor puede modificar datos generales, módulos, recursos o duraciones;
-   todas las variantes generan una versión pendiente de auditoría.
+- No se especifican sub-variaciones adicionales en el documento fuente.
 
 ### 6. POSTCONDICIONES
 
-- Los cambios quedan registrados como una nueva versión no publicada.
-- La duración total queda recalculada según **RN-09**.
-- El curso queda EN REVISIÓN y posee una nueva solicitud de auditoría.
-- La versión modificada no se considera publicada hasta su aprobación.
+- Al confirmar modificaciones de un curso PUBLICADO o correcciones de CAMBIOS SOLICITADOS, el curso queda EN REVISIÓN y se genera una solicitud de auditoría.
+- Los cambios enviados no se consideran aprobados hasta que se resuelva CU-04.
+- Si solo se guarda la edición de un BORRADOR, el curso conserva BORRADOR y no se inicia auditoría.
 
 ---
 
@@ -106,33 +84,32 @@ auditoría administrativa antes de su publicación.
 
 | Código HTTP | Nombre Técnico | Contexto de Aplicación en el Caso de Uso |
 | --- | --- | --- |
-| `200` | OK | La nueva versión fue registrada y enviada a auditoría. |
-| `400` | Bad Request | La actualización contiene información obligatoria incompleta. |
-| `401` | Unauthorized | No existe una autenticación válida. |
-| `403` | Forbidden | El Profesor intenta modificar un curso ajeno. |
-| `404` | Not Found | El curso indicado no existe. |
-| `409` | Conflict | El curso está FINALIZADO o no conserva módulos válidos. |
+| `200` | OK | resultado satisfactorio de Actualizar Curso Creado; A2: Corregir CAMBIOS SOLICITADOS; A3: Retomar un BORRADOR. |
+| `400` | Bad Request | A1: Datos obligatorios incompletos o curso sin módulos. |
+| `403` | Forbidden | A4: Profesor intenta editar un curso ajeno. |
+
+### Nota: Validación vs. Verificación aplicada
+
+- **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
+- **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
 ### Matriz de trazabilidad CU-05 → Test
 
-| Paso del CU | Excepción / Código | Test unitario (Negocio) | Test de integración (HTTP) |
+| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
 | --- | --- | --- | --- |
-| Paso 1. Consultar curso | `200 OK` | `GetCourseAsync_WithExistingOwnedId_ReturnsCourse` | `GetCourse_AsOwner_Returns200OK` |
-| Paso 2. Obtener detalle | `200 OK` | `GetCourseAsync_IncludesModulesAndDurations` | `GetCourse_ReturnsCompleteEditableDetail` |
-| Paso 3. Enviar cambios | `200 OK` | — (entrada HTTP) | `UpdateCourse_WithValidRequest_AcceptsPayload` |
-| Paso 4. Validar esquema | `200 OK` | `UpdateCourseAsync_WithCompleteData_ContinuesUpdate` | `UpdateCourse_WithCompleteData_Returns200OK` |
-| Paso 5. Verificar propiedad y estado | `200 OK` | `UpdateCourseAsync_AsOwnerAndNotFinalized_AllowsUpdate` | `UpdateCourse_AsOwner_Returns200OK` |
-| Paso 6. Validar módulos y duración | `200 OK` | `UpdateCourseAsync_RecalculatesModuleDuration` | `UpdateCourse_WithModules_ReturnsCalculatedDuration` |
-| Paso 7. Crear nueva versión | `200 OK` | `UpdateCourseAsync_PersistsUnpublishedVersion` | `UpdateCourse_PersistsPendingVersion` |
-| Paso 8. Generar auditoría | `200 OK` | `UpdateCourseAsync_CreatesNewAuditRequest` | `UpdateCourse_CreatesPendingAudit` |
-| Paso 9. Responder actualización | `200 OK` | `UpdateCourseAsync_WithValidData_ReturnsCourseInReview` | `UpdateCourse_WithValidData_Returns200OK` |
-| 3a. Cambios solicitados | `200 OK` | `UpdateCourseAsync_WhenChangesRequested_ReturnsToReview` | `UpdateCourse_WhenChangesRequested_Returns200OK` |
-| 4a. Datos incompletos | `400 Bad Request` | `UpdateCourseAsync_WithMissingData_ThrowsValidationException` | `UpdateCourse_WithMissingData_Returns400BadRequest` |
-| 6a. Sin módulos | `409 Conflict` | `UpdateCourseAsync_WithoutModules_ThrowsCourseRuleException` | `UpdateCourse_WithoutModules_Returns409Conflict` |
-| 1a. Sin autenticación | `401 Unauthorized` | — (autenticación HTTP) | `UpdateCourse_WithoutToken_Returns401Unauthorized` |
-| 5a. Curso ajeno | `403 Forbidden` | `UpdateCourseAsync_ForForeignCourse_ThrowsForbiddenException` | `UpdateCourse_ForForeignCourse_Returns403Forbidden` |
-| 1b. Curso inexistente | `404 Not Found` | `GetCourseAsync_WithUnknownId_ThrowsCourseNotFoundException` | `GetCourse_WithUnknownId_Returns404NotFound` |
-| 5b. Curso finalizado | `409 Conflict` | `UpdateCourseAsync_WhenFinalized_ThrowsCourseStateException` | `UpdateCourse_WhenFinalized_Returns409Conflict` |
+| Paso 1. Flujo principal | `200 OK` | `CU05_Step01_WhenValidState_ContinuesUseCase` | `CU05_Step01_WhenValidRequest_Returns200OK` |
+| Paso 2. Flujo principal | `200 OK` | `CU05_Step02_WhenValidState_ContinuesUseCase` | `CU05_Step02_WhenValidRequest_Returns200OK` |
+| Paso 3. Flujo principal | `200 OK` | `CU05_Step03_WhenValidState_ContinuesUseCase` | `CU05_Step03_WhenValidRequest_Returns200OK` |
+| Paso 4. Flujo principal | `200 OK` | `CU05_Step04_WhenValidState_ContinuesUseCase` | `CU05_Step04_WhenValidRequest_Returns200OK` |
+| Paso 5. Flujo principal | `200 OK` | `CU05_Step05_WhenValidState_ContinuesUseCase` | `CU05_Step05_WhenValidRequest_Returns200OK` |
+| Paso 6. Flujo principal | `200 OK` | `CU05_Step06_WhenValidState_ContinuesUseCase` | `CU05_Step06_WhenValidRequest_Returns200OK` |
+| Paso 7. Flujo principal | `200 OK` | `CU05_Step07_WhenValidState_ContinuesUseCase` | `CU05_Step07_WhenValidRequest_Returns200OK` |
+| Paso 8. Flujo principal | `200 OK` | `CU05_Step08_WhenValidState_ContinuesUseCase` | `CU05_Step08_WhenValidRequest_Returns200OK` |
+| Paso 9. Flujo principal | `200 OK` | `CU05_Step09_WhenValidState_ContinuesUseCase` | `CU05_Step09_WhenValidRequest_Returns200OK` |
+| 6a. Datos obligatorios incompletos o curso sin módulos (A1) | `400 Bad Request` | `CU05_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU05_Alt01_WhenConditionOccurs_Returns400BadRequest` |
+| 4a. Corregir CAMBIOS SOLICITADOS (A2) | `200 OK` | `CU05_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU05_Alt02_WhenConditionOccurs_Returns200OK` |
+| 3a. Retomar un BORRADOR (A3) | `200 OK` | `CU05_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU05_Alt03_WhenConditionOccurs_Returns200OK` |
+| 3b. Profesor intenta editar un curso ajeno (A4) | `403 Forbidden` | `CU05_Alt04_WhenConditionOccurs_HandlesExpectedBranch` | `CU05_Alt04_WhenConditionOccurs_Returns403Forbidden` |
 
-> Los nombres de tests establecen el contrato de trazabilidad del caso de uso y
-> deberán coincidir con la suite automatizada cuando se implemente.
+> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
+> suite automatizada cuando exista una implementación backend.

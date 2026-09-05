@@ -1,7 +1,9 @@
 # Caso de Uso: Auditar Solicitud de Curso
 
-> Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y adaptada a la
-> sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
+> Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
+> según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
+> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
+> técnica; el documento fuente define actualmente un prototipo frontend académico.
 
 | Campo | Valor |
 | --- | --- |
@@ -9,93 +11,66 @@
 | **Nombre** | Auditar Solicitud de Curso |
 | **Actor Principal** | Administrador |
 | **Alcance / Nivel** | Sistema Lumen; meta de usuario |
-| **Stakeholders e intereses** | Administrador → revisar y resolver solicitudes; Profesor → conocer el resultado y corregir cuando corresponda; Alumnos → acceder únicamente a cursos aprobados |
-| **Disparador (Trigger)** | El Administrador selecciona una solicitud EN REVISIÓN |
-| **Prioridad / Frecuencia** | Alta; frecuencia media |
-| **Reglas de negocio relacionadas** | RN-11 (solo se resuelven solicitudes EN REVISIÓN); RN-12 (la decisión determina el estado del curso); RN-13 (SOLICITAR CAMBIOS requiere observación) |
+| **Stakeholders e intereses** | Administrador → resolver auditorías con estados consistentes; autor del curso → conocer la decisión y las observaciones; Alumno → acceder únicamente a cursos publicados |
+| **Disparador (Trigger)** | El Administrador selecciona una solicitud de auditoría de un curso en estado EN REVISIÓN desde su panel. |
+| **Prioridad / Frecuencia** | No especificada en el documento fuente |
+| **Reglas de negocio relacionadas** | RN-06 y RN-07 |
+| **Referencias funcionales** | RF-14 y RF-15; RN-06 y RN-07; estados de cursos. |
+| **Autores / Fecha** | Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026) |
+
+**Actores involucrados:**
+
+- **Principal:** Administrador
+- **Secundarios:** Profesor o Administrador que preparó el curso o sus modificaciones.
 
 ---
 
 ### 1. BREVE DESCRIPCIÓN
 
-Permite que un Administrador revise una solicitud de creación o modificación de
-curso y la apruebe, rechace o devuelva al Profesor con cambios solicitados.
+Permite que un Administrador revise una solicitud de creación o modificación de curso y determine su resultado.
 
 ### 2. PRECONDICIONES
 
-- El Administrador debe haber iniciado sesión con un Token JWT válido.
-- Debe existir una solicitud de curso con estado EN REVISIÓN.
-- El curso, sus módulos y sus cambios deben estar disponibles para consulta.
+- El Administrador debe haber iniciado sesión.
+- Debe existir una solicitud de auditoría cuyo curso esté EN REVISIÓN.
 
 ### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 200)
 
-1. El actor consulta las solicitudes mediante `GET /api/auditorias-cursos?estado=EN_REVISION`.
-2. El Sistema devuelve las solicitudes pendientes y el Administrador selecciona
-   una.
-3. El Sistema obtiene el curso, sus módulos y los cambios asociados a la
-   solicitud.
-4. El Administrador revisa la información y envía una petición
-   `PATCH /api/auditorias-cursos/{solicitudId}` con la decisión `APROBAR`.
-5. La **Capa de Presentación** valida el formato de la decisión.
-6. La **Capa de Negocio** verifica que la solicitud continúe EN REVISIÓN,
-   aplicando **RN-11**.
-7. La **Capa de Persistencia** registra la resolución y cambia el curso a
-   **PUBLICADO**, aplicando **RN-12**.
-8. El Sistema devuelve **200 OK** con la auditoría resuelta y el nuevo estado del
-   curso.
+1. El Administrador accede a la sección de auditorías.
+2. El sistema muestra las solicitudes de auditoría cuyos cursos están EN REVISIÓN. **Reglas aplicables:** **RN-06**.
+3. El Administrador selecciona una solicitud.
+4. El sistema muestra la información del curso, sus módulos y, si corresponde, los cambios realizados.
+5. El Administrador revisa la información.
+6. El Administrador selecciona "Aprobar".
+7. El sistema registra la decisión y cambia el curso a PUBLICADO. **Reglas aplicables:** **RN-06**.
+8. El sistema informa que la auditoría fue aprobada.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
 
-* **4a. Rechazar solicitud (HTTP 200 OK):**
-  1. Si en el Paso 4 el Administrador selecciona `RECHAZAR`, la Capa de Negocio
-     valida la decisión.
-  2. La Capa de Persistencia registra la resolución y cambia el curso a
-     **RECHAZADO**, conforme a **RN-12**.
-  3. El Sistema devuelve **200 OK** y el curso no se publica. Fin del caso de uso.
+* **6a. Rechazar solicitud — A1 (HTTP 200 OK):**
+  1. El Administrador selecciona "Rechazar".
+  2. El sistema registra la decisión.
+  3. El curso queda RECHAZADO y no se publica.
 
-* **4b. Solicitar cambios (HTTP 200 OK):**
-  1. Si en el Paso 4 el Administrador selecciona `SOLICITAR_CAMBIOS`, debe
-     incluir una observación conforme a **RN-13**.
-  2. La Capa de Persistencia registra la resolución y cambia el curso a
-     **CAMBIOS SOLICITADOS**, conforme a **RN-12**.
-  3. El Sistema devuelve **200 OK**; el Profesor puede corregir el curso y volver
-     a enviarlo. Fin del caso de uso.
+* **6b. Solicitar cambios — A2 (HTTP 200 OK):**
+  1. El Administrador detecta información que debe corregirse. **Reglas aplicables:** **RN-07**.
+  2. Selecciona "Solicitar cambios" e indica la observación correspondiente.
+  3. El sistema cambia el curso a CAMBIOS SOLICITADOS.
+  4. El usuario que preparó el curso puede consultar la observación, corregirlo y volver a enviarlo mediante CU-05, respetando los permisos de su rol.
 
-* **4c. Observación faltante (HTTP 400 Bad Request):**
-  1. Si en el Paso 4 se solicitan cambios sin observación, se incumple **RN-13**.
-  2. La Capa de Presentación rechaza la petición.
-  3. El Sistema devuelve **400 Bad Request**. Fin del caso de uso.
+* **6c. La solicitud ya no corresponde a un curso EN REVISIÓN — A3 (HTTP 409 Conflict):**
+  1. Antes de registrar la decisión, el sistema detecta que el curso ya no está EN REVISIÓN.
+  2. El sistema muestra el estado actual y no aplica una nueva decisión sobre esa solicitud.
 
-* **1a. Usuario no autenticado (HTTP 401 Unauthorized):**
-  1. Si en el Paso 1 no se presenta un Token JWT válido, el Sistema devuelve
-     **401 Unauthorized**. Fin del caso de uso.
+### 5. SUB-VARIACIONES (opcional)
 
-* **4d. Rol no autorizado (HTTP 403 Forbidden):**
-  1. Si en el Paso 4 el usuario autenticado no es Administrador, la Capa de
-     Negocio impide resolver la auditoría.
-  2. El Sistema devuelve **403 Forbidden**. Fin del caso de uso.
-
-* **3a. Solicitud inexistente (HTTP 404 Not Found):**
-  1. Si en el Paso 3 no existe la solicitud indicada, la Capa de Negocio no
-     encuentra el recurso.
-  2. El Sistema devuelve **404 Not Found**. Fin del caso de uso.
-
-* **6a. Solicitud ya resuelta (HTTP 409 Conflict):**
-  1. Si en el Paso 6 la solicitud ya no está EN REVISIÓN, se incumple **RN-11**.
-  2. La Capa de Negocio evita una segunda resolución.
-  3. El Sistema devuelve **409 Conflict**. Fin del caso de uso.
-
-### 5. SUB-VARIACIONES
-
-1. La solicitud puede corresponder a la creación de un curso o a cambios sobre un
-   curso existente; las tres decisiones disponibles producen los mismos estados
-   finales.
+- No se especifican sub-variaciones adicionales en el documento fuente.
 
 ### 6. POSTCONDICIONES
 
-- La auditoría queda resuelta con la decisión del Administrador.
-- El curso queda PUBLICADO, RECHAZADO o CAMBIOS SOLICITADOS según **RN-12**.
-- El Profesor puede consultar el estado y, si corresponde, la observación.
+- La auditoría queda resuelta.
+- El curso cambia a PUBLICADO, CAMBIOS SOLICITADOS o RECHAZADO según la decisión.
+- El usuario que preparó el curso o sus modificaciones puede visualizar el estado resultante en sus solicitudes de auditoría.
 
 ---
 
@@ -105,32 +80,29 @@ curso y la apruebe, rechace o devuelva al Profesor con cambios solicitados.
 
 | Código HTTP | Nombre Técnico | Contexto de Aplicación en el Caso de Uso |
 | --- | --- | --- |
-| `200` | OK | La auditoría fue resuelta y el curso cambió de estado. |
-| `400` | Bad Request | La decisión es inválida o falta una observación obligatoria. |
-| `401` | Unauthorized | No existe una autenticación válida. |
-| `403` | Forbidden | El usuario autenticado no posee rol Administrador. |
-| `404` | Not Found | La solicitud indicada no existe. |
-| `409` | Conflict | La solicitud ya fue resuelta y no continúa EN REVISIÓN. |
+| `200` | OK | resultado satisfactorio de Auditar Solicitud de Curso; A1: Rechazar solicitud; A2: Solicitar cambios. |
+| `409` | Conflict | A3: La solicitud ya no corresponde a un curso EN REVISIÓN. |
+
+### Nota: Validación vs. Verificación aplicada
+
+- **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
+- **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
 ### Matriz de trazabilidad CU-04 → Test
 
-| Paso del CU | Excepción / Código | Test unitario (Negocio) | Test de integración (HTTP) |
+| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
 | --- | --- | --- | --- |
-| Paso 1. Consultar solicitudes | `200 OK` | `GetPendingAuditsAsync_ReturnsInReviewRequests` | `GetCourseAudits_AsAdmin_ReturnsPendingRequests` |
-| Paso 2. Seleccionar solicitud | `200 OK` | `GetAuditAsync_WithExistingId_ReturnsRequest` | `GetCourseAudit_WithExistingId_Returns200OK` |
-| Paso 3. Obtener detalle | `200 OK` | `GetAuditAsync_IncludesCourseModulesAndChanges` | `GetCourseAudit_ReturnsCompleteCourseDetail` |
-| Paso 4. Enviar aprobación | `200 OK` | `ResolveAuditAsync_WithApproveDecision_ContinuesResolution` | `ResolveCourseAudit_WithApproveDecision_AcceptsRequest` |
-| Paso 5. Validar decisión | `200 OK` | `ResolveAuditAsync_WithValidDecision_ContinuesResolution` | `ResolveCourseAudit_WithValidDecision_Returns200OK` |
-| Paso 6. Verificar estado | `200 OK` | `ResolveAuditAsync_WhenInReview_AllowsResolution` | `ResolveCourseAudit_WhenInReview_Returns200OK` |
-| Paso 7. Publicar curso | `200 OK` | `ResolveAuditAsync_WhenApproved_PublishesCourse` | `ResolveCourseAudit_WhenApproved_PersistsPublishedStatus` |
-| Paso 8. Responder resolución | `200 OK` | `ResolveAuditAsync_WhenApproved_ReturnsResolvedAudit` | `ResolveCourseAudit_WhenApproved_Returns200OK` |
-| 4a. Rechazar | `200 OK` | `ResolveAuditAsync_WhenRejected_SetsRejectedStatus` | `ResolveCourseAudit_WhenRejected_Returns200OK` |
-| 4b. Solicitar cambios | `200 OK` | `ResolveAuditAsync_WhenChangesRequested_SetsChangesRequestedStatus` | `ResolveCourseAudit_WhenChangesRequested_Returns200OK` |
-| 4c. Sin observación | `400 Bad Request` | `ResolveAuditAsync_WithoutRequiredObservation_ThrowsValidationException` | `ResolveCourseAudit_WithoutObservation_Returns400BadRequest` |
-| 1a. Sin autenticación | `401 Unauthorized` | — (autenticación HTTP) | `GetCourseAudits_WithoutToken_Returns401Unauthorized` |
-| 4d. Rol no autorizado | `403 Forbidden` | `ResolveAuditAsync_AsNonAdmin_ThrowsForbiddenException` | `ResolveCourseAudit_AsTeacher_Returns403Forbidden` |
-| 3a. Solicitud inexistente | `404 Not Found` | `GetAuditAsync_WithUnknownId_ThrowsAuditNotFoundException` | `GetCourseAudit_WithUnknownId_Returns404NotFound` |
-| 6a. Solicitud resuelta | `409 Conflict` | `ResolveAuditAsync_WhenAlreadyResolved_ThrowsAuditStateException` | `ResolveCourseAudit_WhenAlreadyResolved_Returns409Conflict` |
+| Paso 1. Flujo principal | `200 OK` | `CU04_Step01_WhenValidState_ContinuesUseCase` | `CU04_Step01_WhenValidRequest_Returns200OK` |
+| Paso 2. Flujo principal | `200 OK` | `CU04_Step02_WhenValidState_ContinuesUseCase` | `CU04_Step02_WhenValidRequest_Returns200OK` |
+| Paso 3. Flujo principal | `200 OK` | `CU04_Step03_WhenValidState_ContinuesUseCase` | `CU04_Step03_WhenValidRequest_Returns200OK` |
+| Paso 4. Flujo principal | `200 OK` | `CU04_Step04_WhenValidState_ContinuesUseCase` | `CU04_Step04_WhenValidRequest_Returns200OK` |
+| Paso 5. Flujo principal | `200 OK` | `CU04_Step05_WhenValidState_ContinuesUseCase` | `CU04_Step05_WhenValidRequest_Returns200OK` |
+| Paso 6. Flujo principal | `200 OK` | `CU04_Step06_WhenValidState_ContinuesUseCase` | `CU04_Step06_WhenValidRequest_Returns200OK` |
+| Paso 7. Flujo principal | `200 OK` | `CU04_Step07_WhenValidState_ContinuesUseCase` | `CU04_Step07_WhenValidRequest_Returns200OK` |
+| Paso 8. Flujo principal | `200 OK` | `CU04_Step08_WhenValidState_ContinuesUseCase` | `CU04_Step08_WhenValidRequest_Returns200OK` |
+| 6a. Rechazar solicitud (A1) | `200 OK` | `CU04_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU04_Alt01_WhenConditionOccurs_Returns200OK` |
+| 6b. Solicitar cambios (A2) | `200 OK` | `CU04_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU04_Alt02_WhenConditionOccurs_Returns200OK` |
+| 6c. La solicitud ya no corresponde a un curso EN REVISIÓN (A3) | `409 Conflict` | `CU04_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU04_Alt03_WhenConditionOccurs_Returns409Conflict` |
 
-> Los nombres de tests establecen el contrato de trazabilidad del caso de uso y
-> deberán coincidir con la suite automatizada cuando se implemente.
+> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
+> suite automatizada cuando exista una implementación backend.

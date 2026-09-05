@@ -1,7 +1,9 @@
 # Caso de Uso: Registrarse
 
-> Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y adaptada a la
-> sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
+> Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
+> según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
+> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
+> técnica; el documento fuente define actualmente un prototipo frontend académico.
 
 | Campo | Valor |
 | --- | --- |
@@ -9,82 +11,58 @@
 | **Nombre** | Registrarse |
 | **Actor Principal** | Alumno / Profesor |
 | **Alcance / Nivel** | Sistema Lumen; meta de usuario |
-| **Stakeholders e intereses** | Alumno y Profesor → crear una cuenta propia y acceder a las funciones de su rol; Administración → mantener cuentas identificadas y datos personales completos |
-| **Disparador (Trigger)** | La persona selecciona la opción de registro desde la página principal |
-| **Prioridad / Frecuencia** | Alta; frecuencia media |
-| **Reglas de negocio relacionadas** | RN-01 (email único); RN-02 (registro público limitado a Alumno y Profesor); RN-03 (credenciales y datos personales obligatorios) |
+| **Stakeholders e intereses** | Alumno y Profesor → crear una cuenta propia con los datos requeridos; Administrador → mantener usuarios identificados y roles controlados |
+| **Disparador (Trigger)** | El usuario selecciona la opción de registro desde la página principal. |
+| **Prioridad / Frecuencia** | No especificada en el documento fuente |
+| **Reglas de negocio relacionadas** | RN-01 (registro público limitado a ALUMNO y PROFESOR); RN-02 (información personal obligatoria) |
+| **Referencias funcionales** | No especificadas en el documento fuente |
+| **Autores / Fecha** | Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026) |
+
+**Actores involucrados:**
+
+- **Principal:** Alumno / Profesor
 
 ---
 
 ### 1. BREVE DESCRIPCIÓN
 
-Permite que una persona cree una cuenta pública como Alumno o Profesor, registre
-sus credenciales y complete la información personal requerida.
+Permite que una persona cree una cuenta pública como Alumno o Profesor, registre sus credenciales y complete la información personal requerida.
 
 ### 2. PRECONDICIONES
 
-- La persona no debe poseer una cuenta registrada con el mismo email.
-- El registro público debe encontrarse habilitado.
-- El rol solicitado debe ser Alumno o Profesor, conforme a **RN-02**.
+- El usuario no debe poseer una cuenta registrada con el mismo email.
+- El registro público se encuentra disponible únicamente para Alumno y Profesor.
 
 ### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 201)
 
-1. El actor envía una petición `POST /api/auth/registro` con el rol elegido, email,
-   contraseña, nombre, apellido, DNI, teléfono, dirección y código postal.
-2. La **Capa de Presentación** valida el formato del JSON, la presencia de los
-   campos obligatorios y que el rol sea Alumno o Profesor, aplicando **RN-02** y
-   **RN-03**.
-3. La **Capa de Negocio** normaliza el email y verifica que no exista otra cuenta
-   con el mismo valor, aplicando **RN-01**.
-4. La **Capa de Negocio** prepara la cuenta con el rol seleccionado y asocia los
-   datos personales validados.
-5. La **Capa de Persistencia** registra la cuenta y su información personal.
-6. El Sistema devuelve **201 Created** con el identificador de la cuenta, el rol y
-   los datos necesarios para confirmar el registro.
+1. El usuario selecciona la opción de registro.
+2. El sistema solicita seleccionar el tipo de cuenta: Alumno o Profesor. **Reglas aplicables:** **RN-01**.
+3. El usuario ingresa email y contraseña.
+4. El sistema valida que el email no se encuentre registrado y que los campos obligatorios estén completos.
+5. El usuario completa Nombre, Apellido, DNI, Teléfono, Dirección y Código Postal. **Reglas aplicables:** **RN-02**.
+6. El sistema valida la información personal. **Reglas aplicables:** **RN-02**.
+7. El sistema muestra una revisión de los datos ingresados.
+8. El usuario confirma el registro.
+9. El sistema registra la cuenta y muestra una confirmación.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
 
-* **1a. JSON inválido o ilegible (HTTP 400 Bad Request):**
-  1. Si en el Paso 1 el cuerpo está vacío, tiene sintaxis inválida o no respeta el
-     esquema esperado, la Capa de Presentación rechaza la petición.
-  2. El Sistema devuelve **400 Bad Request** y no registra información. Fin del
-     caso de uso.
+* **4a. Email ya registrado — A1 (HTTP 409 Conflict):**
+  1. El sistema detecta que el email ya se encuentra registrado.
+  2. El sistema informa el error y solicita utilizar otro email.
 
-* **2a. Rol público no permitido (HTTP 400 Bad Request):**
-  1. Si en el Paso 2 se solicita registrar un rol distinto de Alumno o Profesor,
-     se incumple **RN-02**.
-  2. La Capa de Presentación rechaza el valor recibido.
-  3. El Sistema devuelve **400 Bad Request** indicando que el rol no está
-     disponible para registro público. Fin del caso de uso.
+* **6a. Información obligatoria incompleta — A2 (HTTP 400 Bad Request):**
+  1. El sistema detecta campos obligatorios incompletos. **Reglas aplicables:** **RN-02**.
+  2. El sistema identifica los campos pendientes.
+  3. El usuario completa o corrige la información y continúa.
 
-* **2b. Información obligatoria incompleta o inválida (HTTP 400 Bad Request):**
-  1. Si en el Paso 2 falta un dato obligatorio o su formato es inválido, se
-     incumple **RN-03**.
-  2. La Capa de Presentación identifica los campos pendientes o incorrectos.
-  3. El Sistema devuelve **400 Bad Request** con el detalle de validación. Fin del
-     caso de uso.
+### 5. SUB-VARIACIONES (opcional)
 
-* **3a. Email ya registrado (HTTP 409 Conflict):**
-  1. Si en el Paso 3 ya existe una cuenta con el email normalizado, se incumple
-     **RN-01**.
-  2. La Capa de Negocio interrumpe el alta.
-  3. El Sistema devuelve **409 Conflict** e informa que debe utilizarse otro
-     email. Fin del caso de uso.
-
-* **5a. Error interno de persistencia (HTTP 500 Internal Server Error):**
-  1. Si en el Paso 5 no es posible guardar la cuenta, la operación se revierte.
-  2. El Sistema registra el error técnico.
-  3. El Sistema devuelve **500 Internal Server Error** sin crear una cuenta
-     parcial. Fin del caso de uso.
-
-### 5. SUB-VARIACIONES
-
-1. El actor puede seleccionar Alumno o Profesor; el esquema de credenciales y
-   datos personales es el mismo y solo cambia el rol asignado.
+- No se especifican sub-variaciones adicionales en el documento fuente.
 
 ### 6. POSTCONDICIONES
 
-- La cuenta queda registrada con el rol Alumno o Profesor.
+- La cuenta queda registrada con el rol seleccionado.
 - Los datos personales obligatorios quedan asociados a la cuenta.
 - El usuario queda habilitado para iniciar sesión.
 
@@ -96,26 +74,30 @@ sus credenciales y complete la información personal requerida.
 
 | Código HTTP | Nombre Técnico | Contexto de Aplicación en el Caso de Uso |
 | --- | --- | --- |
-| `201` | Created | La cuenta y sus datos personales fueron registrados correctamente. |
-| `400` | Bad Request | El JSON, el rol o los datos obligatorios no cumplen el contrato de entrada. |
-| `409` | Conflict | El email ya pertenece a otra cuenta, en conflicto con RN-01. |
-| `500` | Internal Server Error | Ocurrió un error técnico no controlado al persistir la cuenta. |
+| `201` | Created | resultado satisfactorio de Registrarse. |
+| `409` | Conflict | A1: Email ya registrado. |
+| `400` | Bad Request | A2: Información obligatoria incompleta. |
+
+### Nota: Validación vs. Verificación aplicada
+
+- **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
+- **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
 ### Matriz de trazabilidad CU-01 → Test
 
-| Paso del CU | Excepción / Código | Test unitario (Negocio) | Test de integración (HTTP) |
+| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
 | --- | --- | --- | --- |
-| Paso 1. Enviar solicitud | `201 Created` | — (entrada HTTP) | `Register_WithValidRequest_AcceptsPayload` |
-| Paso 2. Validar esquema y rol | `201 Created` | `RegisterAsync_WithAllowedRole_ContinuesRegistration` | `Register_WithValidData_Returns201Created` |
-| Paso 3. Verificar email único | `201 Created` | `RegisterAsync_WithUniqueEmail_AllowsRegistration` | `Register_WithUniqueEmail_Returns201Created` |
-| Paso 4. Preparar cuenta y perfil | `201 Created` | `RegisterAsync_WithValidData_AssignsRoleAndProfile` | `Register_WithValidData_ReturnsExpectedAccount` |
-| Paso 5. Persistir cuenta | `201 Created` | `RegisterAsync_WithValidData_PersistsAccount` | `Register_WithValidData_CreatesPersistentAccount` |
-| Paso 6. Responder creación | `201 Created` | `RegisterAsync_WithValidData_ReturnsCreatedAccount` | `Register_WithValidData_Returns201Created` |
-| 1a. JSON inválido | `400 Bad Request` | — (model binding) | `Register_WithInvalidJson_Returns400BadRequest` |
-| 2a. Rol no permitido | `400 Bad Request` | `RegisterAsync_WithForbiddenPublicRole_ThrowsValidationException` | `Register_WithAdminRole_Returns400BadRequest` |
-| 2b. Información inválida | `400 Bad Request` | `RegisterAsync_WithInvalidRequiredData_ThrowsValidationException` | `Register_WithMissingRequiredField_Returns400BadRequest` |
-| 3a. Email duplicado | `409 Conflict` | `RegisterAsync_WhenEmailExists_ThrowsEmailConflictException` | `Register_WithExistingEmail_Returns409Conflict` |
-| 5a. Error de persistencia | `500 Internal Server Error` | `RegisterAsync_WhenRepositoryFails_PropagatesException` | `Register_WhenPersistenceFails_Returns500InternalServerError` |
+| Paso 1. Flujo principal | `201 Created` | `CU01_Step01_WhenValidState_ContinuesUseCase` | `CU01_Step01_WhenValidRequest_Returns201Created` |
+| Paso 2. Flujo principal | `201 Created` | `CU01_Step02_WhenValidState_ContinuesUseCase` | `CU01_Step02_WhenValidRequest_Returns201Created` |
+| Paso 3. Flujo principal | `201 Created` | `CU01_Step03_WhenValidState_ContinuesUseCase` | `CU01_Step03_WhenValidRequest_Returns201Created` |
+| Paso 4. Flujo principal | `201 Created` | `CU01_Step04_WhenValidState_ContinuesUseCase` | `CU01_Step04_WhenValidRequest_Returns201Created` |
+| Paso 5. Flujo principal | `201 Created` | `CU01_Step05_WhenValidState_ContinuesUseCase` | `CU01_Step05_WhenValidRequest_Returns201Created` |
+| Paso 6. Flujo principal | `201 Created` | `CU01_Step06_WhenValidState_ContinuesUseCase` | `CU01_Step06_WhenValidRequest_Returns201Created` |
+| Paso 7. Flujo principal | `201 Created` | `CU01_Step07_WhenValidState_ContinuesUseCase` | `CU01_Step07_WhenValidRequest_Returns201Created` |
+| Paso 8. Flujo principal | `201 Created` | `CU01_Step08_WhenValidState_ContinuesUseCase` | `CU01_Step08_WhenValidRequest_Returns201Created` |
+| Paso 9. Flujo principal | `201 Created` | `CU01_Step09_WhenValidState_ContinuesUseCase` | `CU01_Step09_WhenValidRequest_Returns201Created` |
+| 4a. Email ya registrado (A1) | `409 Conflict` | `CU01_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU01_Alt01_WhenConditionOccurs_Returns409Conflict` |
+| 6a. Información obligatoria incompleta (A2) | `400 Bad Request` | `CU01_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU01_Alt02_WhenConditionOccurs_Returns400BadRequest` |
 
-> Los nombres de tests establecen el contrato de trazabilidad del caso de uso y
-> deberán coincidir con la suite automatizada cuando se implemente.
+> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
+> suite automatizada cuando exista una implementación backend.

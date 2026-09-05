@@ -1,7 +1,9 @@
 # Caso de Uso: Consultar Reportes
 
-> Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y adaptada a la
-> sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
+> Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
+> según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
+> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
+> técnica; el documento fuente define actualmente un prototipo frontend académico.
 
 | Campo | Valor |
 | --- | --- |
@@ -9,75 +11,53 @@
 | **Nombre** | Consultar Reportes |
 | **Actor Principal** | Administrador |
 | **Alcance / Nivel** | Sistema Lumen; meta de usuario |
-| **Stakeholders e intereses** | Administrador → consultar información básica por período; Institución → disponer de datos consistentes sobre usuarios, cursos e inscripciones |
-| **Disparador (Trigger)** | El Administrador selecciona la sección “Reportes” |
-| **Prioridad / Frecuencia** | Media; frecuencia periódica |
-| **Reglas de negocio relacionadas** | RN-30 (Desde y Hasta son obligatorios y Desde no puede superar Hasta); RN-31 (el reporte incluye solo registros del rango); RN-32 (un rango sin registros devuelve un resultado vacío válido) |
+| **Stakeholders e intereses** | Administrador → consultar información básica por período; responsables del proyecto → disponer de datos consistentes sobre usuarios, cursos e inscripciones |
+| **Disparador (Trigger)** | El Administrador selecciona la sección "Reportes". |
+| **Prioridad / Frecuencia** | No especificada en el documento fuente |
+| **Reglas de negocio relacionadas** | RN-16 |
+| **Referencias funcionales** | No especificadas en el documento fuente |
+| **Autores / Fecha** | Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026) |
+
+**Actores involucrados:**
+
+- **Principal:** Administrador
 
 ---
 
 ### 1. BREVE DESCRIPCIÓN
 
-Permite que un Administrador consulte información básica de usuarios registrados,
-cursos creados e inscripciones realizadas dentro de un rango de fechas.
+Permite que un Administrador consulte información básica del sistema aplicando un rango de fechas mediante los campos Desde y Hasta.
 
 ### 2. PRECONDICIONES
 
-- El Administrador debe haber iniciado sesión con un Token JWT válido.
-- La cuenta autenticada debe poseer rol Administrador.
-- El Sistema debe disponer de los campos Desde y Hasta para definir el período.
+- El Administrador debe haber iniciado sesión.
 
 ### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 200)
 
-1. El actor informa una fecha inicial y una fecha final y envía
-   `GET /api/reportes?desde={fechaDesde}&hasta={fechaHasta}`.
-2. La **Capa de Presentación** valida el formato y la presencia de ambas fechas.
-3. La **Capa de Negocio** verifica que Desde no sea posterior a Hasta, aplicando
-   **RN-30**.
-4. La **Capa de Persistencia** consulta los usuarios registrados, cursos creados e
-   inscripciones realizadas dentro del período, conforme a **RN-31**.
-5. La **Capa de Negocio** organiza la información básica del reporte.
-6. El Sistema devuelve **200 OK** con los datos correspondientes al rango.
+1. El Administrador accede a "Reportes".
+2. El sistema muestra los campos "Desde" y "Hasta".
+3. El Administrador selecciona una fecha inicial y una fecha final.
+4. El Administrador confirma el filtro.
+5. El sistema valida que el rango de fechas sea válido. **Reglas aplicables:** **RN-16**.
+6. El sistema muestra información básica de usuarios registrados, cursos creados e inscripciones realizadas dentro del rango seleccionado. **Reglas aplicables:** **RN-16**.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
 
-* **2a. Fechas faltantes o con formato inválido (HTTP 400 Bad Request):**
-  1. Si en el Paso 2 falta Desde o Hasta, o alguna fecha no posee el formato
-     admitido, la Capa de Presentación rechaza la consulta.
-  2. El Sistema devuelve **400 Bad Request** con el detalle del parámetro. Fin del
-     caso de uso.
+* **5a. Rango de fechas inválido — A1 (HTTP 400 Bad Request):**
+  1. El sistema detecta que la fecha Desde es posterior a la fecha Hasta. **Reglas aplicables:** **RN-16**.
+  2. El sistema informa el error y solicita corregir el rango.
 
-* **3a. Rango de fechas inválido (HTTP 400 Bad Request):**
-  1. Si en el Paso 3 Desde es posterior a Hasta, se incumple **RN-30**.
-  2. La Capa de Negocio rechaza el rango.
-  3. El Sistema devuelve **400 Bad Request** y solicita corregir las fechas. Fin
-     del caso de uso.
+* **6a. Sin resultados — A2 (HTTP 200 OK):**
+  1. No existen registros para el rango seleccionado.
+  2. El sistema informa que no hay datos para mostrar.
 
-* **4a. Sin resultados (HTTP 200 OK):**
-  1. Si en el Paso 4 no existen registros dentro del rango, se aplica **RN-32**.
-  2. La Capa de Negocio construye un resultado vacío válido.
-  3. El Sistema devuelve **200 OK** e informa que no hay datos para mostrar. Fin
-     del caso de uso.
+### 5. SUB-VARIACIONES (opcional)
 
-* **1a. Usuario no autenticado (HTTP 401 Unauthorized):**
-  1. Si en el Paso 1 no se presenta un Token JWT válido, el Sistema devuelve
-     **401 Unauthorized**. Fin del caso de uso.
-
-* **1b. Rol no autorizado (HTTP 403 Forbidden):**
-  1. Si en el Paso 1 la cuenta autenticada no posee rol Administrador, la Capa de
-     Negocio restringe la consulta.
-  2. El Sistema devuelve **403 Forbidden**. Fin del caso de uso.
-
-### 5. SUB-VARIACIONES
-
-1. El rango puede contener datos de una, dos o las tres categorías disponibles:
-   usuarios, cursos e inscripciones; el contrato de respuesta se conserva.
+- No se especifican sub-variaciones adicionales en el documento fuente.
 
 ### 6. POSTCONDICIONES
 
-- El Sistema muestra la información básica correspondiente al rango seleccionado.
-- Si no existen registros, muestra un resultado vacío válido.
-- La consulta no modifica usuarios, cursos ni inscripciones.
+- El sistema muestra información básica correspondiente al rango de fechas seleccionado.
 
 ---
 
@@ -87,26 +67,26 @@ cursos creados e inscripciones realizadas dentro de un rango de fechas.
 
 | Código HTTP | Nombre Técnico | Contexto de Aplicación en el Caso de Uso |
 | --- | --- | --- |
-| `200` | OK | El reporte fue devuelto con datos o con un resultado vacío válido. |
-| `400` | Bad Request | Falta una fecha, su formato es inválido o Desde es posterior a Hasta. |
-| `401` | Unauthorized | No existe una autenticación válida. |
-| `403` | Forbidden | El usuario autenticado no posee rol Administrador. |
+| `200` | OK | resultado satisfactorio de Consultar Reportes; A2: Sin resultados. |
+| `400` | Bad Request | A1: Rango de fechas inválido. |
+
+### Nota: Validación vs. Verificación aplicada
+
+- **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
+- **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
 ### Matriz de trazabilidad CU-10 → Test
 
-| Paso del CU | Excepción / Código | Test unitario (Negocio) | Test de integración (HTTP) |
+| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
 | --- | --- | --- | --- |
-| Paso 1. Enviar rango | `200 OK` | — (entrada HTTP) | `GetReports_WithValidRange_AcceptsParameters` |
-| Paso 2. Validar fechas | `200 OK` | `GetReportAsync_WithValidDateFormats_ContinuesQuery` | `GetReports_WithValidDates_Returns200OK` |
-| Paso 3. Validar orden | `200 OK` | `GetReportAsync_WithOrderedRange_AllowsQuery` | `GetReports_WithOrderedRange_Returns200OK` |
-| Paso 4. Consultar registros | `200 OK` | `GetReportAsync_FiltersRecordsInsideRange` | `GetReports_ReturnsOnlyRecordsInsideRange` |
-| Paso 5. Organizar reporte | `200 OK` | `GetReportAsync_GroupsUsersCoursesAndEnrollments` | `GetReports_ReturnsExpectedReportStructure` |
-| Paso 6. Responder consulta | `200 OK` | `GetReportAsync_WithResults_ReturnsReport` | `GetReports_WithResults_Returns200OK` |
-| 2a. Fechas inválidas | `400 Bad Request` | `GetReportAsync_WithMissingDate_ThrowsValidationException` | `GetReports_WithMissingOrInvalidDate_Returns400BadRequest` |
-| 3a. Rango inválido | `400 Bad Request` | `GetReportAsync_WhenFromIsAfterTo_ThrowsInvalidRangeException` | `GetReports_WhenFromIsAfterTo_Returns400BadRequest` |
-| 4a. Sin resultados | `200 OK` | `GetReportAsync_WithoutRecords_ReturnsEmptyReport` | `GetReports_WithoutRecords_Returns200WithEmptyReport` |
-| 1a. Sin autenticación | `401 Unauthorized` | — (autenticación HTTP) | `GetReports_WithoutToken_Returns401Unauthorized` |
-| 1b. Rol no autorizado | `403 Forbidden` | `GetReportAsync_AsNonAdmin_ThrowsForbiddenException` | `GetReports_AsTeacher_Returns403Forbidden` |
+| Paso 1. Flujo principal | `200 OK` | `CU10_Step01_WhenValidState_ContinuesUseCase` | `CU10_Step01_WhenValidRequest_Returns200OK` |
+| Paso 2. Flujo principal | `200 OK` | `CU10_Step02_WhenValidState_ContinuesUseCase` | `CU10_Step02_WhenValidRequest_Returns200OK` |
+| Paso 3. Flujo principal | `200 OK` | `CU10_Step03_WhenValidState_ContinuesUseCase` | `CU10_Step03_WhenValidRequest_Returns200OK` |
+| Paso 4. Flujo principal | `200 OK` | `CU10_Step04_WhenValidState_ContinuesUseCase` | `CU10_Step04_WhenValidRequest_Returns200OK` |
+| Paso 5. Flujo principal | `200 OK` | `CU10_Step05_WhenValidState_ContinuesUseCase` | `CU10_Step05_WhenValidRequest_Returns200OK` |
+| Paso 6. Flujo principal | `200 OK` | `CU10_Step06_WhenValidState_ContinuesUseCase` | `CU10_Step06_WhenValidRequest_Returns200OK` |
+| 5a. Rango de fechas inválido (A1) | `400 Bad Request` | `CU10_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU10_Alt01_WhenConditionOccurs_Returns400BadRequest` |
+| 6a. Sin resultados (A2) | `200 OK` | `CU10_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU10_Alt02_WhenConditionOccurs_Returns200OK` |
 
-> Los nombres de tests establecen el contrato de trazabilidad del caso de uso y
-> deberán coincidir con la suite automatizada cuando se implemente.
+> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
+> suite automatizada cuando exista una implementación backend.

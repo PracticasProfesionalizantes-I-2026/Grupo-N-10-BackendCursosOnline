@@ -1,7 +1,9 @@
 # Caso de Uso: Solicitar Inscripción a un Curso
 
-> Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y adaptada a la
-> sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
+> Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
+> según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
+> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
+> técnica; el documento fuente define actualmente un prototipo frontend académico.
 
 | Campo | Valor |
 | --- | --- |
@@ -9,87 +11,64 @@
 | **Nombre** | Solicitar Inscripción a un Curso |
 | **Actor Principal** | Alumno |
 | **Alcance / Nivel** | Sistema Lumen; meta de usuario |
-| **Stakeholders e intereses** | Alumno → solicitar acceso a un curso; Administrador → revisar solicitudes válidas; Profesor → recibir alumnos mediante el proceso definido |
-| **Disparador (Trigger)** | El Alumno selecciona “Inscribirse” en un curso PUBLICADO |
-| **Prioridad / Frecuencia** | Alta; frecuencia alta |
-| **Reglas de negocio relacionadas** | RN-17 (el curso debe estar PUBLICADO y admitir inscripciones); RN-18 (no se duplican inscripciones PENDIENTES o APROBADAS); RN-19 (la solicitud inicia PENDIENTE y no concede acceso) |
+| **Stakeholders e intereses** | Alumno → solicitar acceso a un curso publicado; Administrador → recibir solicitudes válidas; Profesor → conservar inscripciones consistentes en sus cursos |
+| **Disparador (Trigger)** | El Alumno selecciona "Inscribirse" en el detalle de un curso PUBLICADO. |
+| **Prioridad / Frecuencia** | No especificada en el documento fuente |
+| **Reglas de negocio relacionadas** | RN-08 a RN-10 y RN-12 |
+| **Referencias funcionales** | RF-19 a RF-22; RN-08 a RN-10 y RN-12. |
+| **Autores / Fecha** | Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026) |
+
+**Actores involucrados:**
+
+- **Principal:** Alumno
+- **Secundarios:** Administrador
 
 ---
 
 ### 1. BREVE DESCRIPCIÓN
 
-Permite que un Alumno solicite su inscripción a un curso publicado. La solicitud
-queda pendiente de resolución administrativa antes de otorgar acceso.
+Permite que un Alumno solicite su inscripción a un curso publicado. La solicitud requiere resolución administrativa antes de otorgar acceso.
 
 ### 2. PRECONDICIONES
 
-- El Alumno debe haber iniciado sesión con un Token JWT válido.
-- El curso debe existir, estar PUBLICADO y admitir inscripciones, conforme a
-  **RN-17**.
-- No debe existir una inscripción PENDIENTE o APROBADA del Alumno para el mismo
-  curso, conforme a **RN-18**.
+- El Alumno debe haber iniciado sesión.
+- El curso debe estar PUBLICADO.
+- No debe existir una inscripción PENDIENTE o APROBADA del Alumno para ese curso.
 
 ### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 201)
 
-1. El actor consulta el catálogo mediante `GET /api/cursos?estado=PUBLICADO`.
-2. El Sistema devuelve los cursos publicados que pueden consultarse.
-3. El actor selecciona un curso y consulta su detalle mediante
-   `GET /api/cursos/{cursoId}`.
-4. El Sistema devuelve la información del curso y su disponibilidad.
-5. El actor confirma la inscripción mediante `POST /api/inscripciones` con el
-   identificador del curso.
-6. La **Capa de Negocio** verifica la disponibilidad del curso y la inexistencia
-   de una inscripción duplicada, aplicando **RN-17** y **RN-18**.
-7. La **Capa de Persistencia** registra la solicitud con estado **PENDIENTE**, sin
-   conceder acceso al curso, conforme a **RN-19**.
-8. El Sistema devuelve **201 Created** e informa que la solicitud queda a la
-   espera de revisión.
+1. El Alumno accede al catálogo de cursos.
+2. El sistema muestra los cursos PUBLICADOS. **Reglas aplicables:** **RN-08**.
+3. El Alumno selecciona un curso.
+4. El sistema muestra el detalle del curso.
+5. El Alumno selecciona "Inscribirse".
+6. El sistema verifica que no exista una inscripción duplicada y que el curso admita inscripciones. **Reglas aplicables:** **RN-09**, **RN-12**.
+7. El sistema registra la solicitud en estado PENDIENTE. **Reglas aplicables:** **RN-10**.
+8. El sistema informa que la solicitud fue enviada y queda a la espera de revisión.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
 
-* **5a. El Alumno decide no continuar (sin petición HTTP):**
-  1. Si antes del Paso 5 el Alumno vuelve al catálogo o al detalle, no envía la
-     solicitud.
-  2. El Sistema no registra ninguna inscripción. Fin del caso de uso.
+* **6a. Inscripción duplicada — A1 (HTTP 409 Conflict):**
+  1. El sistema detecta una solicitud PENDIENTE o inscripción APROBADA para el mismo curso. **Reglas aplicables:** **RN-09**.
+  2. El sistema informa que no puede generarse una nueva solicitud.
 
-* **6a. Inscripción duplicada (HTTP 409 Conflict):**
-  1. Si en el Paso 6 ya existe una inscripción PENDIENTE o APROBADA para el mismo
-     Alumno y curso, se incumple **RN-18**.
-  2. La Capa de Negocio rechaza la creación.
-  3. El Sistema devuelve **409 Conflict** e informa que no puede generarse una
-     nueva solicitud. Fin del caso de uso.
+* **5a. El Alumno decide no continuar — A2 (HTTP 200 OK):**
+  1. El Alumno vuelve al catálogo o al detalle sin confirmar la inscripción.
+  2. El sistema no registra ninguna solicitud.
 
-* **6b. Curso no disponible para inscripción (HTTP 409 Conflict):**
-  1. Si en el Paso 6 el curso dejó de estar PUBLICADO o no admite nuevas
-     inscripciones, se incumple **RN-17**.
-  2. La Capa de Negocio rechaza la solicitud.
-  3. El Sistema devuelve **409 Conflict**. Fin del caso de uso.
+* **6b. El curso no admite nuevas inscripciones — A3 (HTTP 409 Conflict):**
+  1. El sistema detecta que el curso ya no está PUBLICADO, por ejemplo porque pasó a PAUSADO o FINALIZADO. **Reglas aplicables:** **RN-08**, **RN-12**.
+  2. Informa que no admite nuevas solicitudes y no registra la inscripción.
 
-* **1a. Usuario no autenticado (HTTP 401 Unauthorized):**
-  1. Si en el Paso 1 no se presenta un Token JWT válido, el Sistema devuelve
-     **401 Unauthorized**. Fin del caso de uso.
+### 5. SUB-VARIACIONES (opcional)
 
-* **5b. Rol no autorizado (HTTP 403 Forbidden):**
-  1. Si en el Paso 5 la cuenta autenticada no posee rol Alumno, la Capa de Negocio
-     impide solicitar la inscripción.
-  2. El Sistema devuelve **403 Forbidden**. Fin del caso de uso.
-
-* **3a. Curso inexistente (HTTP 404 Not Found):**
-  1. Si en el Paso 3 el curso indicado no existe, la Capa de Negocio no encuentra
-     el recurso.
-  2. El Sistema devuelve **404 Not Found**. Fin del caso de uso.
-
-### 5. SUB-VARIACIONES
-
-1. El Alumno puede iniciar la solicitud desde el catálogo o desde el detalle del
-   curso; ambos recorridos envían el mismo identificador y producen el mismo
-   estado PENDIENTE.
+- No se especifican sub-variaciones adicionales en el documento fuente.
 
 ### 6. POSTCONDICIONES
 
-- La solicitud queda registrada con estado PENDIENTE.
-- El Alumno puede consultar el estado de la solicitud.
-- El Alumno todavía no obtiene acceso al curso, conforme a **RN-19**.
+- La solicitud queda registrada en estado PENDIENTE.
+- El Alumno puede consultar el estado de la solicitud mediante CU-12.
+- Todavía no obtiene acceso al curso hasta su aprobación.
 
 ---
 
@@ -99,31 +78,30 @@ queda pendiente de resolución administrativa antes de otorgar acceso.
 
 | Código HTTP | Nombre Técnico | Contexto de Aplicación en el Caso de Uso |
 | --- | --- | --- |
-| `200` | OK | El catálogo o el detalle del curso fue consultado correctamente. |
-| `201` | Created | La solicitud de inscripción fue creada en estado PENDIENTE. |
-| `401` | Unauthorized | No existe una autenticación válida. |
-| `403` | Forbidden | La cuenta autenticada no posee rol Alumno. |
-| `404` | Not Found | El curso indicado no existe. |
-| `409` | Conflict | La inscripción está duplicada o el curso no admite inscripciones. |
+| `201` | Created | resultado satisfactorio de Solicitar Inscripción a un Curso. |
+| `409` | Conflict | A1: Inscripción duplicada; A3: El curso no admite nuevas inscripciones. |
+| `200` | OK | A2: El Alumno decide no continuar. |
+
+### Nota: Validación vs. Verificación aplicada
+
+- **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
+- **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
 ### Matriz de trazabilidad CU-06 → Test
 
-| Paso del CU | Excepción / Código | Test unitario (Negocio) | Test de integración (HTTP) |
+| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
 | --- | --- | --- | --- |
-| Paso 1. Consultar catálogo | `200 OK` | `GetPublishedCoursesAsync_ReturnsPublishedCourses` | `GetPublishedCourses_AsStudent_Returns200OK` |
-| Paso 2. Mostrar publicados | `200 OK` | `GetPublishedCoursesAsync_ExcludesUnavailableCourses` | `GetPublishedCourses_ReturnsOnlyPublishedCourses` |
-| Paso 3. Consultar curso | `200 OK` | `GetCourseAsync_WithExistingId_ReturnsCourse` | `GetCourse_WithExistingId_Returns200OK` |
-| Paso 4. Mostrar disponibilidad | `200 OK` | `GetCourseAsync_ReturnsEnrollmentAvailability` | `GetCourse_ReturnsAvailabilityData` |
-| Paso 5. Confirmar inscripción | `201 Created` | — (entrada HTTP) | `CreateEnrollment_WithValidRequest_AcceptsCourseId` |
-| Paso 6. Verificar reglas | `201 Created` | `CreateEnrollmentAsync_WhenAvailableAndUnique_AllowsRequest` | `CreateEnrollment_WhenAvailableAndUnique_Returns201Created` |
-| Paso 7. Persistir pendiente | `201 Created` | `CreateEnrollmentAsync_PersistsPendingWithoutAccess` | `CreateEnrollment_PersistsPendingStatus` |
-| Paso 8. Responder creación | `201 Created` | `CreateEnrollmentAsync_WithValidData_ReturnsPendingEnrollment` | `CreateEnrollment_WithValidData_Returns201Created` |
-| 5a. No continuar | Sin petición | `EnrollmentRequest_WhenCancelled_DoesNotCreateEnrollment` | — (no se realiza llamada HTTP) |
-| 6a. Inscripción duplicada | `409 Conflict` | `CreateEnrollmentAsync_WhenDuplicate_ThrowsEnrollmentConflictException` | `CreateEnrollment_WhenDuplicate_Returns409Conflict` |
-| 6b. Curso no disponible | `409 Conflict` | `CreateEnrollmentAsync_WhenCourseUnavailable_ThrowsCourseStateException` | `CreateEnrollment_WhenCourseUnavailable_Returns409Conflict` |
-| 1a. Sin autenticación | `401 Unauthorized` | — (autenticación HTTP) | `GetPublishedCourses_WithoutToken_Returns401Unauthorized` |
-| 5b. Rol no autorizado | `403 Forbidden` | `CreateEnrollmentAsync_AsNonStudent_ThrowsForbiddenException` | `CreateEnrollment_AsTeacher_Returns403Forbidden` |
-| 3a. Curso inexistente | `404 Not Found` | `GetCourseAsync_WithUnknownId_ThrowsCourseNotFoundException` | `GetCourse_WithUnknownId_Returns404NotFound` |
+| Paso 1. Flujo principal | `201 Created` | `CU06_Step01_WhenValidState_ContinuesUseCase` | `CU06_Step01_WhenValidRequest_Returns201Created` |
+| Paso 2. Flujo principal | `201 Created` | `CU06_Step02_WhenValidState_ContinuesUseCase` | `CU06_Step02_WhenValidRequest_Returns201Created` |
+| Paso 3. Flujo principal | `201 Created` | `CU06_Step03_WhenValidState_ContinuesUseCase` | `CU06_Step03_WhenValidRequest_Returns201Created` |
+| Paso 4. Flujo principal | `201 Created` | `CU06_Step04_WhenValidState_ContinuesUseCase` | `CU06_Step04_WhenValidRequest_Returns201Created` |
+| Paso 5. Flujo principal | `201 Created` | `CU06_Step05_WhenValidState_ContinuesUseCase` | `CU06_Step05_WhenValidRequest_Returns201Created` |
+| Paso 6. Flujo principal | `201 Created` | `CU06_Step06_WhenValidState_ContinuesUseCase` | `CU06_Step06_WhenValidRequest_Returns201Created` |
+| Paso 7. Flujo principal | `201 Created` | `CU06_Step07_WhenValidState_ContinuesUseCase` | `CU06_Step07_WhenValidRequest_Returns201Created` |
+| Paso 8. Flujo principal | `201 Created` | `CU06_Step08_WhenValidState_ContinuesUseCase` | `CU06_Step08_WhenValidRequest_Returns201Created` |
+| 6a. Inscripción duplicada (A1) | `409 Conflict` | `CU06_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU06_Alt01_WhenConditionOccurs_Returns409Conflict` |
+| 5a. El Alumno decide no continuar (A2) | `200 OK` | `CU06_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU06_Alt02_WhenConditionOccurs_Returns200OK` |
+| 6b. El curso no admite nuevas inscripciones (A3) | `409 Conflict` | `CU06_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU06_Alt03_WhenConditionOccurs_Returns409Conflict` |
 
-> Los nombres de tests establecen el contrato de trazabilidad del caso de uso y
-> deberán coincidir con la suite automatizada cuando se implemente.
+> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
+> suite automatizada cuando exista una implementación backend.
