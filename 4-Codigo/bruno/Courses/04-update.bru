@@ -1,0 +1,25 @@
+meta { name: Actualizar curso type: http seq: 4 }
+put { url: {{baseUrl}}/api/courses/{{courseId}} body: json auth: bearer }
+auth:bearer { token: {{teacherToken}} }
+body:json {
+  {
+    "title": "Curso actualizado",
+    "description": "Versión de trabajo actualizada",
+    "category": "Tecnología",
+    "level": "Intermedio",
+    "modality": "Online",
+    "maxCapacity": 25,
+    "learningObjectives": ["Aplicar fundamentos"],
+    "suggestedPrerequisites": ["Conocimientos básicos"],
+    "modules": [
+      {
+        "id": null,
+        "name": "Módulo actualizado",
+        "description": "Contenido actualizado",
+        "durationMinutes": 90,
+        "content": "Material reservado",
+        "resources": ["material.pdf"]
+      }
+    ]
+  }
+}

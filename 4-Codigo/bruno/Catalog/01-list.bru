@@ -1,0 +1,3 @@
+meta { name: Listar catálogo type: http seq: 1 }
+get { url: {{baseUrl}}/api/catalog/courses body: none auth: bearer }
+auth:bearer { token: {{studentToken}} }

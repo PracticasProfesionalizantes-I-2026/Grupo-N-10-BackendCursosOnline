@@ -1,0 +1,3 @@
+meta { name: Inscripciones pendientes type: http seq: 3 }
+get { url: {{baseUrl}}/api/enrollments?status=Pendiente body: none auth: bearer }
+auth:bearer { token: {{adminToken}} }

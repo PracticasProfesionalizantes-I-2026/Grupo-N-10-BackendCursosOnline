@@ -1,0 +1,3 @@
+meta { name: Progreso de alumnos type: http seq: 10 }
+get { url: {{baseUrl}}/api/courses/{{courseId}}/students/progress body: none auth: bearer }
+auth:bearer { token: {{teacherToken}} }

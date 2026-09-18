@@ -1,0 +1,3 @@
+meta { name: Consultar progreso type: http seq: 8 }
+get { url: {{baseUrl}}/api/enrollments/{{enrollmentId}}/progress body: none auth: bearer }
+auth:bearer { token: {{studentToken}} }

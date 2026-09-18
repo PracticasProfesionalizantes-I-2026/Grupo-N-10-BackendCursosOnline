@@ -1,0 +1,3 @@
+meta { name: Reporte resumido type: http seq: 1 }
+get { url: {{baseUrl}}/api/reports/summary?from=2026-01-01&to=2026-12-31 body: none auth: bearer }
+auth:bearer { token: {{adminToken}} }

@@ -1,0 +1,3 @@
+meta { name: Auditorías pendientes type: http seq: 9 }
+get { url: {{baseUrl}}/api/course-reviews body: none auth: bearer }
+auth:bearer { token: {{adminToken}} }

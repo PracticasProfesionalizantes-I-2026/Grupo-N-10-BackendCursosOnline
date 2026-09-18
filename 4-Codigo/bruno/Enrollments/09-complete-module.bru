@@ -1,0 +1,3 @@
+meta { name: Completar módulo type: http seq: 9 }
+put { url: {{baseUrl}}/api/enrollments/{{enrollmentId}}/modules/{{moduleId}}/completion body: none auth: bearer }
+auth:bearer { token: {{studentToken}} }

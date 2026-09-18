@@ -1,0 +1,24 @@
+meta { name: Crear borrador type: http seq: 3 }
+post { url: {{baseUrl}}/api/courses body: json auth: bearer }
+auth:bearer { token: {{teacherToken}} }
+body:json {
+  {
+    "title": "Curso de prueba",
+    "description": "Curso creado desde Bruno",
+    "category": "Tecnología",
+    "level": "Inicial",
+    "modality": "Online",
+    "maxCapacity": 25,
+    "learningObjectives": ["Aplicar fundamentos"],
+    "suggestedPrerequisites": ["Ninguno"],
+    "modules": [
+      {
+        "name": "Introducción",
+        "description": "Primer módulo",
+        "durationMinutes": 60,
+        "content": "Contenido inicial",
+        "resources": ["guia.pdf"]
+      }
+    ]
+  }
+}

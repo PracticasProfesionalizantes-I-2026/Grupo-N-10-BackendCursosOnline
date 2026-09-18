@@ -1,0 +1,6 @@
+meta { name: Login Profesor type: http seq: 2 }
+post { url: {{baseUrl}}/api/auth/login body: json auth: none }
+body:json { { "email": "profesor@lumen.local", "password": "Lumen123!" } }
+script:post-response {
+  bru.setEnvVar("teacherToken", res.getBody().accessToken);
+}

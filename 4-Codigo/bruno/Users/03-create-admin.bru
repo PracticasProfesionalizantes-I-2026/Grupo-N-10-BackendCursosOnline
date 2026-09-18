@@ -1,0 +1,15 @@
+meta { name: Crear administrador type: http seq: 3 }
+post { url: {{baseUrl}}/api/users/administrators body: json auth: bearer }
+auth:bearer { token: {{adminToken}} }
+body:json {
+  {
+    "email": "admin2@lumen.local",
+    "password": "Lumen123!",
+    "firstName": "Segundo",
+    "lastName": "Admin",
+    "dni": "25111222",
+    "phone": "11-3333-2222",
+    "address": "Calle 20",
+    "postalCode": "1000"
+  }
+}

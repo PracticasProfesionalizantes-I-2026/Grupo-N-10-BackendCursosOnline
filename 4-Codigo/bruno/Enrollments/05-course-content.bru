@@ -1,0 +1,3 @@
+meta { name: Acceder al contenido type: http seq: 5 }
+get { url: {{baseUrl}}/api/enrollments/{{enrollmentId}}/course-content body: none auth: bearer }
+auth:bearer { token: {{studentToken}} }

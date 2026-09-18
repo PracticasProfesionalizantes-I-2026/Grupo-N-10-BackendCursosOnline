@@ -1,0 +1,3 @@
+meta { name: Finalizar curso type: http seq: 8 }
+post { url: {{baseUrl}}/api/courses/{{courseId}}/finish body: none auth: bearer }
+auth:bearer { token: {{adminToken}} }

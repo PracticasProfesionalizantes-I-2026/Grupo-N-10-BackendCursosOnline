@@ -1,0 +1,3 @@
+meta { name: Consultar inscripción type: http seq: 4 }
+get { url: {{baseUrl}}/api/enrollments/{{enrollmentId}} body: none auth: bearer }
+auth:bearer { token: {{studentToken}} }

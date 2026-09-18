@@ -1,0 +1,3 @@
+meta { name: Listar cursos gestionables type: http seq: 1 }
+get { url: {{baseUrl}}/api/courses body: none auth: bearer }
+auth:bearer { token: {{teacherToken}} }

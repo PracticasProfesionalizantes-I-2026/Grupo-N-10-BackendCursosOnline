@@ -1,0 +1,4 @@
+meta { name: Resolver inscripción type: http seq: 6 }
+post { url: {{baseUrl}}/api/enrollments/{{enrollmentId}}/decision body: json auth: bearer }
+auth:bearer { token: {{adminToken}} }
+body:json { { "decision": "Aprobada" } }

@@ -1,0 +1,3 @@
+meta { name: Pausar curso type: http seq: 6 }
+post { url: {{baseUrl}}/api/courses/{{courseId}}/pause body: none auth: bearer }
+auth:bearer { token: {{teacherToken}} }

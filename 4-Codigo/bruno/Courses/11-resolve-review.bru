@@ -1,0 +1,4 @@
+meta { name: Resolver auditoría type: http seq: 11 }
+post { url: {{baseUrl}}/api/course-reviews/{{reviewId}}/decision body: json auth: bearer }
+auth:bearer { token: {{adminToken}} }
+body:json { { "decision": "Aprobada", "observation": null } }
