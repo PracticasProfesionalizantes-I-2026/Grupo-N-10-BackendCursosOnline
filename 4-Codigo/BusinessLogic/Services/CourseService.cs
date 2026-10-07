@@ -371,6 +371,11 @@ public sealed class CourseService(
             {
                 throw new LumenValidationException("La duración de cada módulo debe ser mayor que cero.");
             }
+            if (string.IsNullOrWhiteSpace(module.Content) &&
+                !module.Resources.Any(resource => !string.IsNullOrWhiteSpace(resource)))
+            {
+                throw new LumenValidationException("Cada módulo debe incluir contenido o al menos un recurso.");
+            }
         }
     }
 
