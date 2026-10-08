@@ -20,7 +20,9 @@ public sealed class ReportService(
         }
         var fromUtc = DateTime.SpecifyKind(from, DateTimeKind.Utc);
         var toUtc = DateTime.SpecifyKind(to, DateTimeKind.Utc);
-        var counts = await reportRepository.GetCountsAsync(fromUtc, toUtc, cancellationToken);
+        // Hasta incluye el día completo; el día máximo representable no tiene un siguiente día.
+        DateTime? toUtcExclusive = toUtc.Date == DateTime.MaxValue.Date ? null : toUtc.Date.AddDays(1);
+        var counts = await reportRepository.GetCountsAsync(fromUtc, toUtcExclusive, cancellationToken);
         return new ReportSummaryResponseDTO(fromUtc, toUtc, counts.RegisteredUsers, counts.CreatedCourses, counts.RequestedEnrollments);
     }
 }
