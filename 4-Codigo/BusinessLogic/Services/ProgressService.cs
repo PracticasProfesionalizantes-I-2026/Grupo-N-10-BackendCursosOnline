@@ -111,16 +111,21 @@ public sealed class ProgressService(
             .Distinct()
             .ToList();
         var total = validModuleIds.Count;
-        var percentage = total == 0 ? 0 : (int)Math.Round(completedIds.Count * 100d / total);
-        var status = percentage switch
+        var completed = completedIds.Count;
+        var status = completed switch
         {
             0 => ProgressStatus.NoIniciado,
-            100 => ProgressStatus.Completado,
+            var count when count == total => ProgressStatus.Completado,
             _ => ProgressStatus.EnProgreso
         };
+        var percentage = total == 0 ? 0 : (int)Math.Round(completed * 100d / total);
+        if (status == ProgressStatus.EnProgreso)
+        {
+            percentage = Math.Clamp(percentage, 1, 99);
+        }
         return new ProgressResponseDTO(
             enrollment.Id, enrollment.StudentId, enrollment.CourseId, published.Version,
-            completedIds.Count, total, percentage, status, completedIds);
+            completed, total, percentage, status, completedIds);
     }
 }
 
