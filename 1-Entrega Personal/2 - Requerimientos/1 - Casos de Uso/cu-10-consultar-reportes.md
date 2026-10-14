@@ -31,7 +31,7 @@ Permite que un Administrador consulte información básica del sistema aplicando
 ### 2. PRECONDICIONES
 
 - El Administrador debe haber iniciado sesión.
-- Para obtener un reporte, la solicitud debe incluir los parámetros `from` y `to`; su presencia se valida en el paso 5 y su ausencia se trata mediante A3.
+- Para obtener un reporte, la solicitud debe incluir los parámetros `from` y `to`; si no existen errores de conversión, su presencia se valida en el paso 5 y su ausencia se trata mediante A3.
 
 ### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 200)
 
@@ -39,7 +39,7 @@ Permite que un Administrador consulte información básica del sistema aplicando
 2. El sistema muestra los campos obligatorios "Desde" y "Hasta".
 3. El Administrador selecciona una fecha inicial (`from`) y una fecha final (`to`).
 4. El Administrador confirma el filtro.
-5. El sistema valida primero que estén presentes los parámetros obligatorios `from` y `to`, luego que sus formatos sean válidos y que el rango de fechas sea válido. Si falta alguno de los parámetros, aplica A3. **Reglas aplicables:** **RN-16**.
+5. El sistema exige los parámetros obligatorios `from` y `to`. Si una fecha recibida tiene formato inválido, ASP.NET Core puede rechazar la solicitud con HTTP `400 Bad Request` y `ValidationProblemDetails` antes de ejecutar el controlador. Si no existen errores de conversión, el controlador valida la presencia de ambas fechas (A3) y el sistema valida el orden del rango (A1). **Reglas aplicables:** **RN-16**.
 6. El sistema muestra información básica de usuarios registrados, cursos creados e inscripciones realizadas dentro del rango seleccionado. **Reglas aplicables:** **RN-16**.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
@@ -53,9 +53,11 @@ Permite que un Administrador consulte información básica del sistema aplicando
   2. El sistema informa que no hay datos para mostrar.
 
 * **5b. Fechas obligatorias ausentes — A3 (HTTP 400 Bad Request):**
-  1. El sistema detecta que falta `from`, falta `to` o faltan ambos parámetros, antes de validar el formato y el orden de las fechas.
-  2. El sistema responde con HTTP `400 Bad Request` y un mensaje comprensible que identifica los parámetros ausentes: "Falta el parámetro obligatorio: from.", "Falta el parámetro obligatorio: to." o "Faltan los parámetros obligatorios: from y to.", según corresponda.
+  1. Si no existen errores de conversión de las fechas recibidas, el sistema detecta que falta `from`, falta `to` o faltan ambos parámetros, antes de validar el orden de las fechas.
+  2. El controlador utiliza `LumenValidationException` y el sistema responde con HTTP `400 Bad Request` en el formato JSON existente `{ code, message }`, con un mensaje comprensible que identifica los parámetros ausentes: "Falta el parámetro obligatorio: from.", "Falta el parámetro obligatorio: to." o "Faltan los parámetros obligatorios: from y to.", según corresponda.
   3. El sistema solicita completar las fechas ausentes y no genera el reporte.
+
+> **Prioridad de validación:** si una fecha tiene formato inválido y la otra está ausente, ASP.NET Core puede responder primero con HTTP `400 Bad Request` y `ValidationProblemDetails`, identificando el parámetro cuyo formato es inválido. No se exige informar simultáneamente errores de formato y de ausencia; en ningún caso se genera el reporte ni se consulta el repositorio de reportes.
 
 ### 5. SUB-VARIACIONES (opcional)
 
@@ -65,6 +67,7 @@ Permite que un Administrador consulte información básica del sistema aplicando
 
 - En el flujo principal, el sistema muestra información básica correspondiente al rango de fechas seleccionado.
 - Si se aplica A3, el sistema responde con HTTP `400 Bad Request`, identifica los parámetros ausentes y no genera el reporte.
+- Si existen errores de conversión, el sistema responde con HTTP `400 Bad Request` y `ValidationProblemDetails`, identifica el parámetro inválido y no genera el reporte.
 
 ---
 
@@ -75,7 +78,7 @@ Permite que un Administrador consulte información básica del sistema aplicando
 | Código HTTP | Nombre Técnico | Contexto de Aplicación en el Caso de Uso |
 | --- | --- | --- |
 | `200` | OK | resultado satisfactorio de Consultar Reportes; A2: Sin resultados. |
-| `400` | Bad Request | A1: Rango de fechas inválido; A3: Fechas obligatorias ausentes (`from`, `to` o ambos). |
+| `400` | Bad Request | A1: Rango de fechas inválido; A3: Fechas obligatorias ausentes sin errores de conversión (`from`, `to` o ambos); errores de conversión, incluidos los escenarios combinados de formato inválido y ausencia. |
 
 ### Nota: Validación vs. Verificación aplicada
 
@@ -84,9 +87,9 @@ Permite que un Administrador consulte información básica del sistema aplicando
 
 ### Estado de implementación y comportamiento esperado
 
-- **Comportamiento esperado:** `from` y `to` son obligatorios. Toda omisión debe producir HTTP `400 Bad Request` con un mensaje que identifique los parámetros ausentes, conforme a A3.
-- **Implementación actual, según las pruebas de integración de la revisión técnica:** las fechas invertidas (A1) y las fechas con formato inválido se rechazan con HTTP `400`. Si falta `from`, la API puede devolver HTTP `200` utilizando `DateTime.MinValue`; si falta `to`, devuelve HTTP `400` con un mensaje que no representa correctamente la ausencia del parámetro; si faltan ambos, puede devolver HTTP `200`.
-- **Pendiente:** la corrección en C# y la cobertura automatizada del contrato de A3. Esta actualización documenta el requisito esperado; no acredita su implementación.
+- **Comportamiento esperado:** `from` y `to` son obligatorios. Si no existen errores de conversión y falta alguno de los parámetros, se aplica A3 con HTTP `400 Bad Request` y un mensaje que identifica los parámetros ausentes. Los errores de formato pueden rechazarse primero mediante `ValidationProblemDetails`, incluso si falta la otra fecha; no se exige acumular errores de formato y de ausencia.
+- **Implementación actual:** el controlador recibe fechas anulables para detectar ausencias y utiliza `LumenValidationException` antes de llamar al servicio. ASP.NET Core mantiene el rechazo automático por errores de conversión. El servicio conserva la validación de fechas invertidas (A1) y el filtrado inclusivo del día Hasta. A2 mantiene el resultado HTTP `200 OK` cuando no hay datos.
+- **Antecedente de la revisión técnica previa a la mejora:** si faltaba `from`, la API podía devolver HTTP `200` utilizando `DateTime.MinValue`; si faltaba `to`, devolvía HTTP `400` con un mensaje que no representaba correctamente su ausencia; si faltaban ambos, podía devolver HTTP `200`. La validación actual de presencia evita estos comportamientos.
 
 ### Matriz de trazabilidad CU-10 → Test
 
@@ -100,11 +103,13 @@ Permite que un Administrador consulte información básica del sistema aplicando
 | Paso 6. Flujo principal | `200 OK` | `CU10_Step06_WhenValidState_ContinuesUseCase` | `CU10_Step06_WhenValidRequest_Returns200OK` |
 | 5a. Rango de fechas inválido (A1) | `400 Bad Request` | `CU10_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU10_Alt01_WhenConditionOccurs_Returns400BadRequest` |
 | 6a. Sin resultados (A2) | `200 OK` | `CU10_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU10_Alt02_WhenConditionOccurs_Returns200OK` |
-| 5b. Falta `from`, con `to` presente y válido (A3) | `400 Bad Request` | No aplica: validación de presencia (Presentación) | Escenario pendiente: omitir `from` y verificar HTTP `400` y el mensaje "Falta el parámetro obligatorio: from.". |
-| 5b. Falta `to`, con `from` presente y válido (A3) | `400 Bad Request` | No aplica: validación de presencia (Presentación) | Escenario pendiente: omitir `to` y verificar HTTP `400` y el mensaje "Falta el parámetro obligatorio: to.". |
-| 5b. Faltan `from` y `to` (A3) | `400 Bad Request` | No aplica: validación de presencia (Presentación) | Escenario pendiente: omitir ambos parámetros y verificar HTTP `400` y el mensaje "Faltan los parámetros obligatorios: from y to.". |
+| 5b. Falta `from`, con `to` presente y válido (A3) | `400 Bad Request` | No aplica: validación de presencia (Presentación) | `Summary_WithMissingDates_ReturnsValidationError_WithoutQueryingReports` (`query: "?to=2026-10-05"`): verifica HTTP `400`, código `LumenValidationException`, mensaje "Falta el parámetro obligatorio: from." y cero llamadas al repositorio. |
+| 5b. Falta `to`, con `from` presente y válido (A3) | `400 Bad Request` | No aplica: validación de presencia (Presentación) | `Summary_WithMissingDates_ReturnsValidationError_WithoutQueryingReports` (`query: "?from=2026-10-01"`): verifica HTTP `400`, código `LumenValidationException`, mensaje "Falta el parámetro obligatorio: to." y cero llamadas al repositorio. |
+| 5b. Faltan `from` y `to` (A3) | `400 Bad Request` | No aplica: validación de presencia (Presentación) | `Summary_WithMissingDates_ReturnsValidationError_WithoutQueryingReports` (`query: ""`): verifica HTTP `400`, código `LumenValidationException`, mensaje "Faltan los parámetros obligatorios: from y to." y cero llamadas al repositorio. |
+| Paso 5. `from=not-a-date` y `to` ausente | `400 Bad Request` | No aplica: validación de conversión (Presentación) | `Summary_WithInvalidDateAndMissingOtherDate_ReturnsBadRequest_WithoutQueryingReports` (`invalidParameter: "from"`): verifica HTTP `400`, `ValidationProblemDetails`, error asociado a `from` y cero llamadas al repositorio. |
+| Paso 5. `to=not-a-date` y `from` ausente | `400 Bad Request` | No aplica: validación de conversión (Presentación) | `Summary_WithInvalidDateAndMissingOtherDate_ReturnsBadRequest_WithoutQueryingReports` (`invalidParameter: "to"`): verifica HTTP `400`, `ValidationProblemDetails`, error asociado a `to` y cero llamadas al repositorio. |
 
-> Los nombres de tests anteriores se conservan como propuestas de trazabilidad;
-> no se han verificado como nombres de pruebas existentes en esta etapa.
-> Los tres escenarios de A3 están pendientes de cobertura del contrato esperado y
-> deberán vincularse con la suite automatizada cuando se implemente la corrección.
+> Los nombres de tests del flujo principal, A1 y A2 se conservan como propuestas
+> de trazabilidad; no se han verificado como nombres de pruebas existentes en esta etapa.
+> Las filas de A3 y de escenarios combinados referencian métodos existentes y sus
+> datos de prueba en `ReportsIntegrationTests.cs`; no se modifican las pruebas anteriores.
