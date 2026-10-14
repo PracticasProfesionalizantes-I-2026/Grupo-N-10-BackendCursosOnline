@@ -195,6 +195,22 @@ Resolución administrativa:
 
 El progreso se deriva de los módulos completados de la versión publicada vigente. Una inscripción cancelada conserva el historial, pero no permite consultar ni registrar progreso mientras no esté aprobada.
 
+### CU-06: criterios técnicos propuestos
+
+Estos criterios completan aspectos que los requisitos originales no definen expresamente y fueron acordados para esta implementación:
+
+- Después de una inscripción Rechazada o Cancelada se permite una nueva solicitud Pendiente con otro identificador. Se conserva el historial y no se copia el progreso anterior.
+- Durante una nueva auditoría se admiten solicitudes si el curso conserva PublishedRevisionId y su estado operativo es Activo. Los cambios sin aprobar no sustituyen la versión pública.
+- Curso inexistente devuelve 404; curso existente sin publicación, Pausado o Finalizado devuelve 409.
+- CourseId ausente o vacío devuelve 400. Una identidad autenticada sin identificador de alumno válido devuelve 403. Los identificadores de alumno y el estado recibidos como campos extra del cuerpo no se utilizan.
+- No se incorporan restricciones de cupo a la solicitud.
+
+El servicio conserva las verificaciones de rol, identidad, curso y duplicados. El repositorio inserta solamente la nueva fila mediante ExecuteSqlInterpolatedAsync de EF, con parámetros y un SELECT condicionado a la publicación y al estado operativo requerido por el servicio. La comprobación final y la inserción forman una única sentencia: si pausa/finalización se confirma antes, la solicitud se rechaza; si la inserción se confirma primero, la solicitud queda registrada y la transición posterior no la cancela. Esto evita insertar el grafo del curso obtenido con AsNoTracking.
+
+SQLite garantiza una única inscripción Pendiente o Aprobada por alumno/curso mediante un índice único parcial sobre StudentId y CourseId. Las solicitudes concurrentes que infringen esa restricción se traducen específicamente a DuplicateEnrollmentException (409); otros errores de persistencia no se presentan como duplicados.
+
+Referencias técnicas: [sentencias y transacciones SQLite](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/transactions) e [índices de EF Core](https://learn.microsoft.com/en-us/ef/core/modeling/indexes).
+
 ### Reportes
 
 | Método | Ruta | Acceso |
@@ -215,6 +231,20 @@ Las excepciones de negocio son tipadas y se convierten explícitamente en cada c
 
 ## Migraciones
 
+La migración incremental EnforceSingleActiveEnrollment agrega el índice único parcial sin cambiar la migración inicial ni el historial de inscripciones. Si ya existen duplicados Pendiente/Aprobada, su aplicación falla y no los elimina ni cambia sus estados automáticamente.
+
+Antes de aplicar esta migración a una base existente, verificar la ruta absoluta de destino, conservar un respaldo y ejecutar sobre ese destino esta consulta de diagnóstico:
+
+~~~sql
+SELECT StudentId, CourseId, COUNT(*) AS ActiveCount
+FROM Enrollments
+WHERE Status IN ('Pendiente', 'Aprobada')
+GROUP BY StudentId, CourseId
+HAVING COUNT(*) > 1;
+~~~
+
+Si devuelve filas, la resolución de esas inconsistencias requiere una decisión sobre los registros; no debe inferirse qué solicitud conservar. Solo después de comprobar el destino y resolver los conflictos puede aplicarse la migración. El arranque de la API aplica migraciones automáticamente, por lo que esta comprobación debe hacerse antes de arrancarla contra una base existente.
+
 ~~~powershell
 dotnet ef migrations add NombreMigracion --project Migrations/Lumen.Migrations.csproj --startup-project Migrations/Lumen.Migrations.csproj --context LumenDbContext --output-dir DatabaseMigrations
 dotnet run --project Migrations/Lumen.Migrations.csproj
@@ -227,7 +257,9 @@ dotnet build
 dotnet test
 ~~~
 
-Las pruebas unitarias usan xUnit y Moq sin base de datos. Las pruebas de integración usan WebApplicationFactory y una base SQLite aislada.
+Las pruebas unitarias usan xUnit y Moq sin base de datos. Las pruebas de integración usan WebApplicationFactory y bases SQLite únicas en el directorio temporal, con pooling deshabilitado y limpieza al finalizar. Las pruebas de migración de CU-06 usan SQLite en memoria. No utilizan las bases lumen.db de desarrollo.
+
+Las suites EnrollmentCreationServiceTests, EnrollmentCreationIntegrationTests y EnrollmentPersistenceIntegrationTests verifican CU-06, incluyendo HTTP, identidad JWT, persistencia sin alterar cursos/revisiones/módulos, concurrencia, carreras con pausa/finalización, nueva solicitud tras rechazo/cancelación, progreso separado y migración de datos existentes.
 
 ## Bruno
 

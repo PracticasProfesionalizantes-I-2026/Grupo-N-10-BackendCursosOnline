@@ -1,5 +1,7 @@
 using Lumen.DataAccess.Entities;
 using Lumen.Shared.Enums;
+using Lumen.Shared.Exceptions;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace Lumen.DataAccess.Repositories;
@@ -16,6 +18,56 @@ public sealed class EnrollmentRepository(LumenDbContext context) : IEnrollmentRe
 
     public Task SaveAsync(CancellationToken cancellationToken = default) =>
         context.SaveChangesAsync(cancellationToken);
+
+    public async Task<bool> TryResolveAsync(
+        Guid id,
+        EnrollmentStatus expectedStatus,
+        EnrollmentStatus decision,
+        DateTime resolvedAtUtc,
+        Guid resolvedByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        // Check the expected state and write the resolution in the same UPDATE.
+        // A previous decision or cancellation cannot be overwritten by a stale read.
+        var updated = await context.Enrollments
+            .Where(x => x.Id == id && x.Status == expectedStatus)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.Status, decision)
+                .SetProperty(x => x.ResolvedAtUtc, resolvedAtUtc)
+                .SetProperty(x => x.ResolvedByUserId, resolvedByUserId), cancellationToken);
+        return updated == 1;
+    }
+
+    public async Task<bool> TryCreateForPublishedCourseAsync(
+        Enrollment enrollment,
+        CourseOperationalStatus requiredStatus,
+        CancellationToken cancellationToken = default)
+    {
+        enrollment.Id = Guid.NewGuid();
+        var status = enrollment.Status.ToString();
+        var operationalStatus = requiredStatus.ToString();
+        try
+        {
+            // One statement checks the current course and inserts only the new row.
+            // SQLite serializes this write with concurrent pause/finish operations.
+            var inserted = await context.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO "Enrollments" ("Id", "StudentId", "CourseId", "Status", "RequestedAtUtc")
+                SELECT {enrollment.Id}, {enrollment.StudentId}, "Id", {status}, {enrollment.RequestedAtUtc}
+                FROM "Courses"
+                WHERE "Id" = {enrollment.CourseId}
+                  AND "PublishedRevisionId" IS NOT NULL
+                  AND "OperationalStatus" = {operationalStatus}
+                """, cancellationToken);
+            return inserted == 1;
+        }
+        catch (SqliteException ex) when (
+            ex.SqliteExtendedErrorCode == 2067 &&
+            ex.Message.Contains("Enrollments.StudentId, Enrollments.CourseId", StringComparison.Ordinal))
+        {
+            // Translate this constraint only; other persistence failures must remain visible.
+            throw new DuplicateEnrollmentException();
+        }
+    }
 
     public Task<Enrollment?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         ReadGraph().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
