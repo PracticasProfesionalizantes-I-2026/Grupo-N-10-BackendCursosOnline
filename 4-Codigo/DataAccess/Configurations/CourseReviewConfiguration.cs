@@ -11,7 +11,7 @@ internal sealed class CourseReviewConfiguration : IEntityTypeConfiguration<Cours
         builder.ToTable("CourseReviews");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Type).HasConversion<string>().HasMaxLength(30);
-        builder.Property(x => x.Decision).HasConversion<string>().HasMaxLength(30);
+        builder.Property(x => x.Decision).HasConversion<string>().HasMaxLength(30).IsConcurrencyToken();
         builder.Property(x => x.Observation).HasMaxLength(2000);
         builder.HasIndex(x => x.Decision);
         builder.HasIndex(x => x.RequestedAtUtc);

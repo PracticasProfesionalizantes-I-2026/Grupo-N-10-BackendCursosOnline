@@ -10,6 +10,8 @@ internal sealed class CourseRevisionConfiguration : IEntityTypeConfiguration<Cou
     {
         builder.ToTable("CourseRevisions");
         builder.HasKey(x => x.Id);
+        builder.Property(x => x.UpdatedAtUtc).IsConcurrencyToken();
+        builder.Property(x => x.Status).IsConcurrencyToken();
         builder.HasIndex(x => new { x.CourseId, x.Version }).IsUnique();
         builder.HasIndex(x => x.Status);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);

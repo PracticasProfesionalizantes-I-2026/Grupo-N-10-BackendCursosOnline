@@ -5,10 +5,13 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Lumen.DataAccess;
+using Lumen.DataAccess.Repositories;
 using Lumen.Shared.DTOs;
 using Lumen.Shared.Exceptions;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Lumen.API.IntegrationTests;
 
@@ -66,6 +69,110 @@ public sealed class ReportsIntegrationTests
         Assert.Equal(nameof(InvalidDateRangeException), error.Code);
     }
 
+    [Theory]
+    [InlineData("?to=2026-10-05", "Falta el parámetro obligatorio: from.")]
+    [InlineData("?from=2026-10-01", "Falta el parámetro obligatorio: to.")]
+    [InlineData("", "Faltan los parámetros obligatorios: from y to.")]
+    public async Task Summary_WithMissingDates_ReturnsValidationError_WithoutQueryingReports(
+        string query, string expectedMessage)
+    {
+        var repository = new TrackingReportRepository();
+        using var baseFactory = new LumenApiFactory();
+        using var factory = baseFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IReportRepository>();
+                services.AddSingleton<IReportRepository>(repository);
+            }));
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, "admin@lumen.local");
+
+        var response = await client.GetAsync($"/api/reports/summary{query}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<ApiErrorResponseDTO>(JsonOptions);
+        Assert.NotNull(error);
+        Assert.Equal(nameof(LumenValidationException), error.Code);
+        Assert.Equal(expectedMessage, error.Message);
+        Assert.Equal(0, repository.CallCount);
+    }
+
+    [Theory]
+    [InlineData("not-a-date", "2026-10-05", "from")]
+    [InlineData("2026-10-01", "not-a-date", "to")]
+    [InlineData("2026-02-30", "2026-10-05", "from")]
+    [InlineData("2026-10-01", "2026-02-30", "to")]
+    public async Task Summary_WithInvalidDateFormat_ReturnsBadRequest(
+        string from, string to, string invalidParameter)
+    {
+        using var factory = new LumenApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, "admin@lumen.local");
+
+        var response = await client.GetAsync($"/api/reports/summary?from={from}&to={to}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(JsonOptions);
+        Assert.NotNull(error);
+        Assert.Equal(400, error.Status);
+        Assert.Contains(invalidParameter, error.Errors.Keys);
+        Assert.NotEmpty(error.Errors[invalidParameter]);
+    }
+
+    [Theory]
+    [InlineData("from")]
+    [InlineData("to")]
+    public async Task Summary_WithInvalidDateAndMissingOtherDate_ReturnsBadRequest_WithoutQueryingReports(
+        string invalidParameter)
+    {
+        var repository = new TrackingReportRepository();
+        using var baseFactory = new LumenApiFactory();
+        using var factory = baseFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IReportRepository>();
+                services.AddSingleton<IReportRepository>(repository);
+            }));
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, "admin@lumen.local");
+
+        var response = await client.GetAsync($"/api/reports/summary?{invalidParameter}=not-a-date");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var error = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(JsonOptions);
+        Assert.NotNull(error);
+        Assert.Equal(400, error.Status);
+        Assert.Contains(invalidParameter, error.Errors.Keys);
+        Assert.NotEmpty(error.Errors[invalidParameter]);
+        Assert.Equal(0, repository.CallCount);
+    }
+
+    [Fact]
+    public async Task Summary_WithMissingDates_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var factory = new LumenApiFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/reports/summary");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("alumno@lumen.local")]
+    [InlineData("profesor@lumen.local")]
+    public async Task Summary_WithMissingDates_WithoutAdministratorRole_ReturnsForbidden(string email)
+    {
+        using var factory = new LumenApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, email);
+
+        var response = await client.GetAsync("/api/reports/summary");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     [Fact]
     public async Task Summary_WithoutAuthentication_ReturnsUnauthorized()
     {
@@ -89,6 +196,18 @@ public sealed class ReportsIntegrationTests
         var response = await client.GetAsync("/api/reports/summary?from=2026-10-01&to=2026-10-05");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    private sealed class TrackingReportRepository : IReportRepository
+    {
+        public int CallCount { get; private set; }
+
+        public Task<ReportCounts> GetCountsAsync(
+            DateTime fromUtc, DateTime? toUtcExclusive, CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            return Task.FromResult(new ReportCounts(0, 0, 0));
+        }
     }
 
     private static async Task SetReportDatesAsync(LumenApiFactory factory, DateTime recordedAtUtc)

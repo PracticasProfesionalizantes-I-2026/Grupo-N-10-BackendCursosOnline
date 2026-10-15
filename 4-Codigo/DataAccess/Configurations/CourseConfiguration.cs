@@ -10,6 +10,8 @@ internal sealed class CourseConfiguration : IEntityTypeConfiguration<Course>
     {
         builder.ToTable("Courses");
         builder.HasKey(x => x.Id);
+        builder.Property(x => x.UpdatedAtUtc).IsConcurrencyToken();
+        builder.Property(x => x.WorkingRevisionId).IsConcurrencyToken();
         builder.Property(x => x.OperationalStatus).HasConversion<string>().HasMaxLength(30);
         builder.HasIndex(x => x.OperationalStatus);
         builder.HasIndex(x => x.OwnerProfessorId);

@@ -9,8 +9,22 @@ using Microsoft.Extensions.Logging;
 
 namespace Lumen.API.IntegrationTests;
 
-public sealed class LumenApiFactory(params IInterceptor[] interceptors) : WebApplicationFactory<Program>
+public sealed class LumenApiFactory : WebApplicationFactory<Program>
 {
+    private readonly IInterceptor[] interceptors;
+
+    public LumenApiFactory(params IInterceptor[] interceptors)
+    {
+        ArgumentNullException.ThrowIfNull(interceptors);
+        if (interceptors.Any(x => x is null))
+        {
+            throw new ArgumentException("Los interceptores no pueden contener elementos nulos.", nameof(interceptors));
+        }
+        this.interceptors = interceptors.ToArray();
+    }
+
+    public Action<IServiceCollection>? ConfigureTestServices { get; init; }
+
     private readonly string databasePath = Path.Combine(
         Path.GetTempPath(),
         $"lumen-integration-{Guid.NewGuid():N}.db");
@@ -28,6 +42,7 @@ public sealed class LumenApiFactory(params IInterceptor[] interceptors) : WebApp
                     $"Data Source={databasePath};Pooling=False",
                     sqlite => sqlite.MigrationsAssembly("Lumen.Migrations"))
                     .AddInterceptors(interceptors));
+            ConfigureTestServices?.Invoke(services);
         });
     }
 
@@ -36,10 +51,7 @@ public sealed class LumenApiFactory(params IInterceptor[] interceptors) : WebApp
         base.Dispose(disposing);
         foreach (var path in new[] { databasePath, databasePath + "-wal", databasePath + "-shm", databasePath + "-journal" })
         {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
+            if (File.Exists(path)) File.Delete(path);
         }
     }
 }

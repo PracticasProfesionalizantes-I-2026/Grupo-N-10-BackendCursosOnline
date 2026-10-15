@@ -47,7 +47,14 @@ public sealed class CourseService(
     public async Task<CourseResponseDTO> CreateAsync(CourseCreateDTO dto, CancellationToken cancellationToken = default)
     {
         ServiceGuard.Role(currentUser, UserRole.Profesor, UserRole.Administrador);
-        ValidateDraft(dto.MaxCapacity, dto.Modules.Select(x => x.DurationMinutes));
+        if (dto is null || dto.Modules is null || dto.Modules.Any(x => x is null))
+        {
+            throw new LumenValidationException("El curso y su lista de módulos deben ser válidos.");
+        }
+        var revision = BuildRevision(new CourseUpdateDTO(dto.Title, dto.Description, dto.Category, dto.Level,
+            dto.Modality, dto.MaxCapacity, dto.LearningObjectives, dto.SuggestedPrerequisites,
+            dto.Modules.Select(x => new CourseModuleUpdateDTO(null, x.Name, x.Description, x.DurationMinutes,
+                x.Content, x.Resources)).ToList()), []);
         var now = DateTime.UtcNow;
         var course = new Course
         {
@@ -57,14 +64,9 @@ public sealed class CourseService(
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         };
-        var revision = new CourseRevision
-        {
-            Version = 1,
-            Status = CourseRevisionStatus.Borrador,
-            CreatedAtUtc = now,
-            UpdatedAtUtc = now
-        };
-        Apply(revision, dto);
+        revision.Version = 1;
+        revision.CreatedAtUtc = now;
+        revision.UpdatedAtUtc = now;
         await courseRepository.CreateAsync(course, revision, cancellationToken);
         return MapToResponseDTO(course);
     }
@@ -72,27 +74,32 @@ public sealed class CourseService(
     public async Task<CourseResponseDTO> UpdateAsync(Guid id, CourseUpdateDTO dto, CancellationToken cancellationToken = default)
     {
         ServiceGuard.Role(currentUser, UserRole.Profesor, UserRole.Administrador);
-        ValidateDraft(dto.MaxCapacity, dto.Modules.Select(x => x.DurationMinutes));
         var course = await courseRepository.GetByIdForUpdateAsync(id, cancellationToken) ?? throw new CourseNotFoundException(id);
         EnsureCanManage(course);
         var working = course.WorkingRevision ?? throw new CourseStateConflictException("El curso no posee una versión de trabajo.");
 
+        if (working.Status is not (CourseRevisionStatus.Publicado or CourseRevisionStatus.Borrador or CourseRevisionStatus.CambiosSolicitados))
+        {
+            throw new CourseStateConflictException("El estado actual del curso no permite editar su versión de trabajo.");
+        }
+        // Validate and build a detached replacement before changing any tracked entity.
+        var changes = BuildRevision(dto, working.Modules.Select(x => x.Id).ToHashSet());
+        changes.UpdatedAtUtc = NextTimestamp(course.UpdatedAtUtc > working.UpdatedAtUtc ? course.UpdatedAtUtc : working.UpdatedAtUtc);
         if (working.Status == CourseRevisionStatus.Publicado)
         {
-            var nextRevision = CloneWithChanges(course, working, dto);
-            await courseRepository.AddRevisionAsync(course, nextRevision, cancellationToken);
+            if (working.Version == int.MaxValue)
+            {
+                throw new CourseStateConflictException("No puede incrementarse la versión del curso.");
+            }
+            changes.Version = working.Version + 1;
+            changes.CreatedAtUtc = changes.UpdatedAtUtc;
+            course.UpdatedAtUtc = changes.UpdatedAtUtc;
+            await courseRepository.AddRevisionAsync(course, changes, cancellationToken);
         }
         else
         {
-            if (working.Status is not (CourseRevisionStatus.Borrador or CourseRevisionStatus.CambiosSolicitados))
-            {
-                throw new CourseStateConflictException("El estado actual del curso no permite editar su versión de trabajo.");
-            }
-            ApplyTrackedUpdate(working, dto);
-            working.Status = CourseRevisionStatus.Borrador;
-            working.UpdatedAtUtc = DateTime.UtcNow;
-            course.UpdatedAtUtc = working.UpdatedAtUtc;
-            await courseRepository.SaveAsync(cancellationToken);
+            course.UpdatedAtUtc = changes.UpdatedAtUtc;
+            await courseRepository.UpdateWorkingRevisionAsync(course, changes, cancellationToken);
         }
         return MapToResponseDTO(course);
     }
@@ -107,9 +114,11 @@ public sealed class CourseService(
         {
             throw new CourseStateConflictException("Solo una versión en borrador o con cambios solicitados puede enviarse a revisión.");
         }
-        ValidateComplete(revision);
+        var totalDuration = ValidateComplete(revision);
+        var updatedAt = NextTimestamp(course.UpdatedAtUtc > revision.UpdatedAtUtc ? course.UpdatedAtUtc : revision.UpdatedAtUtc);
         revision.Status = CourseRevisionStatus.EnRevision;
-        revision.UpdatedAtUtc = DateTime.UtcNow;
+        revision.TotalDurationMinutes = totalDuration;
+        revision.UpdatedAtUtc = updatedAt;
         course.UpdatedAtUtc = revision.UpdatedAtUtc;
         var review = new CourseReview
         {
@@ -143,6 +152,11 @@ public sealed class CourseService(
         CancellationToken cancellationToken = default)
     {
         ServiceGuard.Role(currentUser, UserRole.Administrador);
+        if (dto is null || !Enum.IsDefined(dto.Decision))
+        {
+            throw new LumenValidationException("La decisión de auditoría no es válida.");
+        }
+        ValidateLength(dto.Observation, 2000, "observación");
         if (dto.Decision == CourseReviewDecision.CambiosSolicitados && string.IsNullOrWhiteSpace(dto.Observation))
         {
             throw new LumenValidationException("La observación es obligatoria al solicitar cambios.");
@@ -150,7 +164,8 @@ public sealed class CourseService(
         var review = await courseRepository.GetReviewByIdForUpdateAsync(reviewId, cancellationToken)
             ?? throw new CourseReviewNotFoundException(reviewId);
         var revision = review.CourseRevision;
-        if (review.Decision is not null || revision.Status != CourseRevisionStatus.EnRevision)
+        if (review.Decision is not null || revision.Status != CourseRevisionStatus.EnRevision ||
+            revision.Course.WorkingRevisionId != revision.Id)
         {
             throw new CourseStateConflictException("La solicitud ya fue resuelta o no corresponde a una versión en revisión.");
         }
@@ -175,7 +190,7 @@ public sealed class CourseService(
             default:
                 throw new LumenValidationException("La decisión de auditoría no es válida.");
         }
-        revision.UpdatedAtUtc = DateTime.UtcNow;
+        revision.UpdatedAtUtc = NextTimestamp(revision.Course.UpdatedAtUtc > revision.UpdatedAtUtc ? revision.Course.UpdatedAtUtc : revision.UpdatedAtUtc);
         revision.Course.UpdatedAtUtc = revision.UpdatedAtUtc;
         await courseRepository.SaveAsync(cancellationToken);
         return MapToReviewResponseDTO(review);
@@ -197,7 +212,7 @@ public sealed class CourseService(
             throw new CourseStateConflictException("Solo puede finalizarse un curso publicado o pausado.");
         }
         course.OperationalStatus = CourseOperationalStatus.Finalizado;
-        course.UpdatedAtUtc = DateTime.UtcNow;
+        course.UpdatedAtUtc = NextTimestamp(course.UpdatedAtUtc);
         await courseRepository.SaveAsync(cancellationToken);
         return MapToResponseDTO(course);
     }
@@ -217,7 +232,7 @@ public sealed class CourseService(
             throw new CourseStateConflictException($"El estado actual del curso no permite cambiarlo a {target}.");
         }
         course.OperationalStatus = target;
-        course.UpdatedAtUtc = DateTime.UtcNow;
+        course.UpdatedAtUtc = NextTimestamp(course.UpdatedAtUtc);
         await courseRepository.SaveAsync(cancellationToken);
         return MapToResponseDTO(course);
     }
@@ -230,140 +245,116 @@ public sealed class CourseService(
         }
     }
 
-    private static CourseRevision CloneWithChanges(Course course, CourseRevision source, CourseUpdateDTO dto)
+    private static CourseRevision BuildRevision(CourseUpdateDTO dto, HashSet<Guid> allowedModuleIds)
     {
-        var now = DateTime.UtcNow;
+        if (dto is null || dto.Modules is null || dto.Modules.Any(x => x is null))
+        {
+            throw new LumenValidationException("El curso y su lista de módulos deben ser válidos.");
+        }
+        if (dto.MaxCapacity < 0)
+        {
+            throw new LumenValidationException("El cupo no puede ser negativo.");
+        }
         var revision = new CourseRevision
         {
-            Version = source.Version + 1,
             Status = CourseRevisionStatus.Borrador,
-            CreatedAtUtc = now,
-            UpdatedAtUtc = now
+            Title = NormalizeText(dto.Title, 200, "título"),
+            Description = NormalizeText(dto.Description, 4000, "descripción"),
+            Category = NormalizeText(dto.Category, 100, "categoría"),
+            Level = NormalizeText(dto.Level, 100, "nivel"),
+            Modality = NormalizeText(dto.Modality, 100, "modalidad"),
+            MaxCapacity = dto.MaxCapacity,
+            LearningObjectives = NormalizeList(dto.LearningObjectives),
+            SuggestedPrerequisites = NormalizeList(dto.SuggestedPrerequisites)
         };
-        Apply(revision, dto, source.Modules.Select(x => x.Id).ToHashSet());
-        course.UpdatedAtUtc = now;
-        return revision;
-    }
-
-    private static void Apply(CourseRevision revision, CourseCreateDTO dto)
-    {
-        revision.Title = dto.Title?.Trim() ?? string.Empty;
-        revision.Description = dto.Description?.Trim() ?? string.Empty;
-        revision.Category = dto.Category?.Trim() ?? string.Empty;
-        revision.Level = dto.Level?.Trim() ?? string.Empty;
-        revision.Modality = dto.Modality?.Trim() ?? string.Empty;
-        revision.MaxCapacity = dto.MaxCapacity;
-        revision.LearningObjectives = dto.LearningObjectives?.Select(x => x.Trim()).Where(x => x.Length > 0).ToList() ?? [];
-        revision.SuggestedPrerequisites = dto.SuggestedPrerequisites?.Select(x => x.Trim()).Where(x => x.Length > 0).ToList() ?? [];
-        revision.Modules = (dto.Modules ?? []).Select((module, index) => new CourseModule
+        var suppliedIds = new HashSet<Guid>();
+        long totalDuration = 0;
+        foreach (var input in dto.Modules)
         {
-            Order = index + 1,
-            Name = module.Name?.Trim() ?? string.Empty,
-            Description = module.Description?.Trim() ?? string.Empty,
-            DurationMinutes = module.DurationMinutes,
-            Content = module.Content?.Trim() ?? string.Empty,
-            Resources = module.Resources?.Select(x => x.Trim()).Where(x => x.Length > 0).ToList() ?? []
-        }).ToList();
-        revision.TotalDurationMinutes = revision.Modules.Sum(x => x.DurationMinutes);
-    }
-
-    private static void Apply(CourseRevision revision, CourseUpdateDTO dto, HashSet<Guid> allowedModuleIds)
-    {
-        revision.Title = dto.Title?.Trim() ?? string.Empty;
-        revision.Description = dto.Description?.Trim() ?? string.Empty;
-        revision.Category = dto.Category?.Trim() ?? string.Empty;
-        revision.Level = dto.Level?.Trim() ?? string.Empty;
-        revision.Modality = dto.Modality?.Trim() ?? string.Empty;
-        revision.MaxCapacity = dto.MaxCapacity;
-        revision.LearningObjectives = dto.LearningObjectives?.Select(x => x.Trim()).Where(x => x.Length > 0).ToList() ?? [];
-        revision.SuggestedPrerequisites = dto.SuggestedPrerequisites?.Select(x => x.Trim()).Where(x => x.Length > 0).ToList() ?? [];
-        revision.Modules = (dto.Modules ?? []).Select((module, index) =>
-        {
-            if (module.Id.HasValue && !allowedModuleIds.Contains(module.Id.Value))
+            if (input.Id.HasValue && (!allowedModuleIds.Contains(input.Id.Value) || !suppliedIds.Add(input.Id.Value)))
             {
                 throw new ModuleCourseMismatchException();
             }
-            return new CourseModule
+            if (input.DurationMinutes <= 0)
             {
-                Id = module.Id ?? Guid.Empty,
-                Order = index + 1,
-                Name = module.Name?.Trim() ?? string.Empty,
-                Description = module.Description?.Trim() ?? string.Empty,
-                DurationMinutes = module.DurationMinutes,
-                Content = module.Content?.Trim() ?? string.Empty,
-                Resources = module.Resources?.Select(x => x.Trim()).Where(x => x.Length > 0).ToList() ?? []
-            };
-        }).ToList();
-        revision.TotalDurationMinutes = revision.Modules.Sum(x => x.DurationMinutes);
-    }
-
-    private static void ApplyTrackedUpdate(CourseRevision revision, CourseUpdateDTO dto)
-    {
-        var existing = revision.Modules.ToDictionary(x => x.Id);
-        var suppliedIds = dto.Modules.Where(x => x.Id.HasValue).Select(x => x.Id!.Value).ToList();
-        if (suppliedIds.Count != suppliedIds.Distinct().Count() || suppliedIds.Any(id => !existing.ContainsKey(id)))
-        {
-            throw new ModuleCourseMismatchException();
-        }
-        foreach (var omitted in revision.Modules.Where(x => !suppliedIds.Contains(x.Id)).ToList())
-        {
-            revision.Modules.Remove(omitted);
-        }
-        var order = 1;
-        foreach (var input in dto.Modules)
-        {
-            CourseModule module;
-            if (input.Id.HasValue)
-            {
-                module = existing[input.Id.Value];
+                throw new LumenValidationException("La duración de cada módulo debe ser mayor que cero.");
             }
-            else
+            totalDuration += input.DurationMinutes;
+            if (totalDuration > int.MaxValue)
             {
-                module = new CourseModule { Id = Guid.NewGuid(), RevisionId = revision.Id };
-                revision.Modules.Add(module);
+                throw new LumenValidationException("La duración total del curso excede el máximo admitido.");
             }
-            module.Order = order++;
-            module.Name = input.Name?.Trim() ?? string.Empty;
-            module.Description = input.Description?.Trim() ?? string.Empty;
-            module.DurationMinutes = input.DurationMinutes;
-            module.Content = input.Content?.Trim() ?? string.Empty;
-            module.Resources = input.Resources?.Select(x => x.Trim()).Where(x => x.Length > 0).ToList() ?? [];
+            revision.Modules.Add(new CourseModule
+            {
+                Id = input.Id ?? Guid.Empty,
+                Order = revision.Modules.Count + 1,
+                Name = NormalizeText(input.Name, 200, "nombre del módulo"),
+                Description = NormalizeText(input.Description, 2000, "descripción del módulo"),
+                DurationMinutes = input.DurationMinutes,
+                Content = NormalizeText(input.Content, 8000, "contenido del módulo"),
+                Resources = NormalizeList(input.Resources)
+            });
         }
-        revision.Title = dto.Title?.Trim() ?? string.Empty;
-        revision.Description = dto.Description?.Trim() ?? string.Empty;
-        revision.Category = dto.Category?.Trim() ?? string.Empty;
-        revision.Level = dto.Level?.Trim() ?? string.Empty;
-        revision.Modality = dto.Modality?.Trim() ?? string.Empty;
-        revision.MaxCapacity = dto.MaxCapacity;
-        revision.LearningObjectives = dto.LearningObjectives?.Select(x => x.Trim()).Where(x => x.Length > 0).ToList() ?? [];
-        revision.SuggestedPrerequisites = dto.SuggestedPrerequisites?.Select(x => x.Trim()).Where(x => x.Length > 0).ToList() ?? [];
-        revision.TotalDurationMinutes = revision.Modules.Sum(x => x.DurationMinutes);
+        revision.TotalDurationMinutes = (int)totalDuration;
+        return revision;
     }
 
-    private static void ValidateDraft(int maxCapacity, IEnumerable<int> durations)
+    private static string NormalizeText(string? value, int maximumLength, string field)
     {
-        if (maxCapacity < 0 || durations.Any(x => x <= 0))
+        ValidateLength(value, maximumLength, field);
+        return value?.Trim() ?? string.Empty;
+    }
+
+    private static void ValidateLength(string? value, int maximumLength, string field)
+    {
+        if (value?.Length > maximumLength)
         {
-            throw new LumenValidationException("El cupo no puede ser negativo y la duración de cada módulo debe ser mayor que cero.");
+            throw new LumenValidationException($"El campo {field} admite hasta {maximumLength} caracteres.");
         }
     }
 
-    private static void ValidateComplete(CourseRevision revision)
+    private static List<string> NormalizeList(IReadOnlyList<string>? values)
     {
-        ServiceGuard.Required(revision.Title, "título");
-        ServiceGuard.Required(revision.Description, "descripción");
-        ServiceGuard.Required(revision.Category, "categoría");
-        ServiceGuard.Required(revision.Level, "nivel");
-        ServiceGuard.Required(revision.Modality, "modalidad");
-        if (revision.MaxCapacity <= 0)
+        if (values is null) return [];
+        if (values.Any(x => x is null))
+        {
+            throw new LumenValidationException("Las listas no pueden contener elementos nulos.");
+        }
+        return values.Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
+    }
+
+    private static DateTime NextTimestamp(DateTime previous)
+    {
+        var now = DateTime.UtcNow;
+        if (now > previous) return now;
+        if (previous == DateTime.MaxValue)
+        {
+            throw new CourseStateConflictException("La fecha de actualización del curso no permite registrar cambios.");
+        }
+        return previous.AddTicks(1);
+    }
+
+    private static int ValidateComplete(CourseRevision revision)
+    {
+        var validated = BuildRevision(new CourseUpdateDTO(revision.Title, revision.Description, revision.Category,
+            revision.Level, revision.Modality, revision.MaxCapacity, revision.LearningObjectives,
+            revision.SuggestedPrerequisites, revision.Modules.Select(x => new CourseModuleUpdateDTO(x.Id,
+                x.Name, x.Description, x.DurationMinutes, x.Content, x.Resources)).ToList()),
+            revision.Modules.Select(x => x.Id).ToHashSet());
+        ServiceGuard.Required(validated.Title, "título");
+        ServiceGuard.Required(validated.Description, "descripción");
+        ServiceGuard.Required(validated.Category, "categoría");
+        ServiceGuard.Required(validated.Level, "nivel");
+        ServiceGuard.Required(validated.Modality, "modalidad");
+        if (validated.MaxCapacity <= 0)
         {
             throw new LumenValidationException("El cupo máximo debe ser mayor que cero.");
         }
-        if (revision.Modules.Count == 0)
+        if (validated.Modules.Count == 0)
         {
             throw new CourseRequiresModuleException();
         }
-        foreach (var module in revision.Modules)
+        foreach (var module in validated.Modules)
         {
             ServiceGuard.Required(module.Name, "nombre del módulo");
             ServiceGuard.Required(module.Description, "descripción del módulo");
@@ -377,6 +368,7 @@ public sealed class CourseService(
                 throw new LumenValidationException("Cada módulo debe incluir contenido o al menos un recurso.");
             }
         }
+        return validated.TotalDurationMinutes;
     }
 
     private static CourseResponseDTO MapToResponseDTO(Course course)
