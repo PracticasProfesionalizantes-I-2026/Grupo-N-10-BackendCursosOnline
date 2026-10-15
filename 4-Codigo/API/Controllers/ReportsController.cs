@@ -12,8 +12,21 @@ namespace Lumen.API.Controllers;
 public sealed class ReportsController(IReportService service) : ControllerBase
 {
     [HttpGet("summary")]
-    public Task<IActionResult> GetSummary([FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken cancellationToken) =>
-        ExecuteAsync(() => service.GetSummaryAsync(from, to, cancellationToken), Ok);
+    public Task<IActionResult> GetSummary([FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken cancellationToken) =>
+        ExecuteAsync(() =>
+        {
+            if (!from.HasValue || !to.HasValue)
+            {
+                var message = !from.HasValue && !to.HasValue
+                    ? "Faltan los parámetros obligatorios: from y to."
+                    : !from.HasValue
+                        ? "Falta el parámetro obligatorio: from."
+                        : "Falta el parámetro obligatorio: to.";
+                throw new LumenValidationException(message);
+            }
+
+            return service.GetSummaryAsync(from.Value, to.Value, cancellationToken);
+        }, Ok);
 
     private async Task<IActionResult> ExecuteAsync<T>(Func<Task<T>> operation, Func<T, IActionResult> success)
     {
