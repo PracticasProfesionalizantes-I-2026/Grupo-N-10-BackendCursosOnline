@@ -1,0 +1,49 @@
+meta {
+  name: CU-08 - Progreso final del Profesor
+  type: http
+  seq: 19
+}
+
+get {
+  url: {{baseUrl}}/api/courses/{{courseId}}/students/progress
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{teacherToken}}
+}
+
+script:pre-request {
+  if (typeof bru.getVar("teacherToken") !== "string" || !bru.getVar("teacherToken").length) {
+    throw new Error("Falta el login requerido: teacherToken.");
+  }
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  if (!isGuid(bru.getVar("courseId"))) throw new Error("Falta courseId: ejecutar su paso previo en esta misma base.");
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  const body = res.getBody();
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  test("Listado válido sin exigir datos ajenos al escenario", function () {
+    expect(Array.isArray(body)).to.equal(true);
+    expect(body.every(row => isGuid(row.studentId) && row.progress && row.progress.courseId === bru.getVar("courseId"))).to.equal(true);
+    expect(new Set(body.map(row => row.progress.enrollmentId)).size).to.equal(body.length);
+  });
+  test("El Profesor ve al Alumno actual con progreso completo", function () {
+    const rows = body.filter(row => row.studentId === bru.getVar("studentUserId") && row.progress.enrollmentId === bru.getVar("enrollmentId"));
+    expect(rows.length).to.equal(1);
+    expect(rows[0].progress.courseId).to.equal(bru.getVar("courseId"));
+    expect(rows[0].progress.completedModules).to.equal(3);
+    expect(rows[0].progress.totalModules).to.equal(3);
+    expect(rows[0].progress.percentage).to.equal(100);
+    expect(rows[0].progress.status).to.equal("Completado");
+  });
+}
+
+docs {
+  Paso 19 de 19. Ejecutar esta carpeta en orden, únicamente contra la API temporal; ver README.md.
+}

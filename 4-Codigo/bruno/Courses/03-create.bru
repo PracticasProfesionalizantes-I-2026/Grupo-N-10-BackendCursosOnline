@@ -1,6 +1,23 @@
-meta { name: Crear borrador type: http seq: 3 }
-post { url: {{baseUrl}}/api/courses body: json auth: bearer }
-auth:bearer { token: {{teacherToken}} }
+meta {
+  name: Crear borrador
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/courses
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{teacherToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
 body:json {
   {
     "title": "Curso de prueba",
@@ -9,16 +26,54 @@ body:json {
     "level": "Inicial",
     "modality": "Online",
     "maxCapacity": 25,
-    "learningObjectives": ["Aplicar fundamentos"],
-    "suggestedPrerequisites": ["Ninguno"],
+    "learningObjectives": [
+      "Aplicar fundamentos"
+    ],
+    "suggestedPrerequisites": [
+      "Ninguno"
+    ],
     "modules": [
       {
         "name": "Introducción",
         "description": "Primer módulo",
         "durationMinutes": 60,
         "content": "Contenido inicial",
-        "resources": ["guia.pdf"]
+        "resources": [
+          "guia.pdf"
+        ]
       }
     ]
   }
+}
+
+script:pre-request {
+  if (typeof bru.getVar("teacherToken") !== "string" || !bru.getVar("teacherToken").length) {
+    throw new Error("Falta el login requerido: teacherToken.");
+  }
+  ["courseId", "reviewId", "reviewRevisionId", "enrollmentId", "moduleId", "moduleIds", "progressSnapshot", "repeatSnapshot"].forEach(name => bru.deleteVar(name));
+}
+
+script:post-response {
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  const body = res.getBody();
+  if (res.getStatus() !== 201 || !body || !isGuid(body.id) || body.status !== "Borrador") {
+    throw new Error("No se creó el borrador; no se captura courseId.");
+  }
+  bru.setVar("courseId", body.id);
+}
+
+tests {
+  test("HTTP 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+  const body = res.getBody();
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  test("Curso identificado, módulos y duración coherentes", function () {
+    expect(isGuid(body.id)).to.equal(true);
+    expect(body.id).to.equal(bru.getVar("courseId"));
+    expect(Array.isArray(body.modules)).to.equal(true);
+    expect(body.modules.every(module => isGuid(module.id))).to.equal(true);
+    expect(body.totalDurationMinutes).to.equal(body.modules.reduce((sum, module) => sum + module.durationMinutes, 0));
+    expect(body.status).to.equal("Borrador");
+  });
 }

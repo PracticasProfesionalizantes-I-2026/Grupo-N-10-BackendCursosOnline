@@ -1,0 +1,59 @@
+meta {
+  name: CU-12 - Obtener contenido y módulos publicados
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/api/enrollments/{{enrollmentId}}/course-content
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{studentToken}}
+}
+
+script:pre-request {
+  if (typeof bru.getVar("studentToken") !== "string" || !bru.getVar("studentToken").length) {
+    throw new Error("Falta el login requerido: studentToken.");
+  }
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  if (!isGuid(bru.getVar("enrollmentId"))) throw new Error("Falta enrollmentId: ejecutar su paso previo en esta misma base.");
+  bru.deleteVar("moduleId");
+  bru.deleteVar("moduleIds");
+}
+
+script:post-response {
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  const body = res.getBody();
+  if (res.getStatus() !== 200 || !body || body.id !== bru.getVar("courseId") ||
+      !Array.isArray(body.modules) || !body.modules.length || !body.modules.every(module => isGuid(module.id)) ||
+      new Set(body.modules.map(module => module.id)).size !== body.modules.length) {
+    throw new Error("No se obtuvo contenido publicado válido; no se capturan módulos.");
+  }
+  const ids = body.modules.map(module => module.id);
+  bru.setVar("moduleIds", ids);
+  bru.setVar("moduleId", ids[0]);
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  const body = res.getBody();
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  test("Contenido publicado y módulos autorizados", function () {
+    expect(body.id).to.equal(bru.getVar("courseId"));
+    expect(body.modules.length).to.be.greaterThan(0);
+    expect(body.modules.every(module => typeof module.content === "string")).to.equal(true);
+  });
+  test("Tres módulos de la primera publicación", function () {
+    expect(body.modules.length).to.equal(3);
+    expect(body.version).to.equal(1);
+  });
+}
+
+docs {
+  Paso 11 de 19. Ejecutar esta carpeta en orden, únicamente contra la API temporal; ver README.md.
+}

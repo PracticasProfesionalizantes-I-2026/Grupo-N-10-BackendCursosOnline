@@ -10,6 +10,10 @@ post {
   auth: none
 }
 
+headers {
+  Content-Type: application/json
+}
+
 body:json {
   {
     "email": "admin@lumen.local",
@@ -17,12 +21,34 @@ body:json {
   }
 }
 
+script:pre-request {
+  bru.deleteVar("adminToken");
+  bru.deleteVar("adminUserId");
+}
+
 script:post-response {
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
   const body = res.getBody();
-  if (res.getStatus() === 200 && body && typeof body.accessToken === "string" && body.accessToken.length > 0) {
-    bru.setVar("adminToken", body.accessToken);
-  } else {
+  if (res.getStatus() !== 200 || !body || typeof body.accessToken !== "string" || !body.accessToken.length ||
+      !body.user || !isGuid(body.user.id) || body.user.role !== "Administrador") {
     bru.deleteVar("adminToken");
-    throw new Error("Login de Administrador fallido: no se conservó ningún token runtime.");
+    throw new Error("Login de Administrador inválido: no se conserva un token anterior.");
   }
+  bru.setVar("adminToken", body.accessToken);
+  bru.setVar("adminUserId", body.user.id);
+  bru.setVar("userId", body.user.id);
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  const body = res.getBody();
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  test("Token runtime e identidad del rol autenticado", function () {
+    expect(typeof body.accessToken === "string" && body.accessToken.length > 0).to.equal(true);
+    expect(isGuid(body.user.id)).to.equal(true);
+    expect(body.user.role).to.equal("Administrador");
+    expect(Number.isNaN(Date.parse(body.expiresAtUtc))).to.equal(false);
+  });
 }

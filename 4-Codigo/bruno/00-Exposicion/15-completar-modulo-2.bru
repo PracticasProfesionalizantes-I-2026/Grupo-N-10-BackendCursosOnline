@@ -1,0 +1,80 @@
+meta {
+  name: CU-16 - Completar segundo módulo
+  type: http
+  seq: 15
+}
+
+put {
+  url: {{baseUrl}}/api/enrollments/{{enrollmentId}}/modules/{{moduleId}}/completion
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{studentToken}}
+}
+
+script:pre-request {
+  if (typeof bru.getVar("studentToken") !== "string" || !bru.getVar("studentToken").length) {
+    throw new Error("Falta el login requerido: studentToken.");
+  }
+  const ids = bru.getVar("moduleIds");
+  if (!Array.isArray(ids) || ids.length !== 3) throw new Error("Ejecutar primero el paso 11: contenido publicado de tres módulos.");
+  bru.setVar("moduleId", ids[1]);
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  if (!isGuid(bru.getVar("enrollmentId"))) throw new Error("Falta enrollmentId: ejecutar su paso previo en esta misma base.");
+  if (!isGuid(bru.getVar("moduleId"))) throw new Error("Falta moduleId: ejecutar su paso previo en esta misma base.");
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() !== 200 || !body || body.enrollmentId !== bru.getVar("enrollmentId") ||
+      !Array.isArray(body.completedModuleIds)) {
+    throw new Error("No se obtuvo progreso de la inscripción actual.");
+  }
+  bru.setVar("progressSnapshot", {
+    enrollmentId: body.enrollmentId, percentage: body.percentage,
+    completedModules: body.completedModules, completedModuleIds: body.completedModuleIds.slice()
+  });
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  const body = res.getBody();
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  test("Progreso consistente con módulos únicos y publicación vigente", function () {
+    expect(Number.isInteger(body.totalModules) && body.totalModules >= 0).to.equal(true);
+    expect(Number.isInteger(body.completedModules) && body.completedModules >= 0).to.equal(true);
+    expect(body.completedModules <= body.totalModules).to.equal(true);
+    expect(Array.isArray(body.completedModuleIds)).to.equal(true);
+    expect(body.completedModuleIds.every(isGuid)).to.equal(true);
+    expect(new Set(body.completedModuleIds).size).to.equal(body.completedModuleIds.length);
+    expect(body.completedModuleIds.length).to.equal(body.completedModules);
+    const raw = body.totalModules === 0 ? 0 : body.completedModules * 100 / body.totalModules;
+    const floor = Math.floor(raw);
+    let expected = raw - floor === 0.5 ? floor + floor % 2 : Math.round(raw);
+    const status = body.completedModules === 0 ? "NoIniciado" :
+      body.completedModules === body.totalModules ? "Completado" : "EnProgreso";
+    if (status === "EnProgreso") expected = Math.max(1, Math.min(99, expected));
+    expect(body.percentage).to.equal(expected);
+    expect(body.status).to.equal(status);
+    expect(Number.isInteger(body.publishedCourseVersion) && body.publishedCourseVersion > 0).to.equal(true);
+    expect(body.enrollmentId).to.equal(bru.getVar("enrollmentId"));
+    expect(body.courseId).to.equal(bru.getVar("courseId"));
+    expect(body.studentId).to.equal(bru.getVar("studentUserId"));
+  });
+  test("El módulo solicitado figura una sola vez como completado", function () {
+    expect(body.completedModuleIds.includes(bru.getVar("moduleId"))).to.equal(true);
+  });
+  test("Avance esperado en la secuencia de exposición", function () {
+    expect(body.totalModules).to.equal(3);
+    expect(body.completedModules).to.equal(2);
+    expect(body.percentage).to.equal(67);
+  });
+}
+
+docs {
+  Paso 15 de 19. Ejecutar esta carpeta en orden, únicamente contra la API temporal; ver README.md.
+}

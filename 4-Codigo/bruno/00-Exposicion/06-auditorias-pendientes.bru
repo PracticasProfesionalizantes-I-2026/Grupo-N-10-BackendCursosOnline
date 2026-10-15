@@ -1,0 +1,41 @@
+meta {
+  name: CU-04 - Consultar auditoría pendiente
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/course-reviews
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+script:pre-request {
+  if (typeof bru.getVar("adminToken") !== "string" || !bru.getVar("adminToken").length) {
+    throw new Error("Falta el login requerido: adminToken.");
+  }
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  const body = res.getBody();
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  test("Listado válido sin exigir datos ajenos al escenario", function () {
+    expect(Array.isArray(body)).to.equal(true);
+    expect(body.every(row => isGuid(row.id))).to.equal(true);
+    expect(body.every(row => row.decision === null)).to.equal(true);
+  });
+  test("La solicitud recién creada está en el listado pendiente", function () {
+    expect(body.filter(row => row.id === bru.getVar("reviewId") && row.courseId === bru.getVar("courseId")).length).to.equal(1);
+  });
+}
+
+docs {
+  Paso 6 de 19. Ejecutar esta carpeta en orden, únicamente contra la API temporal; ver README.md.
+}

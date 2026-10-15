@@ -1,3 +1,39 @@
-meta { name: Finalizar curso type: http seq: 8 }
-post { url: {{baseUrl}}/api/courses/{{courseId}}/finish body: none auth: bearer }
-auth:bearer { token: {{adminToken}} }
+meta {
+  name: Finalizar curso
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/courses/{{courseId}}/finish
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+script:pre-request {
+  if (typeof bru.getVar("adminToken") !== "string" || !bru.getVar("adminToken").length) {
+    throw new Error("Falta el login requerido: adminToken.");
+  }
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  if (!isGuid(bru.getVar("courseId"))) throw new Error("Falta courseId: ejecutar su paso previo en esta misma base.");
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  const body = res.getBody();
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  test("Curso identificado, módulos y duración coherentes", function () {
+    expect(isGuid(body.id)).to.equal(true);
+    expect(body.id).to.equal(bru.getVar("courseId"));
+    expect(Array.isArray(body.modules)).to.equal(true);
+    expect(body.modules.every(module => isGuid(module.id))).to.equal(true);
+    expect(body.totalDurationMinutes).to.equal(body.modules.reduce((sum, module) => sum + module.durationMinutes, 0));
+    expect(body.status).to.equal("Finalizado");
+  });
+}

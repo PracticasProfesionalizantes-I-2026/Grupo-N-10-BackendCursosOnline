@@ -13,3 +13,24 @@ get {
 auth:bearer {
   token: {{adminToken}}
 }
+
+script:pre-request {
+  if (typeof bru.getVar("adminToken") !== "string" || !bru.getVar("adminToken").length) {
+    throw new Error("Falta el login requerido: adminToken.");
+  }
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  const body = res.getBody();
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  test("Reporte con fechas y conteos no negativos", function () {
+    expect(Number.isNaN(Date.parse(body.from))).to.equal(false);
+    expect(Number.isNaN(Date.parse(body.to))).to.equal(false);
+    ["registeredUsers", "createdCourses", "requestedEnrollments"].forEach(field => {
+      expect(Number.isInteger(body[field]) && body[field] >= 0).to.equal(true);
+    });
+  });
+}

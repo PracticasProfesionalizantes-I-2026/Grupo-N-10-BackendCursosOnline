@@ -1,0 +1,95 @@
+meta {
+  name: CU-03 - Crear borrador con tres módulos
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/courses
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{teacherToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Exposición LUMEN - Curso controlado",
+    "description": "Curso temporal para demostrar creación, auditoría, inscripción y progreso.",
+    "category": "Tecnología",
+    "level": "Inicial",
+    "modality": "Online",
+    "maxCapacity": 25,
+    "learningObjectives": [
+      "Aplicar fundamentos"
+    ],
+    "suggestedPrerequisites": [
+      "Ninguno"
+    ],
+    "modules": [
+      {
+        "name": "Módulo 1",
+        "description": "Actividad controlada 1",
+        "durationMinutes": 30,
+        "content": "Contenido de demostración 1",
+        "resources": []
+      },
+      {
+        "name": "Módulo 2",
+        "description": "Actividad controlada 2",
+        "durationMinutes": 45,
+        "content": "Contenido de demostración 2",
+        "resources": []
+      },
+      {
+        "name": "Módulo 3",
+        "description": "Actividad controlada 3",
+        "durationMinutes": 60,
+        "content": "Contenido de demostración 3",
+        "resources": []
+      }
+    ]
+  }
+}
+
+script:pre-request {
+  if (typeof bru.getVar("teacherToken") !== "string" || !bru.getVar("teacherToken").length) {
+    throw new Error("Falta el login requerido: teacherToken.");
+  }
+  ["courseId", "reviewId", "reviewRevisionId", "enrollmentId", "moduleId", "moduleIds", "progressSnapshot", "repeatSnapshot"].forEach(name => bru.deleteVar(name));
+}
+
+script:post-response {
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  const body = res.getBody();
+  if (res.getStatus() !== 201 || !body || !isGuid(body.id) || body.status !== "Borrador") {
+    throw new Error("No se creó el borrador; no se captura courseId.");
+  }
+  bru.setVar("courseId", body.id);
+}
+
+tests {
+  test("HTTP 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+  const body = res.getBody();
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  test("Curso identificado, módulos y duración coherentes", function () {
+    expect(isGuid(body.id)).to.equal(true);
+    expect(body.id).to.equal(bru.getVar("courseId"));
+    expect(Array.isArray(body.modules)).to.equal(true);
+    expect(body.modules.every(module => isGuid(module.id))).to.equal(true);
+    expect(body.totalDurationMinutes).to.equal(body.modules.reduce((sum, module) => sum + module.durationMinutes, 0));
+    expect(body.status).to.equal("Borrador");
+  });
+}
+
+docs {
+  Paso 4 de 19. Ejecutar esta carpeta en orden, únicamente contra la API temporal; ver README.md.
+}

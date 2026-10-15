@@ -1,3 +1,33 @@
-meta { name: Listar cursos gestionables type: http seq: 1 }
-get { url: {{baseUrl}}/api/courses body: none auth: bearer }
-auth:bearer { token: {{teacherToken}} }
+meta {
+  name: Listar cursos gestionables
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/courses
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{teacherToken}}
+}
+
+script:pre-request {
+  if (typeof bru.getVar("teacherToken") !== "string" || !bru.getVar("teacherToken").length) {
+    throw new Error("Falta el login requerido: teacherToken.");
+  }
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  const body = res.getBody();
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  test("Listado válido sin exigir datos ajenos al escenario", function () {
+    expect(Array.isArray(body)).to.equal(true);
+    expect(body.every(row => isGuid(row.id))).to.equal(true);
+  });
+}

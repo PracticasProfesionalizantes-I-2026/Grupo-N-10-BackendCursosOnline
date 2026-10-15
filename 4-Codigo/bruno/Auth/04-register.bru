@@ -1,5 +1,19 @@
-meta { name: Registrar Alumno type: http seq: 4 }
-post { url: {{baseUrl}}/api/auth/register body: json auth: none }
+meta {
+  name: Registrar Alumno
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/auth/register
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
 body:json {
   {
     "email": "nuevo@lumen.local",
@@ -12,4 +26,28 @@ body:json {
     "address": "Calle 10",
     "postalCode": "1000"
   }
+}
+
+script:post-response {
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  const body = res.getBody();
+  if (res.getStatus() !== 201 || !body || !isGuid(body.id) || body.role !== "Alumno") {
+    throw new Error("No se creó la cuenta pública.");
+  }
+  bru.setVar("registeredUserId", body.id);
+}
+
+tests {
+  test("HTTP 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+  const body = res.getBody();
+  const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
+  test("Usuario sin contraseña ni hash en la respuesta", function () {
+    expect(isGuid(body.id)).to.equal(true);
+    expect(typeof body.email).to.equal("string");
+    expect(Object.prototype.hasOwnProperty.call(body, "passwordHash")).to.equal(false);
+    expect(Object.prototype.hasOwnProperty.call(body, "password")).to.equal(false);
+    expect(body.role).to.equal("Alumno");
+  });
 }
