@@ -26,11 +26,12 @@ public sealed class EnrollmentService(
         {
             StudentId = currentUser.UserId,
             CourseId = course.Id,
-            Course = course,
             Status = EnrollmentStatus.Pendiente,
             RequestedAtUtc = DateTime.UtcNow
         };
         await enrollmentRepository.CreateAsync(enrollment, cancellationToken);
+        // The published graph is read-only: persist only the new enrollment, then map its title.
+        enrollment.Course = course;
         return MapToResponseDTO(enrollment);
     }
 

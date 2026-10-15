@@ -6,6 +6,7 @@ public interface ICourseRepository
 {
     Task<Course> CreateAsync(Course course, CourseRevision workingRevision, CancellationToken cancellationToken = default);
     Task<CourseRevision> AddRevisionAsync(Course course, CourseRevision revision, CancellationToken cancellationToken = default);
+    Task UpdateWorkingRevisionAsync(Course course, CourseRevision changes, CancellationToken cancellationToken = default);
     Task SaveAsync(CancellationToken cancellationToken = default);
     Task<Course?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<Course?> GetByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default);

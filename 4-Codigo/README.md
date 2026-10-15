@@ -73,6 +73,24 @@ Un curso mantiene dos referencias independientes:
 
 Al editar un curso publicado se crea una revisión de trabajo nueva. La versión pública anterior permanece intacta hasta que el Administrador aprueba la auditoría. Si se solicitan cambios o se rechaza la revisión, el catálogo continúa usando la última revisión publicada.
 
+### CU-05: edición, persistencia y concurrencia
+
+PUT /api/courses/{id} guarda la revisión de trabajo. POST /api/courses/{id}/submit-review valida la información completa y registra la solicitud de auditoría. Profesor opera sobre cursos propios; Administrador puede gestionar todos los cursos. Alumno no puede editar ni enviar solicitudes de auditoría.
+
+La actualización recibe la lista completa de módulos en su orden final. Un ID existente conserva la identidad del módulo; un ID nulo agrega uno nuevo. Los módulos omitidos se retiran únicamente de la revisión de trabajo. IDs vacíos, repetidos o ajenos a esa revisión devuelven ModuleCourseMismatchException (409). Los recursos son referencias textuales, no archivos cargados por este endpoint.
+
+El servicio valida y construye los cambios antes de modificar entidades rastreadas. Comprueba elementos nulos, cupo no negativo, duración positiva y suma representable como int. Aplica los límites ya definidos por el modelo: título y nombre de módulo 200 caracteres; descripción del curso 4000; categoría, nivel y modalidad 100; descripción de módulo 2000; contenido 8000; observación de auditoría 2000. Las entradas inválidas generan errores controlados (400). Guardar un borrador permite información incompleta y cero módulos; enviar requiere los campos principales, cupo positivo, al menos un módulo y contenido o recursos en cada módulo.
+
+El repositorio guarda la retirada explícita, la modificación y el agregado de módulos en una única transacción. Para intercambiar posiciones bajo el índice único (RevisionId, Order), utiliza posiciones negativas temporales y luego aplica el orden positivo final. Esas posiciones nunca se confirman como resultado de la actualización: cualquier error revierte toda la transacción, incluido UpdatedAtUtc.
+
+EF usa como tokens de concurrencia los campos existentes UpdatedAtUtc y WorkingRevisionId de Course, UpdatedAtUtc y Status de CourseRevision, y Decision de CourseReview. El servicio hace avanzar estrictamente la fecha de actualización, aun si el reloj devuelve un valor igual o anterior. Las escrituras comprueban los valores originales; un conflicto se traduce a CourseStateConflictException (409). Esta protección cubre envíos duplicados, ediciones concurrentes con el envío, primeras actualizaciones simultáneas y decisiones administrativas tardías. No agrega columnas ni requiere una migración. La creación de una revisión y el cambio del puntero de trabajo son atómicos; el envío guarda la solicitud y la transición juntos. Una decisión solo se aplica a una solicitud pendiente de la revisión de trabajo vigente.
+
+Los siguientes aspectos funcionales siguen abiertos en las fuentes oficiales. CU-05 conserva el comportamiento previo, sin establecer reglas nuevas: la edición depende del estado de la revisión aunque el curso esté Pausado o Finalizado; guardar correcciones de CambiosSolicitados pasa a Borrador; objetivos y requisitos sugeridos pueden estar vacíos; alumnos y progreso usan la publicación vigente, conservando finalizaciones por ID de módulo. Las solicitudes conservan decisiones y observaciones, pero no una fotografía inmutable del contenido corregido posteriormente.
+
+Las pruebas CourseUpdateServiceTests, CourseUpdateIntegrationTests y CourseConcurrencyIntegrationTests cubren permisos, validaciones, módulos, rollback con fallo de persistencia, versionado, auditoría, acceso y progreso. Las pruebas de concurrencia fuerzan dos lecturas del mismo estado antes de confirmar la primera escritura y comprobar que la segunda devuelve 409 sin cambios parciales. Las bases de integración son SQLite únicas en el directorio temporal, con pooling deshabilitado y limpieza al finalizar; no usan lumen.db de desarrollo.
+
+LumenApiFactory conserva un único constructor público params IInterceptor[], compatible con las llamadas sin argumentos, con un interceptor individual (incluido DbCommandInterceptor) y con un arreglo, como en CU-06. La configuración adicional de CU-05 se establece mediante la propiedad init ConfigureTestServices; no compite con la resolución del constructor. Un arreglo de interceptores nulo o un elemento nulo se rechaza explícitamente. LumenApiFactoryCompatibilityTests compila y ejecuta esas formas de llamada sobre el host aislado. Las carreras entre edición de módulos y envío modifican contenido, recursos, duración, orden y composición; comprueban tanto una escritura tardía como la liberación conjunta de ambas operaciones, con un único éxito y un conflicto 409.
+
 ## Autenticación
 
 La API usa JWT Bearer.
