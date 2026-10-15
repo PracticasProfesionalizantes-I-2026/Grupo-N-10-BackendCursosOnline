@@ -12,6 +12,10 @@ internal sealed class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollm
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
         builder.HasIndex(x => new { x.StudentId, x.CourseId, x.Status });
+        builder.HasIndex(x => new { x.StudentId, x.CourseId })
+            .HasDatabaseName("IX_Enrollments_StudentId_CourseId_Active")
+            .IsUnique()
+            .HasFilter("\"Status\" IN ('Pendiente', 'Aprobada')");
         builder.HasIndex(x => x.RequestedAtUtc);
         builder.HasOne(x => x.Student)
             .WithMany(x => x.Enrollments)

@@ -270,6 +270,11 @@ namespace Lumen.Migrations.DatabaseMigrations
 
                     b.HasIndex("ResolvedByUserId");
 
+                    b.HasIndex("StudentId", "CourseId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Enrollments_StudentId_CourseId_Active")
+                        .HasFilter("\"Status\" IN ('Pendiente', 'Aprobada')");
+
                     b.HasIndex("StudentId", "CourseId", "Status");
 
                     b.ToTable("Enrollments", (string)null);

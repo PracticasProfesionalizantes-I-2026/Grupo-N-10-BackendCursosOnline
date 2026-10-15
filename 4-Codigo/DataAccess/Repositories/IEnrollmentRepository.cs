@@ -6,7 +6,11 @@ namespace Lumen.DataAccess.Repositories;
 public interface IEnrollmentRepository
 {
     Task<Enrollment> CreateAsync(Enrollment enrollment, CancellationToken cancellationToken = default);
+    Task<bool> TryCreateForPublishedCourseAsync(Enrollment enrollment, CourseOperationalStatus requiredStatus,
+        CancellationToken cancellationToken = default);
     Task SaveAsync(CancellationToken cancellationToken = default);
+    Task<bool> TryResolveAsync(Guid id, EnrollmentStatus expectedStatus, EnrollmentStatus decision,
+        DateTime resolvedAtUtc, Guid resolvedByUserId, CancellationToken cancellationToken = default);
     Task<Enrollment?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<Enrollment?> GetByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Enrollment>> GetByStudentAsync(Guid studentId, CancellationToken cancellationToken = default);

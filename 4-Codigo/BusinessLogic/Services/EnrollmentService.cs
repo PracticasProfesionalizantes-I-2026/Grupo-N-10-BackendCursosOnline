@@ -16,8 +16,20 @@ public sealed class EnrollmentService(
     public async Task<EnrollmentResponseDTO> CreateAsync(EnrollmentCreateDTO dto, CancellationToken cancellationToken = default)
     {
         ServiceGuard.Role(currentUser, UserRole.Alumno);
-        var course = await courseRepository.GetPublishedByIdAsync(dto.CourseId, cancellationToken)
-            ?? throw new CourseStateConflictException("El curso no se encuentra publicado o no admite nuevas inscripciones.");
+        if (currentUser.UserId == Guid.Empty)
+        {
+            throw new ForbiddenOperationException("La identidad del alumno autenticado no es válida.");
+        }
+        if (dto.CourseId == Guid.Empty)
+        {
+            throw new LumenValidationException("El identificador del curso es obligatorio y no puede estar vacío.");
+        }
+        var course = await courseRepository.GetPublishedByIdAsync(dto.CourseId, cancellationToken);
+        if (course is null)
+        {
+            await EnsureCourseExistsAsync(dto.CourseId, cancellationToken);
+            throw new CourseStateConflictException("El curso no se encuentra publicado o no admite nuevas inscripciones.");
+        }
         if (await enrollmentRepository.HasPendingOrApprovedAsync(currentUser.UserId, dto.CourseId, cancellationToken))
         {
             throw new DuplicateEnrollmentException();
@@ -29,10 +41,22 @@ public sealed class EnrollmentService(
             Status = EnrollmentStatus.Pendiente,
             RequestedAtUtc = DateTime.UtcNow
         };
-        await enrollmentRepository.CreateAsync(enrollment, cancellationToken);
-        // The published graph is read-only: persist only the new enrollment, then map its title.
+        if (!await enrollmentRepository.TryCreateForPublishedCourseAsync(
+                enrollment, CourseOperationalStatus.Activo, cancellationToken))
+        {
+            await EnsureCourseExistsAsync(dto.CourseId, cancellationToken);
+            throw new CourseStateConflictException("El curso dejó de admitir nuevas inscripciones.");
+        }
         enrollment.Course = course;
         return MapToResponseDTO(enrollment);
+    }
+
+    private async Task EnsureCourseExistsAsync(Guid courseId, CancellationToken cancellationToken)
+    {
+        if (await courseRepository.GetByIdAsync(courseId, cancellationToken) is null)
+        {
+            throw new CourseNotFoundException(courseId);
+        }
     }
 
     public async Task<IReadOnlyList<EnrollmentResponseDTO>> GetMineAsync(CancellationToken cancellationToken = default)
@@ -83,16 +107,21 @@ public sealed class EnrollmentService(
         {
             throw new LumenValidationException("La decisión debe ser Aprobada o Rechazada.");
         }
-        var enrollment = await enrollmentRepository.GetByIdForUpdateAsync(id, cancellationToken)
+        var enrollment = await enrollmentRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new EnrollmentNotFoundException(id);
         if (enrollment.Status != EnrollmentStatus.Pendiente)
         {
             throw new EnrollmentStateConflictException("Solo puede resolverse una inscripción pendiente.");
         }
+        var resolvedAtUtc = DateTime.UtcNow;
+        if (!await enrollmentRepository.TryResolveAsync(id, EnrollmentStatus.Pendiente, dto.Decision,
+                resolvedAtUtc, currentUser.UserId, cancellationToken))
+        {
+            throw new EnrollmentStateConflictException("La solicitud ya fue resuelta por otra operación.");
+        }
         enrollment.Status = dto.Decision;
-        enrollment.ResolvedAtUtc = DateTime.UtcNow;
+        enrollment.ResolvedAtUtc = resolvedAtUtc;
         enrollment.ResolvedByUserId = currentUser.UserId;
-        await enrollmentRepository.SaveAsync(cancellationToken);
         return MapToResponseDTO(enrollment);
     }
 
