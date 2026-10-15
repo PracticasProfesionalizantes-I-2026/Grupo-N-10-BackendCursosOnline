@@ -39,7 +39,7 @@ Los controllers no contienen reglas de negocio. Los services validan permisos, d
 
 ## Requisitos y ejecución
 
-Requiere el SDK .NET 10. Desde 4-Codigo:
+Requiere el SDK .NET 10 y una clave JWT externa. Configurar primero la clave según la sección siguiente. Desde 4-Codigo:
 
 ~~~powershell
 dotnet restore
@@ -50,7 +50,88 @@ dotnet run --project API/Lumen.API.csproj
 - OpenAPI: http://localhost:5080/openapi/v1.json
 - Scalar: http://localhost:5080/scalar/v1
 
-Al arrancar, DbInitializer aplica las migraciones pendientes y carga datos demo de forma idempotente.
+Al arrancar, la API valida la configuración JWT antes de abrir la base. Si es válida, DbInitializer aplica las migraciones pendientes y carga datos demo de forma idempotente. Verificar siempre el destino SQLite antes de ejecutar la API.
+
+## Configuración JWT local y demostración
+
+No existe una clave de firma predeterminada en los archivos versionados. La API requiere Jwt:Key con contenido no vacío y al menos 32 bytes UTF-8. La clave anterior del repositorio está revocada: suministrarla mediante cualquier proveedor también impide el arranque. Los errores de configuración no muestran la clave.
+
+La firma continúa siendo HS256. La clave se interpreta como texto UTF-8, sin decodificar Base64 ni recortar caracteres. Emisión y validación utilizan las mismas opciones, estables durante la ejecución. Cambiar una clave requiere reiniciar la API y volver a iniciar sesión; los tokens firmados con la clave anterior dejan de ser válidos.
+
+### Rodrigo y Nahuel: User Secrets
+
+Cada integrante debe configurar su propia clave en su equipo, sin compartirla. El proyecto ya declara UserSecretsId; no ejecutar nuevamente dotnet user-secrets init. Ese identificador es público y no contiene credenciales.
+
+Ejecutar una sola vez desde 4-Codigo, antes de compartir pantalla. Este procedimiento genera 32 bytes aleatorios criptográficos, conserva su representación Base64 como texto y la envía por entrada estándar a Secret Manager. No imprime la clave ni la incorpora como literal al historial de comandos:
+
+~~~powershell
+$jwtBytes = [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32)
+try {
+    $jwtValue = [Convert]::ToBase64String($jwtBytes)
+    @{ 'Jwt:Key' = $jwtValue } |
+        ConvertTo-Json -Compress |
+        dotnet user-secrets set --project API/Lumen.API.csproj
+    if ($LASTEXITCODE -ne 0) { throw 'No se pudo guardar la configuración JWT local.' }
+}
+finally {
+    Remove-Variable jwtBytes, jwtValue -ErrorAction SilentlyContinue
+}
+~~~
+
+User Secrets guarda datos fuera del repositorio, en el perfil del usuario, sin cifrarlos. Es una herramienta de desarrollo local. No ejecutar dotnet user-secrets list ni abrir secrets.json durante una grabación: exponen sus valores.
+
+El perfil http configura Development, que habilita la carga de User Secrets:
+
+~~~powershell
+dotnet run --project API/Lumen.API.csproj --launch-profile http
+~~~
+
+### Alternativa: variable de entorno del proceso
+
+Jwt__Key corresponde a Jwt:Key. Las variables de entorno tienen precedencia sobre User Secrets y appsettings; los argumentos de línea de comandos tienen precedencia sobre ambas. Una variable antigua puede bloquear el arranque aunque User Secrets tenga una clave nueva. No suministrar secretos como argumentos ni guardarlos en launchSettings.json, archivos .bru, .env o appsettings.
+
+Para una ejecución temporal sin almacenar una clave personal, este ejemplo genera una clave solo para la sesión de la API. Ejecutarlo en una terminal dedicada, desde 4-Codigo:
+
+~~~powershell
+$env:Jwt__Key = [Convert]::ToBase64String(
+    [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+try {
+    dotnet run --project API/Lumen.API.csproj --launch-profile http
+}
+finally {
+    Remove-Item Env:Jwt__Key -ErrorAction SilentlyContinue
+}
+~~~
+
+Cada ejecución de ese ejemplo cambia la clave e invalida los tokens anteriores. Las variables de entorno también son accesibles al proceso y no sustituyen un almacén de secretos productivo. Fuera de Development, no se carga User Secrets automáticamente: proporcionar Jwt__Key por un medio externo al repositorio.
+
+### Exposición con SQLite temporal y Bruno
+
+Configurar la clave antes de mostrar la pantalla. Para mantener la demostración aislada, en una terminal dedicada con User Secrets configurado:
+
+~~~powershell
+$demoDatabase = Join-Path ([IO.Path]::GetTempPath()) ("lumen-demo-" + [Guid]::NewGuid().ToString('N') + '.db')
+$env:ConnectionStrings__Lumen = "Data Source=$demoDatabase;Pooling=False"
+try {
+    dotnet run --project API/Lumen.API.csproj --launch-profile http
+}
+finally {
+    Remove-Item Env:ConnectionStrings__Lumen -ErrorAction SilentlyContinue
+    Remove-Variable demoDatabase
+}
+~~~
+
+La base de esa demostración queda en el directorio temporal; este comando no elimina sus archivos. La clave JWT no se envía a Bruno. El cliente obtiene tokens mediante los tres logins y los guarda con bru.setVar como variables runtime, sin modificar el environment versionado. Los requests conservan {{studentToken}}, {{teacherToken}} y {{adminToken}}. Repetir los logins después de cerrar Bruno o cambiar de servidor/clave. No publicar respuestas de login, encabezados Bearer ni exports con tokens.
+
+El resto de la sintaxis de la colección Bruno y el problema ambiental de EventLog siguen pendientes de etapas separadas; esta corrección JWT no los resuelve.
+
+### Pruebas JWT
+
+LumenApiFactory genera una clave aleatoria por instancia y la configura en memoria, sin variables globales ni User Secrets personales. Las fábricas derivadas conservan la clave de su raíz; fábricas independientes no aceptan los tokens de la otra. La validación de configuración también se aplica en Testing, sin excepciones ni claves predeterminadas.
+
+JwtConfigurationTests verifica claves ausentes/vacías/cortas, longitud UTF-8 y rechazo antes de abrir o crear SQLite. JwtSecurityIntegrationTests comprueba login y roles, firmas inválidas, vencimiento, issuer/audience, aislamiento y estabilidad de opciones. El vector público RevokedJwtTestVector contiene claims ficticios y una firma precomputada de la clave revocada; no contiene la clave ni un token legítimo del entorno actual.
+
+Referencias: [User Secrets](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets?view=aspnetcore-10.0), [configuración y precedencia](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-10.0) y [variables runtime de Bruno](https://docs.usebruno.com/variables/runtime-variables).
 
 ## Usuarios demo
 
@@ -281,4 +362,4 @@ Las suites EnrollmentCreationServiceTests, EnrollmentCreationIntegrationTests y 
 
 ## Bruno
 
-Abrir la carpeta bruno como colección y seleccionar el environment local. Ejecutar primero los requests de login para guardar los tokens de Alumno, Profesor y Administrador.
+Abrir la carpeta bruno como colección y seleccionar el environment local. Los tres requests de login conservan los tokens de Alumno, Profesor y Administrador en variables runtime mediante bru.setVar, solo si el login responde 200 con accessToken. No guardar tokens en local.bru ni compartir exports o capturas que los contengan. La clave de firma permanece exclusivamente en la API. Los demás requests mantienen las limitaciones de sintaxis identificadas en la auditoría, pendientes de otra etapa.

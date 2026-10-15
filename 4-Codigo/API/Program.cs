@@ -5,6 +5,7 @@ using Lumen.BusinessLogic;
 using Lumen.BusinessLogic.Abstractions;
 using Lumen.DataAccess;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 
@@ -22,26 +23,34 @@ var connectionString = builder.Configuration.GetConnectionString("Lumen")
     ?? "Data Source=lumen.db";
 builder.Services.AddDataAccess(connectionString);
 
-var jwtKey = builder.Configuration["Jwt:Key"]
-    ?? throw new InvalidOperationException("Falta configurar Jwt:Key.");
+builder.Services.AddSingleton<IValidateOptions<JwtOptions>, JwtOptionsValidator>();
+builder.Services.AddOptions<JwtOptions>()
+    .BindConfiguration(JwtOptions.SectionName)
+    .ValidateOnStart();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddJwtBearer();
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtOptions>>((options, jwtOptions) =>
     {
+        var jwt = jwtOptions.Value;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ValidIssuer = jwt.Issuer,
+            ValidAudience = jwt.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key!)),
             ClockSkew = TimeSpan.FromSeconds(15)
         };
     });
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// Resolve after test-host overrides, but before any migration or database initialization.
+_ = app.Services.GetRequiredService<IOptions<JwtOptions>>().Value;
 
 await using (var scope = app.Services.CreateAsyncScope())
 {

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Lumen.DataAccess;
@@ -6,12 +7,14 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 
 namespace Lumen.API.IntegrationTests;
 
 public sealed class LumenApiFactory : WebApplicationFactory<Program>
 {
     private readonly IInterceptor[] interceptors;
+    private readonly string jwtKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 
     public LumenApiFactory(params IInterceptor[] interceptors)
     {
@@ -29,9 +32,13 @@ public sealed class LumenApiFactory : WebApplicationFactory<Program>
         Path.GetTempPath(),
         $"lumen-integration-{Guid.NewGuid():N}.db");
 
+    internal string DatabasePath => databasePath;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
+            new Dictionary<string, string?> { ["Jwt:Key"] = jwtKey }));
         builder.ConfigureLogging(logging => logging.ClearProviders().AddConsole());
         builder.ConfigureServices(services =>
         {

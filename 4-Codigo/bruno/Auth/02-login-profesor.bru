@@ -1,6 +1,28 @@
-meta { name: Login Profesor type: http seq: 2 }
-post { url: {{baseUrl}}/api/auth/login body: json auth: none }
-body:json { { "email": "profesor@lumen.local", "password": "Lumen123!" } }
+meta {
+  name: Login Profesor
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "profesor@lumen.local",
+    "password": "Lumen123!"
+  }
+}
+
 script:post-response {
-  bru.setEnvVar("teacherToken", res.getBody().accessToken);
+  const body = res.getBody();
+  if (res.getStatus() === 200 && body && typeof body.accessToken === "string" && body.accessToken.length > 0) {
+    bru.setVar("teacherToken", body.accessToken);
+  } else {
+    bru.deleteVar("teacherToken");
+    throw new Error("Login de Profesor fallido: no se conservó ningún token runtime.");
+  }
 }
