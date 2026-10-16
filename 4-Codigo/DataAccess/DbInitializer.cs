@@ -15,9 +15,15 @@ public sealed class DbInitializer(
 {
     public const string DemoPassword = "Lumen123!";
 
-    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    public async Task InitializeAsync(string? environmentName = null, CancellationToken cancellationToken = default)
     {
         await context.Database.MigrateAsync(cancellationToken);
+        // Missing, Production and custom environments migrate without creating demonstration data.
+        if (!string.Equals(environmentName, "Development", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(environmentName, "Testing", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
         if (await context.Users.AsNoTracking().AnyAsync(cancellationToken))
         {
             return;

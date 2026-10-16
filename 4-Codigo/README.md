@@ -4,7 +4,7 @@ API RESTful en .NET 10 para el Sistema de Gestión de Cursos Online LUMEN. Imple
 
 ## Arquitectura
 
-La solución utiliza arquitectura N-Tier e inyección de dependencias por constructor.
+La solución utiliza arquitectura N-Tier e inyección de dependencias por constructor. `API` recibe HTTP y resuelve autenticación, autorización por endpoint y traducción de errores; `BusinessLogic` valida reglas, permisos y transiciones; `DataAccess` concentra entidades, configuración EF Core, repositories y `LumenDbContext`. `Shared` contiene DTOs, enums y excepciones; `Migrations` contiene las migraciones y su ejecutor.
 
 ~~~text
 Cliente HTTP
@@ -39,18 +39,28 @@ Los controllers no contienen reglas de negocio. Los services validan permisos, d
 
 ## Requisitos y ejecución
 
-Requiere el SDK .NET 10 y una clave JWT externa. Configurar primero la clave según la sección siguiente. Desde 4-Codigo:
+Requisitos:
+
+- **SDK .NET 10.0.400**, según [global.json](global.json). La política `rollForward: latestPatch` permite parches posteriores dentro de la misma banda **10.0.4xx**; no cambia de banda ni de versión mayor o menor. El runtime por sí solo no alcanza.
+- **Windows PowerShell 5.1 o PowerShell 7** para los bloques de esta guía. Los ejemplos de generación aleatoria son compatibles con ambas versiones.
+- Acceso a NuGet para restaurar paquetes que no estén en la caché local. Bruno se necesita únicamente para utilizar su colección; la API y las pruebas .NET no lo requieren.
+
+Desde una copia limpia, abrir PowerShell en la raíz del repositorio:
 
 ~~~powershell
-dotnet restore
-dotnet run --project API/Lumen.API.csproj
+Set-Location -LiteralPath '4-Codigo'
+dotnet --version
+dotnet restore Lumen.slnx
+dotnet build Lumen.slnx -c Release --no-restore
 ~~~
+
+Comprobar que cada comando termine correctamente. Todos los comandos restantes de esta guía parten de **4-Codigo**. Configurar JWT en la sección siguiente y después iniciar la API con el comando indicado allí.
 
 - API: http://localhost:5080
 - OpenAPI: http://localhost:5080/openapi/v1.json
 - Scalar: http://localhost:5080/scalar/v1
 
-Al arrancar, la API valida la configuración JWT antes de abrir la base. Si es válida, DbInitializer aplica las migraciones pendientes y carga datos demo de forma idempotente. Verificar siempre el destino SQLite antes de ejecutar la API.
+Al arrancar, la API valida JWT antes de abrir la base y aplica las migraciones pendientes. La carga de datos demo depende del entorno, como se detalla más abajo. Verificar siempre el destino SQLite antes de ejecutar la API.
 
 ## Configuración JWT local y demostración
 
@@ -58,15 +68,17 @@ No existe una clave de firma predeterminada en los archivos versionados. La API 
 
 La firma continúa siendo HS256. La clave se interpreta como texto UTF-8, sin decodificar Base64 ni recortar caracteres. Emisión y validación utilizan las mismas opciones, estables durante la ejecución. Cambiar una clave requiere reiniciar la API y volver a iniciar sesión; los tokens firmados con la clave anterior dejan de ser válidos.
 
-### Rodrigo y Nahuel: User Secrets
+### Desarrollo local: User Secrets
 
-Cada integrante debe configurar su propia clave en su equipo, sin compartirla. El proyecto ya declara UserSecretsId; no ejecutar nuevamente dotnet user-secrets init. Ese identificador es público y no contiene credenciales.
+Cada persona que ejecute el proyecto localmente debe configurar su propia clave en su equipo, sin compartirla. El proyecto ya declara UserSecretsId; no ejecutar nuevamente dotnet user-secrets init. Ese identificador es público y no contiene credenciales.
 
-Ejecutar una sola vez desde 4-Codigo, antes de compartir pantalla. Este procedimiento genera 32 bytes aleatorios criptográficos, conserva su representación Base64 como texto y la envía por entrada estándar a Secret Manager. No imprime la clave ni la incorpora como literal al historial de comandos:
+Ejecutar una vez por equipo desde 4-Codigo, antes de iniciar la API. Este procedimiento genera 32 bytes aleatorios criptográficos, conserva su representación Base64 como texto y la envía por entrada estándar a Secret Manager. No imprime la clave ni la incorpora como literal al historial de comandos:
 
 ~~~powershell
-$jwtBytes = [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32)
+$jwtBytes = New-Object byte[] 32
+$jwtGenerator = [System.Security.Cryptography.RandomNumberGenerator]::Create()
 try {
+    $jwtGenerator.GetBytes($jwtBytes)
     $jwtValue = [Convert]::ToBase64String($jwtBytes)
     @{ 'Jwt:Key' = $jwtValue } |
         ConvertTo-Json -Compress |
@@ -74,16 +86,26 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo guardar la configuración JWT local.' }
 }
 finally {
-    Remove-Variable jwtBytes, jwtValue -ErrorAction SilentlyContinue
+    $jwtGenerator.Dispose()
+    [Array]::Clear($jwtBytes, 0, $jwtBytes.Length)
+    Remove-Variable jwtBytes, jwtValue, jwtGenerator -ErrorAction SilentlyContinue
 }
 ~~~
 
 User Secrets guarda datos fuera del repositorio, en el perfil del usuario, sin cifrarlos. Es una herramienta de desarrollo local. No ejecutar dotnet user-secrets list ni abrir secrets.json durante una grabación: exponen sus valores.
 
-El perfil http configura Development, que habilita la carga de User Secrets:
+Después de compilar, iniciar la API. El perfil `http` establece la dirección 5080 y `ASPNETCORE_ENVIRONMENT=Development`. El bloque fija también `DOTNET_ENVIRONMENT`, que tiene precedencia, y restaura su valor al cerrar la API con Ctrl+C:
 
 ~~~powershell
-dotnet run --project API/Lumen.API.csproj --launch-profile http
+$previousDotnetEnvironment = [Environment]::GetEnvironmentVariable('DOTNET_ENVIRONMENT', 'Process')
+try {
+    $env:DOTNET_ENVIRONMENT = 'Development'
+    dotnet run --project API/Lumen.API.csproj -c Release --no-build --no-restore --launch-profile http
+}
+finally {
+    [Environment]::SetEnvironmentVariable('DOTNET_ENVIRONMENT', $previousDotnetEnvironment, 'Process')
+    Remove-Variable previousDotnetEnvironment
+}
 ~~~
 
 ### Alternativa: variable de entorno del proceso
@@ -93,13 +115,22 @@ Jwt__Key corresponde a Jwt:Key. Las variables de entorno tienen precedencia sobr
 Para una ejecución temporal sin almacenar una clave personal, este ejemplo genera una clave solo para la sesión de la API. Ejecutarlo en una terminal dedicada, desde 4-Codigo:
 
 ~~~powershell
-$env:Jwt__Key = [Convert]::ToBase64String(
-    [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+$previousJwtKey = [Environment]::GetEnvironmentVariable('Jwt__Key', 'Process')
+$previousDotnetEnvironment = [Environment]::GetEnvironmentVariable('DOTNET_ENVIRONMENT', 'Process')
+$jwtBytes = New-Object byte[] 32
+$jwtGenerator = [System.Security.Cryptography.RandomNumberGenerator]::Create()
 try {
-    dotnet run --project API/Lumen.API.csproj --launch-profile http
+    $jwtGenerator.GetBytes($jwtBytes)
+    $env:Jwt__Key = [Convert]::ToBase64String($jwtBytes)
+    $env:DOTNET_ENVIRONMENT = 'Development'
+    dotnet run --project API/Lumen.API.csproj -c Release --no-build --no-restore --launch-profile http
 }
 finally {
-    Remove-Item Env:Jwt__Key -ErrorAction SilentlyContinue
+    [Environment]::SetEnvironmentVariable('Jwt__Key', $previousJwtKey, 'Process')
+    [Environment]::SetEnvironmentVariable('DOTNET_ENVIRONMENT', $previousDotnetEnvironment, 'Process')
+    $jwtGenerator.Dispose()
+    [Array]::Clear($jwtBytes, 0, $jwtBytes.Length)
+    Remove-Variable previousJwtKey, previousDotnetEnvironment, jwtBytes, jwtGenerator
 }
 ~~~
 
@@ -107,23 +138,11 @@ Cada ejecución de ese ejemplo cambia la clave e invalida los tokens anteriores.
 
 ### Exposición con SQLite temporal y Bruno
 
-Configurar la clave antes de mostrar la pantalla. Para mantener la demostración aislada, en una terminal dedicada con User Secrets configurado:
+Seguir el [README de Bruno](bruno/README.md): contiene el bloque completo para iniciar una API en **Testing**, con clave efímera, SQLite temporal absoluta y puerto **5081**. No necesita guardar una clave personal ni usar la base habitual. Seleccionar el environment `demo-temporal` y ejecutar los 19 requests de `00-Exposicion` en orden.
 
-~~~powershell
-$demoDatabase = Join-Path ([IO.Path]::GetTempPath()) ("lumen-demo-" + [Guid]::NewGuid().ToString('N') + '.db')
-$env:ConnectionStrings__Lumen = "Data Source=$demoDatabase;Pooling=False"
-try {
-    dotnet run --project API/Lumen.API.csproj --launch-profile http
-}
-finally {
-    Remove-Item Env:ConnectionStrings__Lumen -ErrorAction SilentlyContinue
-    Remove-Variable demoDatabase
-}
-~~~
+La clave JWT permanece en la API. Bruno obtiene tokens mediante los logins y los conserva con `bru.setVar` como variables runtime. Repetir los logins al cambiar de servidor o clave. No publicar respuestas de login, encabezados Bearer ni exports con tokens.
 
-La base de esa demostración queda en el directorio temporal; este comando no elimina sus archivos. La clave JWT no se envía a Bruno. El cliente obtiene tokens mediante los tres logins y los guarda con bru.setVar como variables runtime, sin modificar el environment versionado. Los requests conservan {{studentToken}}, {{teacherToken}} y {{adminToken}}. Repetir los logins después de cerrar Bruno o cambiar de servidor/clave. No publicar respuestas de login, encabezados Bearer ni exports con tokens.
-
-El resto de la sintaxis de la colección Bruno y el problema ambiental de EventLog siguen pendientes de etapas separadas; esta corrección JWT no los resuelve.
+En Windows, el arranque excluye el proveedor Windows EventLog y conserva Console y los demás proveedores. No se requiere un filtro ambiental que silencie EventLog ni permisos para escribir en el registro de eventos.
 
 ### Pruebas JWT
 
@@ -133,9 +152,21 @@ JwtConfigurationTests verifica claves ausentes/vacías/cortas, longitud UTF-8 y 
 
 Referencias: [User Secrets](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets?view=aspnetcore-10.0), [configuración y precedencia](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-10.0) y [variables runtime de Bruno](https://docs.usebruno.com/variables/runtime-variables).
 
-## Usuarios demo
+## Inicialización por entorno y usuarios demo
 
-Todos utilizan la contraseña Lumen123!.
+`DbInitializer` aplica migraciones en todos los entornos. Solo crea los datos demo si el entorno es **Development o Testing** y la tabla de usuarios está vacía. Si ya existen usuarios, no los elimina, modifica ni completa con otras cuentas demo.
+
+| Entorno | Esquema y migraciones | Datos demo automáticos |
+|---|---|---|
+| Development | Sí | Solo si no existen usuarios |
+| Testing | Sí | Solo si no existen usuarios |
+| Production u otro entorno | Sí | No |
+
+Sin un entorno explícito, la API utiliza Production y el ejecutor de migraciones tampoco genera demos. El perfil `http` y los bloques anteriores seleccionan Development explícitamente. Las pruebas y el recorrido temporal de Bruno utilizan Testing.
+
+Una Production vacía puede arrancar sin cuentas. Su primer Administrador requiere aprovisionamiento controlado fuera de este recorrido; el registro público sigue permitiendo únicamente Alumno y Profesor. Esta política no elimina cuentas demo que ya existieran.
+
+En una base nueva de Development o Testing, las cuentas demo siguientes utilizan la contraseña pública de prueba `Lumen123!`:
 
 | Rol | Email |
 |---|---|
@@ -210,6 +241,10 @@ Authorization: Bearer <jwt>
 ~~~
 
 ## Endpoints
+
+La API expone **29 operaciones**. El documento generado en [OpenAPI](http://localhost:5080/openapi/v1.json) incluye esquemas de respuesta, códigos HTTP, Bearer JWT por operación, enums y los parámetros obligatorios de reportes. [Scalar](http://localhost:5080/scalar/v1) permite explorarlo. Registro y login son públicos; las otras 27 operaciones requieren autenticación y los permisos indicados abajo. En la API temporal de Bruno, utilizar el puerto 5081.
+
+OpenAPI es la referencia técnica del contrato HTTP actual; las fichas académicas anteriores conservan propuestas de trazabilidad de etapas previas.
 
 ### Autenticación y usuarios
 
@@ -344,22 +379,43 @@ HAVING COUNT(*) > 1;
 
 Si devuelve filas, la resolución de esas inconsistencias requiere una decisión sobre los registros; no debe inferirse qué solicitud conservar. Solo después de comprobar el destino y resolver los conflictos puede aplicarse la migración. El arranque de la API aplica migraciones automáticamente, por lo que esta comprobación debe hacerse antes de arrancarla contra una base existente.
 
+La API aplica las migraciones incluidas al iniciar; no es necesario instalar `dotnet-ef` ni crear una migración nueva para ejecutar esta copia.
+
+Para usar el ejecutor por separado, después de compilar Release, este ejemplo crea una base temporal nueva y carga demos en Testing. El argumento `--connection` establece su destino; el ejecutor no toma `ConnectionStrings__Lumen` de la configuración de la API:
+
 ~~~powershell
-dotnet ef migrations add NombreMigracion --project Migrations/Lumen.Migrations.csproj --startup-project Migrations/Lumen.Migrations.csproj --context LumenDbContext --output-dir DatabaseMigrations
-dotnet run --project Migrations/Lumen.Migrations.csproj
+$migrationDatabase = Join-Path ([IO.Path]::GetTempPath()) ('lumen-migrations-' + [Guid]::NewGuid().ToString('N') + '.db')
+$previousDotnetEnvironment = [Environment]::GetEnvironmentVariable('DOTNET_ENVIRONMENT', 'Process')
+try {
+    $env:DOTNET_ENVIRONMENT = 'Testing'
+    dotnet run --project Migrations/Lumen.Migrations.csproj -c Release --no-build --no-restore -- "--connection=Data Source=$migrationDatabase;Pooling=False"
+    if ($LASTEXITCODE -ne 0) { throw 'No se pudieron aplicar las migraciones.' }
+}
+finally {
+    [Environment]::SetEnvironmentVariable('DOTNET_ENVIRONMENT', $previousDotnetEnvironment, 'Process')
+    Remove-Variable previousDotnetEnvironment
+}
 ~~~
+
+El ejemplo no requiere JWT y deja la base en `$migrationDatabase`. No cambia la base utilizada por la API. Para migrar un destino elegido, detener las instancias que lo usan y proporcionar su ruta absoluta en el mismo argumento `--connection`. El ejecutor usa `DOTNET_ENVIRONMENT`, luego `ASPNETCORE_ENVIRONMENT`; Production, un entorno desconocido o la ausencia de ambos aplican solamente el esquema. No cambia la política de cuentas existentes.
 
 ## Validación
 
 ~~~powershell
-dotnet build
-dotnet test
+dotnet build Lumen.slnx -c Release --no-restore
+dotnet test Lumen.slnx -c Release --no-build --no-restore
 ~~~
 
 Las pruebas unitarias usan xUnit y Moq sin base de datos. Las pruebas de integración usan WebApplicationFactory y bases SQLite únicas en el directorio temporal, con pooling deshabilitado y limpieza al finalizar. Las pruebas de migración de CU-06 usan SQLite en memoria. No utilizan las bases lumen.db de desarrollo.
+
+La última auditoría del código aprobó **350 pruebas: 101 unitarias y 249 de integración**, incluidas las regresiones JWT, concurrencia, EventLog, OpenAPI e inicialización por entorno. No se necesita configurar una clave personal para ejecutarlas: las fábricas de integración generan claves independientes en memoria.
 
 Las suites EnrollmentCreationServiceTests, EnrollmentCreationIntegrationTests y EnrollmentPersistenceIntegrationTests verifican CU-06, incluyendo HTTP, identidad JWT, persistencia sin alterar cursos/revisiones/módulos, concurrencia, carreras con pausa/finalización, nueva solicitud tras rechazo/cancelación, progreso separado y migración de datos existentes.
 
 ## Bruno
 
-Abrir la carpeta bruno como colección y seleccionar el environment local. Los tres requests de login conservan los tokens de Alumno, Profesor y Administrador en variables runtime mediante bru.setVar, solo si el login responde 200 con accessToken. No guardar tokens en local.bru ni compartir exports o capturas que los contengan. La clave de firma permanece exclusivamente en la API. Los demás requests mantienen las limitaciones de sintaxis identificadas en la auditoría, pendientes de otra etapa.
+La colección contiene **50 requests** y dos environments: `local` para el puerto 5080 y `demo-temporal` para el 5081. El [README de Bruno](bruno/README.md) documenta preparación, arranque aislado, precondiciones, orden y limpieza.
+
+`00-Exposicion` contiene **19 requests**: autentica los tres roles, crea un curso de tres módulos, lo publica mediante auditoría, solicita y aprueba una inscripción y registra progreso hasta 100 %, incluida una repetición idempotente. Ejecutar esa carpeta completa en orden, una iteración y concurrencia 1. Los 31 requests generales tienen precondiciones propias y no deben ejecutarse como una secuencia automática de toda la raíz.
+
+En la auditoría se verificaron 69 llamadas HTTP reales sobre los 50 requests distintos y **171 tests Bruno aprobados**, mediante los parsers y motores ScriptRuntime/TestRuntime NodeVM del Bruno instalado. La interfaz gráfica y QuickJS no forman parte de esa comprobación. Los tokens e IDs se mantienen en variables runtime; no guardarlos en environments ni compartir exports o capturas que los contengan.

@@ -12,6 +12,8 @@ namespace Lumen.API.Controllers;
 public sealed class ReportsController(IReportService service) : ControllerBase
 {
     [HttpGet("summary")]
+    [ProducesResponseType<ReportSummaryResponseDTO>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
     public Task<IActionResult> GetSummary([FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken cancellationToken) =>
         ExecuteAsync(() =>
         {

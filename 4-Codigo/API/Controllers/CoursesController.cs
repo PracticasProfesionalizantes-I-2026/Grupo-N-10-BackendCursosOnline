@@ -12,66 +12,102 @@ namespace Lumen.API.Controllers;
 public sealed class CoursesController(ICourseService service) : ControllerBase
 {
     [HttpGet("catalog/courses")]
+    [ProducesResponseType<IReadOnlyList<PublishedCourseResponseDTO>>(StatusCodes.Status200OK)]
     public Task<IActionResult> GetCatalog(CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.GetPublishedAsync(cancellationToken), Ok);
 
     [HttpGet("catalog/courses/{id:guid}")]
+    [ProducesResponseType<PublishedCourseResponseDTO>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     public Task<IActionResult> GetPublished(Guid id, CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.GetPublishedByIdAsync(id, cancellationToken), Ok);
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpGet("courses")]
+    [ProducesResponseType<IReadOnlyList<CourseResponseDTO>>(StatusCodes.Status200OK)]
     public Task<IActionResult> GetManageable(CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.GetManageableAsync(cancellationToken), Ok);
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpGet("courses/{id:guid}")]
+    [ProducesResponseType<CourseResponseDTO>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     public Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.GetByIdAsync(id, cancellationToken), Ok);
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpPost("courses")]
+    [ProducesResponseType<CourseResponseDTO>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
     public Task<IActionResult> Create(CourseCreateDTO dto, CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.CreateAsync(dto, cancellationToken),
             value => CreatedAtAction(nameof(GetById), new { id = value.Id }, value));
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpPut("courses/{id:guid}")]
+    [ProducesResponseType<CourseResponseDTO>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Update(Guid id, CourseUpdateDTO dto, CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.UpdateAsync(id, dto, cancellationToken), Ok);
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpPost("courses/{id:guid}/submit-review")]
+    [ProducesResponseType<CourseReviewResponseDTO>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> SubmitReview(Guid id, CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.SubmitForReviewAsync(id, cancellationToken), Ok);
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpPost("courses/{id:guid}/pause")]
+    [ProducesResponseType<CourseResponseDTO>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Pause(Guid id, CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.PauseAsync(id, cancellationToken), Ok);
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpPost("courses/{id:guid}/resume")]
+    [ProducesResponseType<CourseResponseDTO>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Resume(Guid id, CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.ResumeAsync(id, cancellationToken), Ok);
 
     [Authorize(Roles = "Administrador")]
     [HttpPost("courses/{id:guid}/finish")]
+    [ProducesResponseType<CourseResponseDTO>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Finish(Guid id, CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.FinishAsync(id, cancellationToken), Ok);
 
     [Authorize(Roles = "Administrador")]
     [HttpGet("course-reviews")]
+    [ProducesResponseType<IReadOnlyList<CourseReviewResponseDTO>>(StatusCodes.Status200OK)]
     public Task<IActionResult> GetPendingReviews(CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.GetPendingReviewsAsync(cancellationToken), Ok);
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpGet("course-reviews/mine")]
+    [ProducesResponseType<IReadOnlyList<CourseReviewResponseDTO>>(StatusCodes.Status200OK)]
     public Task<IActionResult> GetMyReviews(CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.GetMyReviewsAsync(cancellationToken), Ok);
 
     [Authorize(Roles = "Administrador")]
     [HttpPost("course-reviews/{id:guid}/decision")]
+    [ProducesResponseType<CourseReviewResponseDTO>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> ResolveReview(Guid id, CourseReviewDecisionDTO dto, CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.ResolveReviewAsync(id, dto, cancellationToken), Ok);
 

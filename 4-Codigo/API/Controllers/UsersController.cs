@@ -12,14 +12,20 @@ namespace Lumen.API.Controllers;
 public sealed class UsersController(IUserService service) : ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType<IReadOnlyList<UserResponseDTO>>(StatusCodes.Status200OK)]
     public Task<IActionResult> GetAll(CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.GetAllAsync(cancellationToken), Ok);
 
     [HttpGet("{id:guid}")]
+    [ProducesResponseType<UserResponseDTO>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     public Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.GetByIdAsync(id, cancellationToken), Ok);
 
     [HttpPost("administrators")]
+    [ProducesResponseType<UserResponseDTO>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> CreateAdministrator(AdministratorCreateDTO dto, CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.CreateAdministratorAsync(dto, cancellationToken),
             value => CreatedAtAction(nameof(GetById), new { id = value.Id }, value));

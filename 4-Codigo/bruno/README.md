@@ -4,10 +4,15 @@ La colección contiene 50 requests: los 31 originales y los 19 de `00-Exposicion
 
 ## 1. Iniciar una API con SQLite temporal
 
-Requisitos: SDK .NET 10 y Bruno instalado. Desde la raíz del repositorio, abrir una terminal PowerShell dedicada, entrar en `4-Codigo` y ejecutar el bloque completo. El puerto 5081 debe estar libre; si está ocupado, detener únicamente la instancia temporal propia o elegir otro puerto y adaptar `baseUrl` antes de continuar.
+Requisitos: SDK **.NET 10.0.400** (roll-forward `latestPatch` dentro de 10.0.4xx), Windows PowerShell **5.1** o PowerShell **7**, y Bruno instalado. Ver también la [guía del backend](../README.md). Desde la raíz del repositorio, abrir una terminal PowerShell dedicada y ejecutar el bloque completo. El puerto 5081 debe estar libre; si está ocupado, detener únicamente la instancia temporal propia o elegir otro puerto y adaptar `baseUrl` antes de continuar.
 
 ```powershell
 Set-Location -LiteralPath '4-Codigo'
+
+dotnet restore Lumen.slnx
+if ($LASTEXITCODE -ne 0) { throw 'No se pudieron restaurar los paquetes.' }
+dotnet build Lumen.slnx -c Release --no-restore
+if ($LASTEXITCODE -ne 0) { throw 'No se pudo compilar Release.' }
 
 $demoDirectory = Join-Path ([IO.Path]::GetTempPath()) ('lumen-bruno-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $demoDirectory | Out-Null
@@ -21,7 +26,6 @@ $demoSettings = @{
     ASPNETCORE_ENVIRONMENT = 'Testing'
     Jwt__Key = [Convert]::ToBase64String($demoEntropy)
     ConnectionStrings__Lumen = "Data Source=$demoDatabase;Pooling=False"
-    Logging__EventLog__LogLevel__Default = 'None'
 }
 [Array]::Clear($demoEntropy, 0, $demoEntropy.Length)
 $demoPrevious = @{}
@@ -30,7 +34,7 @@ try {
         $demoPrevious[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
         [Environment]::SetEnvironmentVariable($name, $demoSettings[$name], 'Process')
     }
-    dotnet run --project API/Lumen.API.csproj --no-launch-profile --urls http://127.0.0.1:5081
+    dotnet run --project API/Lumen.API.csproj -c Release --no-build --no-restore --no-launch-profile --urls http://127.0.0.1:5081
 }
 finally {
     foreach ($name in $demoPrevious.Keys) {
@@ -41,9 +45,11 @@ finally {
 }
 ```
 
-La clave aleatoria es efímera, no es una clave personal ni se guarda en archivos. `Testing` evita cargar User Secrets de desarrollo; la conexión absoluta dirige la inicialización y las migraciones solamente a la nueva SQLite temporal. La opción de EventLog evita un problema de permisos de ese proveedor en Windows restringido y solo afecta a esta terminal/proceso. No cambia la configuración del sistema ni del proyecto.
+La clave aleatoria es efímera, no es una clave personal ni se guarda en archivos. `Testing` evita cargar User Secrets de desarrollo; la conexión absoluta dirige la inicialización y las migraciones solamente a la nueva SQLite temporal. La API ya excluye Windows EventLog y conserva Console; no es necesario desactivar el proveedor mediante variables de entorno.
 
 Esperar a que la API escuche en 5081. La inicialización incorpora las cuentas demo existentes del proyecto: `alumno@lumen.local`, `profesor@lumen.local` y `admin@lumen.local`. Los logins ya contienen la contraseña pública de esos fixtures; no introducir credenciales personales. Mantener abierta esta terminal durante la demostración.
+
+El seeding automático solo se permite en Development o Testing y cuando no existen usuarios. Production aplica migraciones y puede iniciar vacía, pero no crea demos. El ejecutor de migraciones respeta la misma política; no elimina ni modifica cuentas existentes.
 
 ## 2. Ejecutar desde Bruno
 
@@ -145,6 +151,6 @@ Bruno instalado: **4.2.1**. Parser incluido `@usebruno/lang`: **0.40.0**. Parseo
 
 Se ejecutaron **69 llamadas HTTP reales correspondientes a los 50 requests distintos**: dos recorridos completos de exposición (19 + 19) y los 31 originales en el orden indicado. Resultado: **171 tests Bruno aprobados, 0 fallidos**; cada test agrupa una o más aserciones. Los tres tokens y los cuatro identificadores requeridos se propagaron por variables runtime, sin escribir environments. Se utilizó una API con clave JWT efímera y SQLite temporal absoluta; se detuvo esa instancia y se eliminó su base al terminar.
 
-La ejecución se automatizó con un harness que leyó los `.bru` mediante el parser instalado, envió HTTP real a la API y ejecutó scripts/tests con **ScriptRuntime/TestRuntime NodeVM y Chai del Bruno instalado**. No fueron respuestas simuladas. No se ejecutaron la interfaz gráfica ni un CLI nativo de Bruno (CLI no disponible); tampoco se validó QuickJS. La prueba manual del runner gráfico es la observación pendiente antes de la exposición. La API emitió un diagnóstico de DataProtection del entorno restringido que no impidió los logins ni las llamadas verificadas; no se cambió código del backend.
+La ejecución se automatizó con un harness que leyó los `.bru` mediante el parser instalado, envió HTTP real a la API y ejecutó scripts/tests con **ScriptRuntime/TestRuntime NodeVM y Chai del Bruno instalado**. No fueron respuestas simuladas. Los resultados corresponden al motor NodeVM: no se ejecutaron la interfaz gráfica, un CLI nativo de Bruno ni QuickJS.
 
-No se volvieron a ejecutar las pruebas .NET en esta etapa: la referencia de 277 aprobadas pertenece a la etapa JWT. Los cambios presentes están limitados a esta carpeta.
+La auditoría posterior del backend aprobó **350 pruebas .NET** (101 unitarias y 249 de integración), incluidas las correcciones de concurrencia, EventLog, OpenAPI y seeding por entorno. Los comandos para reproducirlas están en la [guía del backend](../README.md).

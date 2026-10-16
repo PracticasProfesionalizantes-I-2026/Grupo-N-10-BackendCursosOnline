@@ -1,19 +1,38 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using Lumen.API.OpenApi;
 using Lumen.API.Security;
 using Lumen.BusinessLogic;
 using Lumen.BusinessLogic.Abstractions;
 using Lumen.DataAccess;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Logging.EventLog;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (OperatingSystem.IsWindows())
+{
+    // Keep Console and the other providers; Windows EventLog needs OS-level write access.
+    foreach (var provider in builder.Services.Where(descriptor =>
+        descriptor.ServiceType == typeof(ILoggerProvider) &&
+        descriptor.ImplementationType == typeof(EventLogLoggerProvider)).ToArray())
+    {
+        builder.Services.Remove(provider);
+    }
+}
+
 builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer<BearerSecurityDocumentTransformer>();
+    options.AddOperationTransformer<EndpointContractOperationTransformer>();
+    options.AddSchemaTransformer<EnumContractSchemaTransformer>();
+    options.AddDocumentTransformer<EnumContractSchemaTransformer>();
+});
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
@@ -54,7 +73,7 @@ _ = app.Services.GetRequiredService<IOptions<JwtOptions>>().Value;
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
-    await scope.ServiceProvider.GetRequiredService<DbInitializer>().InitializeAsync();
+    await scope.ServiceProvider.GetRequiredService<DbInitializer>().InitializeAsync(app.Environment.EnvironmentName);
 }
 
 app.MapOpenApi();

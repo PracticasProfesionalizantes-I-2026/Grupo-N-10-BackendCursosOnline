@@ -27,6 +27,7 @@ public sealed class LumenApiFactory : WebApplicationFactory<Program>
     }
 
     public Action<IServiceCollection>? ConfigureTestServices { get; init; }
+    public bool PreserveDefaultLogging { get; init; }
 
     private readonly string databasePath = Path.Combine(
         Path.GetTempPath(),
@@ -39,7 +40,10 @@ public sealed class LumenApiFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
         builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
             new Dictionary<string, string?> { ["Jwt:Key"] = jwtKey }));
-        builder.ConfigureLogging(logging => logging.ClearProviders().AddConsole());
+        if (!PreserveDefaultLogging)
+        {
+            builder.ConfigureLogging(logging => logging.ClearProviders().AddConsole());
+        }
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<LumenDbContext>();

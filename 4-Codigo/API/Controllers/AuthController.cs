@@ -10,11 +10,18 @@ namespace Lumen.API.Controllers;
 public sealed class AuthController(IAuthService service) : ControllerBase
 {
     [HttpPost("register")]
+    [ProducesResponseType<UserResponseDTO>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Register(UserCreateDTO dto, CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.RegisterAsync(dto, cancellationToken),
             value => CreatedAtAction(nameof(Register), new { id = value.Id }, value));
 
     [HttpPost("login")]
+    [ProducesResponseType<LoginResponseDTO>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
     public Task<IActionResult> Login(LoginRequestDTO dto, CancellationToken cancellationToken) =>
         ExecuteAsync(() => service.LoginAsync(dto, cancellationToken), Ok);
 

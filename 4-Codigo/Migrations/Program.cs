@@ -18,7 +18,9 @@ var initializer = new DbInitializer(
     new CourseRepository(context),
     new EnrollmentRepository(context),
     new PasswordHasher<User>());
-await initializer.InitializeAsync();
+var environmentName = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+    ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+await initializer.InitializeAsync(environmentName);
 var appliedMigrations = await context.Database.GetAppliedMigrationsAsync();
 var userCount = await context.Users.CountAsync();
 var courseCount = await context.Courses.CountAsync();
