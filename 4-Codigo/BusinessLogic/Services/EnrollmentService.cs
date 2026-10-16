@@ -135,10 +135,15 @@ public sealed class EnrollmentService(
             EnsureStudentOwns(enrollment);
         }
         EnsureApproved(enrollment);
+        var canceledAtUtc = DateTime.UtcNow;
+        if (!await enrollmentRepository.TryCancelAsync(id, EnrollmentStatus.Aprobada, canceledAtUtc,
+                currentUser.UserId, cancellationToken))
+        {
+            throw new EnrollmentStateConflictException("La inscripción cambió durante la cancelación.");
+        }
         enrollment.Status = EnrollmentStatus.Cancelada;
-        enrollment.CanceledAtUtc = DateTime.UtcNow;
+        enrollment.CanceledAtUtc = canceledAtUtc;
         enrollment.CanceledByUserId = currentUser.UserId;
-        await enrollmentRepository.SaveAsync(cancellationToken);
         return MapToResponseDTO(enrollment);
     }
 

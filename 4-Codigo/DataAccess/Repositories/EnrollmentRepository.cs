@@ -38,6 +38,51 @@ public sealed class EnrollmentRepository(LumenDbContext context) : IEnrollmentRe
         return updated == 1;
     }
 
+    public async Task<bool> TryCancelAsync(
+        Guid id,
+        EnrollmentStatus expectedStatus,
+        DateTime canceledAtUtc,
+        Guid canceledByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var updated = await context.Enrollments
+            .Where(x => x.Id == id && x.Status == expectedStatus)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.Status, EnrollmentStatus.Cancelada)
+                .SetProperty(x => x.CanceledAtUtc, canceledAtUtc)
+                .SetProperty(x => x.CanceledByUserId, canceledByUserId), cancellationToken);
+        return updated == 1;
+    }
+
+    public async Task<Enrollment?> TryCompleteModuleAsync(
+        EnrollmentModuleCompletion completion,
+        Guid studentId,
+        EnrollmentStatus requiredStatus,
+        CancellationToken cancellationToken = default)
+    {
+        var status = requiredStatus.ToString();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        // Guard and insert in one write, serialized with cancellations and publication changes.
+        // Ignore only the completion's composite-key conflict; preserve its original timestamp.
+        await context.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO "EnrollmentModuleCompletions" ("EnrollmentId", "ModuleId", "CompletedAtUtc")
+            SELECT e."Id", m."Id", {completion.CompletedAtUtc}
+            FROM "Enrollments" AS e
+            INNER JOIN "Courses" AS c ON c."Id" = e."CourseId"
+            INNER JOIN "CourseModules" AS m
+                ON m."RevisionId" = c."PublishedRevisionId" AND m."Id" = {completion.ModuleId}
+            WHERE e."Id" = {completion.EnrollmentId}
+              AND e."StudentId" = {studentId}
+              AND e."Status" = {status}
+            ON CONFLICT ("EnrollmentId", "ModuleId") DO NOTHING
+            """, cancellationToken);
+        // Read from SQLite, not the earlier tracked graph. Keep the write transaction until
+        // this snapshot is materialized so the response includes preceding committed advances.
+        var current = await ReadGraph().SingleOrDefaultAsync(x => x.Id == completion.EnrollmentId, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return current;
+    }
+
     public async Task<bool> TryCreateForPublishedCourseAsync(
         Enrollment enrollment,
         CourseOperationalStatus requiredStatus,

@@ -180,6 +180,10 @@ public sealed class EnrollmentResolutionConcurrencyIntegrationTests
         public Task<bool> TryCreateForPublishedCourseAsync(Enrollment entity, CourseOperationalStatus status, CancellationToken ct = default) =>
             inner.TryCreateForPublishedCourseAsync(entity, status, ct);
         public Task SaveAsync(CancellationToken ct = default) => inner.SaveAsync(ct);
+        public Task<bool> TryCancelAsync(Guid id, EnrollmentStatus expectedStatus, DateTime at, Guid actor,
+            CancellationToken ct = default) => inner.TryCancelAsync(id, expectedStatus, at, actor, ct);
+        public Task<Enrollment?> TryCompleteModuleAsync(EnrollmentModuleCompletion completion, Guid student,
+            EnrollmentStatus status, CancellationToken ct = default) => inner.TryCompleteModuleAsync(completion, student, status, ct);
         public Task<bool> TryResolveAsync(Guid id, EnrollmentStatus expectedStatus, EnrollmentStatus decision,
             DateTime resolvedAtUtc, Guid resolvedByUserId, CancellationToken ct = default) =>
             inner.TryResolveAsync(id, expectedStatus, decision, resolvedAtUtc, resolvedByUserId, ct);

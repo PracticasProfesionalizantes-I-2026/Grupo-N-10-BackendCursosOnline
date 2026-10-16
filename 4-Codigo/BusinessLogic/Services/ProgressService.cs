@@ -31,6 +31,21 @@ public sealed class ProgressService(
         ServiceGuard.Role(currentUser, UserRole.Alumno);
         var enrollment = await enrollmentRepository.GetByIdForUpdateAsync(enrollmentId, cancellationToken)
             ?? throw new EnrollmentNotFoundException(enrollmentId);
+        EnsureCanComplete(enrollment, moduleId);
+        var current = await enrollmentRepository.TryCompleteModuleAsync(new EnrollmentModuleCompletion
+        {
+            EnrollmentId = enrollmentId,
+            ModuleId = moduleId,
+            CompletedAtUtc = DateTime.UtcNow
+        }, currentUser.UserId, EnrollmentStatus.Aprobada, cancellationToken)
+            ?? throw new EnrollmentNotFoundException(enrollmentId);
+        // Classify a concurrent change using the database snapshot returned by the write.
+        EnsureCanComplete(current, moduleId);
+        return MapToResponseDTO(current);
+    }
+
+    private void EnsureCanComplete(Enrollment enrollment, Guid moduleId)
+    {
         if (enrollment.StudentId != currentUser.UserId)
         {
             throw new EnrollmentOwnershipException();
@@ -42,17 +57,6 @@ public sealed class ProgressService(
         {
             throw new ModuleCourseMismatchException();
         }
-        if (!enrollment.ModuleCompletions.Any(x => x.ModuleId == moduleId))
-        {
-            enrollment.ModuleCompletions.Add(new EnrollmentModuleCompletion
-            {
-                EnrollmentId = enrollment.Id,
-                ModuleId = moduleId,
-                CompletedAtUtc = DateTime.UtcNow
-            });
-            await enrollmentRepository.SaveAsync(cancellationToken);
-        }
-        return MapToResponseDTO(enrollment);
     }
 
     public async Task<IReadOnlyList<StudentProgressResponseDTO>> GetCourseProgressAsync(

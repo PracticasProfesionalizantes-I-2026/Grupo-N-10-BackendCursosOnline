@@ -21,6 +21,14 @@ public sealed class ModuleCompletionServiceTests
         using var cancellation = new CancellationTokenSource();
         var repository = new Mock<IEnrollmentRepository>();
         repository.Setup(x => x.GetByIdForUpdateAsync(enrollment.Id, cancellation.Token)).ReturnsAsync(enrollment);
+        repository.Setup(x => x.TryCompleteModuleAsync(It.Is<EnrollmentModuleCompletion>(completion =>
+                completion.EnrollmentId == enrollment.Id && completion.ModuleId == moduleId),
+                enrollment.StudentId, EnrollmentStatus.Aprobada, cancellation.Token))
+            .ReturnsAsync((EnrollmentModuleCompletion completion, Guid _, EnrollmentStatus _, CancellationToken _) =>
+            {
+                enrollment.ModuleCompletions.Add(completion);
+                return enrollment;
+            });
         var service = new ProgressService(repository.Object, Mock.Of<ICourseRepository>(),
             new TestCurrentUser { UserId = enrollment.StudentId, Role = UserRole.Alumno });
 
@@ -34,7 +42,10 @@ public sealed class ModuleCompletionServiceTests
         var completion = Assert.Single(enrollment.ModuleCompletions, x => x.ModuleId == moduleId);
         Assert.Equal(enrollment.Id, completion.EnrollmentId);
         Assert.NotEqual(default, completion.CompletedAtUtc);
-        repository.Verify(x => x.SaveAsync(cancellation.Token), Times.Once);
+        repository.Verify(x => x.TryCompleteModuleAsync(It.Is<EnrollmentModuleCompletion>(completion =>
+            completion.EnrollmentId == enrollment.Id && completion.ModuleId == moduleId),
+            enrollment.StudentId, EnrollmentStatus.Aprobada, cancellation.Token), Times.Once);
+        repository.Verify(x => x.SaveAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -42,8 +53,13 @@ public sealed class ModuleCompletionServiceTests
     {
         var enrollment = CreateEnrollment(3, 1);
         var original = Assert.Single(enrollment.ModuleCompletions);
+        var originalTimestamp = original.CompletedAtUtc;
         var repository = new Mock<IEnrollmentRepository>();
         repository.Setup(x => x.GetByIdForUpdateAsync(enrollment.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(enrollment);
+        repository.Setup(x => x.TryCompleteModuleAsync(It.Is<EnrollmentModuleCompletion>(completion =>
+                completion.EnrollmentId == enrollment.Id && completion.ModuleId == original.ModuleId),
+                enrollment.StudentId, EnrollmentStatus.Aprobada, It.IsAny<CancellationToken>()))
             .ReturnsAsync(enrollment);
         var service = new ProgressService(repository.Object, Mock.Of<ICourseRepository>(),
             new TestCurrentUser { UserId = enrollment.StudentId, Role = UserRole.Alumno });
@@ -51,10 +67,14 @@ public sealed class ModuleCompletionServiceTests
         var result = await service.CompleteModuleAsync(enrollment.Id, original.ModuleId);
 
         Assert.Same(original, Assert.Single(enrollment.ModuleCompletions));
+        Assert.Equal(originalTimestamp, original.CompletedAtUtc);
         Assert.Equal(original.ModuleId, Assert.Single(result.CompletedModuleIds));
         Assert.Equal(1, result.CompletedModules);
         Assert.Equal(33, result.Percentage);
         Assert.Equal(ProgressStatus.EnProgreso, result.Status);
+        repository.Verify(x => x.TryCompleteModuleAsync(It.Is<EnrollmentModuleCompletion>(completion =>
+            completion.EnrollmentId == enrollment.Id && completion.ModuleId == original.ModuleId),
+            enrollment.StudentId, EnrollmentStatus.Aprobada, It.IsAny<CancellationToken>()), Times.Once);
         repository.Verify(x => x.SaveAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 

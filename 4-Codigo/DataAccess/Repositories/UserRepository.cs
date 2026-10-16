@@ -1,4 +1,6 @@
 using Lumen.DataAccess.Entities;
+using Lumen.Shared.Exceptions;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace Lumen.DataAccess.Repositories;
@@ -9,7 +11,17 @@ public sealed class UserRepository(LumenDbContext context) : IUserRepository
     {
         user.Id = Guid.NewGuid();
         await context.Users.AddAsync(user, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqliteException sqlite &&
+            sqlite.SqliteExtendedErrorCode == 2067 &&
+            sqlite.Message.Contains("UNIQUE constraint failed: Users.NormalizedEmail'", StringComparison.Ordinal))
+        {
+            // Translate only this unique index, never other constraints or persistence errors.
+            throw new DuplicateEmailException(user.Email);
+        }
         return user;
     }
 
