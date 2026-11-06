@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Lumen.DataAccess;
 using Lumen.DataAccess.Entities;
@@ -16,6 +17,51 @@ namespace Lumen.API.IntegrationTests;
 
 public sealed class DemoSeedingIntegrationTests
 {
+    [Fact]
+    public async Task RestrictedEnvironment_RejectsDemoLoginAndPreviouslyIssuedTokenWithoutChangingUsers()
+    {
+        using var root = new LumenApiFactory();
+        using var demo = root.WithWebHostBuilder(builder => builder.UseEnvironment("Testing"));
+        using var demoClient = demo.CreateClient();
+        await AuthenticateAsync(demoClient, DemoAccounts.AdministratorEmail);
+        var token = demoClient.DefaultRequestHeaders.Authorization!.Parameter;
+        UserState[] before;
+        await using (var context = CreateContext(root.DatabasePath))
+            before = await ReadUsersAsync(context);
+
+        using var production = root.WithWebHostBuilder(builder => builder.UseEnvironment("Production"));
+        using var client = production.CreateClient();
+        using var login = await client.PostAsJsonAsync("/api/auth/login",
+            new LoginRequestDTO(DemoAccounts.AdministratorEmail, DbInitializer.DemoPassword), Json);
+        Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var users = await client.GetAsync("/api/users");
+        Assert.Equal(HttpStatusCode.Unauthorized, users.StatusCode);
+        await using var verification = CreateContext(root.DatabasePath);
+        Assert.Equal(before, await ReadUsersAsync(verification));
+    }
+
+    [Fact]
+    public async Task FailedDemoSeedRollsBackAndCanBeRetried()
+    {
+        using var root = new LumenApiFactory();
+        await using (var context = CreateContext(root.DatabasePath))
+        {
+            await context.Database.MigrateAsync();
+            await context.Database.ExecuteSqlRawAsync("""
+                CREATE TRIGGER RejectDemoCourse BEFORE INSERT ON Courses
+                BEGIN SELECT RAISE(ABORT, 'demo seed failure'); END;
+                """);
+            await Assert.ThrowsAsync<DbUpdateException>(() => Initializer(context).InitializeAsync("Testing"));
+        }
+        await using var verification = CreateContext(root.DatabasePath);
+        await AssertMigratedAndEmptyAsync(verification);
+        await verification.Database.ExecuteSqlRawAsync("DROP TRIGGER RejectDemoCourse;");
+        await Initializer(verification).InitializeAsync("Testing");
+        Assert.Equal(3, await verification.Users.CountAsync());
+        Assert.Equal(2, await verification.Courses.CountAsync());
+    }
+
     [Theory]
     [InlineData("Production")]
     [InlineData("Staging")]
@@ -153,7 +199,7 @@ public sealed class DemoSeedingIntegrationTests
         using var client = factory.CreateClient();
         using var response = await client.PostAsJsonAsync("/api/auth/register", new UserCreateDTO(
             "first@example.test", DbInitializer.DemoPassword, UserRole.Alumno, "Primero", "Real",
-            "12345678", "123456", "Dirección", "1000"), Json);
+            "12345678", "11-1234-5678", "Dirección", "1000"), Json);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         await using var scope = factory.Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<LumenDbContext>();
@@ -191,7 +237,7 @@ public sealed class DemoSeedingIntegrationTests
     {
         Id = Guid.NewGuid(), Email = email, NormalizedEmail = email.ToUpperInvariant(),
         PasswordHash = "existing-test-hash-do-not-change", Role = role, FirstName = "Existente", LastName = "Usuario",
-        Dni = "87654321", Phone = "123456", Address = "Dirección previa", PostalCode = "1000",
+        Dni = "87654321", Phone = "11-1234-5678", Address = "Dirección previa", PostalCode = "1000",
         IsActive = isActive, CreatedAtUtc = new DateTime(2025, 1, 2, 3, 4, 5, DateTimeKind.Utc)
     };
 

@@ -2,8 +2,8 @@
 
 > Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
 > según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
-> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
-> técnica; el documento fuente define actualmente un prototipo frontend académico.
+> Los códigos HTTP describen la API vigente. La sección de evidencia vincula las pruebas
+> ejecutables y distingue las diferencias del prototipo local.
 
 | Campo | Valor |
 | --- | --- |
@@ -42,7 +42,7 @@ Permite que un Alumno solicite su inscripción a un curso publicado. La solicitu
 3. El Alumno selecciona un curso.
 4. El sistema muestra el detalle del curso.
 5. El Alumno selecciona "Inscribirse".
-6. El sistema verifica que no exista una inscripción duplicada y que el curso admita inscripciones. **Reglas aplicables:** **RN-09**, **RN-12**.
+6. El sistema verifica que no exista una inscripción duplicada y que el curso admita inscripciones. **Reglas aplicables:** **RN-09**, **RN-12**. Un borrador en revisión no cambia la disponibilidad de una publicación vigente. La pausa o finalización impide nuevas solicitudes. En la API, un conflicto de disponibilidad o una inscripción activa duplicada devuelve 409 sin registrar otra solicitud. Si el cuerpo supera el límite de transporte, la API responde HTTP 413 sin registrar la solicitud. La solicitud PENDIENTE no reserva plaza; el cupo se comprueba cuando el Administrador intenta aprobarla.
 7. El sistema registra la solicitud en estado PENDIENTE. **Reglas aplicables:** **RN-10**.
 8. El sistema informa que la solicitud fue enviada y queda a la espera de revisión.
 
@@ -52,7 +52,7 @@ Permite que un Alumno solicite su inscripción a un curso publicado. La solicitu
   1. El sistema detecta una solicitud PENDIENTE o inscripción APROBADA para el mismo curso. **Reglas aplicables:** **RN-09**.
   2. El sistema informa que no puede generarse una nueva solicitud.
 
-* **5a. El Alumno decide no continuar — A2 (HTTP 200 OK):**
+* **5a. El Alumno decide no continuar — A2 (Sin solicitud HTTP):**
   1. El Alumno vuelve al catálogo o al detalle sin confirmar la inscripción.
   2. El sistema no registra ninguna solicitud.
 
@@ -80,28 +80,19 @@ Permite que un Alumno solicite su inscripción a un curso publicado. La solicitu
 | --- | --- | --- |
 | `201` | Created | resultado satisfactorio de Solicitar Inscripción a un Curso. |
 | `409` | Conflict | A1: Inscripción duplicada; A3: El curso no admite nuevas inscripciones. |
-| `200` | OK | A2: El Alumno decide no continuar. |
+| `413` | Content Too Large | Cuerpo mayor que el límite de transporte de la API. |
 
 ### Nota: Validación vs. Verificación aplicada
 
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
 - **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
-### Matriz de trazabilidad CU-06 → Test
+### Evidencia ejecutable de CU-06
 
-| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
-| --- | --- | --- | --- |
-| Paso 1. Flujo principal | `201 Created` | `CU06_Step01_WhenValidState_ContinuesUseCase` | `CU06_Step01_WhenValidRequest_Returns201Created` |
-| Paso 2. Flujo principal | `201 Created` | `CU06_Step02_WhenValidState_ContinuesUseCase` | `CU06_Step02_WhenValidRequest_Returns201Created` |
-| Paso 3. Flujo principal | `201 Created` | `CU06_Step03_WhenValidState_ContinuesUseCase` | `CU06_Step03_WhenValidRequest_Returns201Created` |
-| Paso 4. Flujo principal | `201 Created` | `CU06_Step04_WhenValidState_ContinuesUseCase` | `CU06_Step04_WhenValidRequest_Returns201Created` |
-| Paso 5. Flujo principal | `201 Created` | `CU06_Step05_WhenValidState_ContinuesUseCase` | `CU06_Step05_WhenValidRequest_Returns201Created` |
-| Paso 6. Flujo principal | `201 Created` | `CU06_Step06_WhenValidState_ContinuesUseCase` | `CU06_Step06_WhenValidRequest_Returns201Created` |
-| Paso 7. Flujo principal | `201 Created` | `CU06_Step07_WhenValidState_ContinuesUseCase` | `CU06_Step07_WhenValidRequest_Returns201Created` |
-| Paso 8. Flujo principal | `201 Created` | `CU06_Step08_WhenValidState_ContinuesUseCase` | `CU06_Step08_WhenValidRequest_Returns201Created` |
-| 6a. Inscripción duplicada (A1) | `409 Conflict` | `CU06_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU06_Alt01_WhenConditionOccurs_Returns409Conflict` |
-| 5a. El Alumno decide no continuar (A2) | `200 OK` | `CU06_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU06_Alt02_WhenConditionOccurs_Returns200OK` |
-| 6b. El curso no admite nuevas inscripciones (A3) | `409 Conflict` | `CU06_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU06_Alt03_WhenConditionOccurs_Returns409Conflict` |
+| Fuente | Recorrido o contrato |
+|---|---|
+| API | `POST /api/enrollments` |
+| Pruebas automatizadas | EnrollmentCreationServiceTests; EnrollmentCreationIntegrationTests; EnrollmentPersistenceIntegrationTests |
+| Bruno | Enrollments/01; Exposición/08 |
 
-> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
-> suite automatizada cuando exista una implementación backend.
+201 registra PENDIENTE. 409 por duplicado o cierre. Abandonar el formulario no muta.

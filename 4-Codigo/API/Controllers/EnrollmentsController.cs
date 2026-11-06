@@ -1,7 +1,7 @@
+using Lumen.API.Http;
 using Lumen.BusinessLogic.Interfaces;
 using Lumen.Shared.DTOs;
 using Lumen.Shared.Enums;
-using Lumen.Shared.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,30 +21,33 @@ public sealed class EnrollmentsController(
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
-    public Task<IActionResult> Create(EnrollmentCreateDTO dto, CancellationToken cancellationToken) =>
-        ExecuteAsync(() => enrollmentService.CreateAsync(dto, cancellationToken),
-            value => CreatedAtAction(nameof(GetById), new { id = value.Id }, value));
+    public async Task<IActionResult> Create(EnrollmentCreateDTO dto, CancellationToken cancellationToken)
+    {
+        var value = await enrollmentService.CreateAsync(dto, cancellationToken);
+        return CreatedAtAction(nameof(GetById), new { id = value.Id }, value);
+    }
 
     [Authorize(Roles = "Alumno")]
     [HttpGet("enrollments/mine")]
     [ProducesResponseType<IReadOnlyList<EnrollmentResponseDTO>>(StatusCodes.Status200OK)]
-    public Task<IActionResult> GetMine(CancellationToken cancellationToken) =>
-        ExecuteAsync(() => enrollmentService.GetMineAsync(cancellationToken), Ok);
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetMine(int? limit, int? offset, CancellationToken cancellationToken) =>
+        Ok(await enrollmentService.GetMineAsync(cancellationToken, ListPaging.Read(limit, offset)));
 
     [Authorize(Roles = "Administrador")]
     [HttpGet("enrollments")]
     [ProducesResponseType<IReadOnlyList<EnrollmentResponseDTO>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
-    public Task<IActionResult> GetAll([FromQuery] EnrollmentStatus? status, CancellationToken cancellationToken) =>
-        ExecuteAsync(() => enrollmentService.GetAllAsync(status, cancellationToken), Ok);
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetAll([FromQuery] EnrollmentStatus? status, int? limit, int? offset, CancellationToken cancellationToken) =>
+        Ok(await enrollmentService.GetAllAsync(status, cancellationToken, ListPaging.Read(limit, offset)));
 
     [Authorize(Roles = "Alumno,Administrador")]
     [HttpGet("enrollments/{id:guid}")]
     [ProducesResponseType<EnrollmentResponseDTO>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
-    public Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken) =>
-        ExecuteAsync(() => enrollmentService.GetByIdAsync(id, cancellationToken), Ok);
+    public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken) =>
+        Ok(await enrollmentService.GetByIdAsync(id, cancellationToken));
 
     [Authorize(Roles = "Alumno")]
     [HttpGet("enrollments/{id:guid}/course-content")]
@@ -52,8 +55,8 @@ public sealed class EnrollmentsController(
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
-    public Task<IActionResult> GetCourseContent(Guid id, CancellationToken cancellationToken) =>
-        ExecuteAsync(() => enrollmentService.GetCourseContentAsync(id, cancellationToken), Ok);
+    public async Task<IActionResult> GetCourseContent(Guid id, CancellationToken cancellationToken) =>
+        Ok(await enrollmentService.GetCourseContentAsync(id, cancellationToken));
 
     [Authorize(Roles = "Administrador")]
     [HttpPost("enrollments/{id:guid}/decision")]
@@ -61,8 +64,8 @@ public sealed class EnrollmentsController(
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
-    public Task<IActionResult> Resolve(Guid id, EnrollmentDecisionDTO dto, CancellationToken cancellationToken) =>
-        ExecuteAsync(() => enrollmentService.ResolveAsync(id, dto, cancellationToken), Ok);
+    public async Task<IActionResult> Resolve(Guid id, EnrollmentDecisionDTO dto, CancellationToken cancellationToken) =>
+        Ok(await enrollmentService.ResolveAsync(id, dto, cancellationToken));
 
     [Authorize(Roles = "Alumno,Administrador")]
     [HttpPost("enrollments/{id:guid}/cancel")]
@@ -70,8 +73,8 @@ public sealed class EnrollmentsController(
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
-    public Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken) =>
-        ExecuteAsync(() => enrollmentService.CancelAsync(id, cancellationToken), Ok);
+    public async Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken) =>
+        Ok(await enrollmentService.CancelAsync(id, cancellationToken));
 
     [Authorize(Roles = "Alumno,Profesor,Administrador")]
     [HttpGet("enrollments/{id:guid}/progress")]
@@ -79,8 +82,8 @@ public sealed class EnrollmentsController(
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
-    public Task<IActionResult> GetProgress(Guid id, CancellationToken cancellationToken) =>
-        ExecuteAsync(() => progressService.GetAsync(id, cancellationToken), Ok);
+    public async Task<IActionResult> GetProgress(Guid id, CancellationToken cancellationToken) =>
+        Ok(await progressService.GetAsync(id, cancellationToken));
 
     [Authorize(Roles = "Alumno")]
     [HttpPut("enrollments/{id:guid}/modules/{moduleId:guid}/completion")]
@@ -88,31 +91,16 @@ public sealed class EnrollmentsController(
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
-    public Task<IActionResult> CompleteModule(Guid id, Guid moduleId, CancellationToken cancellationToken) =>
-        ExecuteAsync(() => progressService.CompleteModuleAsync(id, moduleId, cancellationToken), Ok);
+    public async Task<IActionResult> CompleteModule(Guid id, Guid moduleId, CancellationToken cancellationToken) =>
+        Ok(await progressService.CompleteModuleAsync(id, moduleId, cancellationToken));
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpGet("courses/{courseId:guid}/students/progress")]
     [ProducesResponseType<IReadOnlyList<StudentProgressResponseDTO>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
-    public Task<IActionResult> GetCourseProgress(Guid courseId, CancellationToken cancellationToken) =>
-        ExecuteAsync(() => progressService.GetCourseProgressAsync(courseId, cancellationToken), Ok);
-
-    private async Task<IActionResult> ExecuteAsync<T>(Func<Task<T>> operation, Func<T, IActionResult> success)
-    {
-        try { return success(await operation()); }
-        catch (Exception ex) when (ex is LumenValidationException or PublicRegistrationRoleNotAllowedException or CourseRequiresModuleException or InvalidDateRangeException)
-        { return BadRequest(new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
-        catch (InvalidCredentialsException ex)
-        { return Unauthorized(new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
-        catch (Exception ex) when (ex is InactiveUserException or ForbiddenOperationException or CourseOwnershipException or EnrollmentOwnershipException)
-        { return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
-        catch (Exception ex) when (ex is UserNotFoundException or CourseNotFoundException or EnrollmentNotFoundException or ModuleNotFoundException or CourseReviewNotFoundException)
-        { return NotFound(new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
-        catch (Exception ex) when (ex is DuplicateEmailException or DuplicateEnrollmentException or CourseStateConflictException or EnrollmentStateConflictException or ModuleCourseMismatchException or DependencyConflictException)
-        { return Conflict(new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
-    }
+    public async Task<IActionResult> GetCourseProgress(Guid courseId, int? limit, int? offset, CancellationToken cancellationToken) =>
+        Ok(await progressService.GetCourseProgressAsync(courseId, cancellationToken, ListPaging.Read(limit, offset)));
 }
-

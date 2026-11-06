@@ -119,6 +119,7 @@ public sealed class EnrollmentPersistenceIntegrationTests
         await context.Database.MigrateAsync();
 
         Assert.Equal(originalIds, await context.Enrollments.OrderBy(x => x.Id).Select(x => x.Id).ToArrayAsync());
+        context.Enrollments.AttachRange(rows);
         var active = rows.Single(x => x.Status == EnrollmentStatus.Pendiente);
         active.Status = EnrollmentStatus.Aprobada;
         await context.SaveChangesAsync();
@@ -152,14 +153,13 @@ public sealed class EnrollmentPersistenceIntegrationTests
         await using var context = CreateContext(connection);
         await context.GetService<IMigrator>().MigrateAsync("20260910232809_InitialCreate");
         var rows = await AddLegacyEnrollmentsAsync(context, first, second);
-        var before = rows.Select(x => (x.Id, x.Status, x.RequestedAtUtc)).OrderBy(x => x.Id).ToArray();
+        var before = await ReadLegacyRowsAsync(connection);
 
         var error = await Assert.ThrowsAsync<SqliteException>(() => context.Database.MigrateAsync());
 
         Assert.Equal(2067, error.SqliteExtendedErrorCode);
         context.ChangeTracker.Clear();
-        var after = (await context.Enrollments.AsNoTracking().ToListAsync())
-            .Select(x => (x.Id, x.Status, x.RequestedAtUtc)).OrderBy(x => x.Id).ToArray();
+        var after = await ReadLegacyRowsAsync(connection);
         Assert.Equal(before, after);
         Assert.Equal(new[] { "20260910232809_InitialCreate" }, await context.Database.GetAppliedMigrationsAsync());
     }
@@ -179,8 +179,22 @@ public sealed class EnrollmentPersistenceIntegrationTests
         {
             Id = Guid.NewGuid(), StudentId = student.Id, CourseId = course.Id, Status = status, RequestedAtUtc = DateTime.UtcNow
         }).ToArray();
-        context.Enrollments.AddRange(rows);
-        await context.SaveChangesAsync();
+        foreach (var row in rows)
+            await context.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO "Enrollments" ("Id", "StudentId", "CourseId", "Status", "RequestedAtUtc")
+                VALUES ({row.Id}, {row.StudentId}, {row.CourseId}, {row.Status.ToString()}, {row.RequestedAtUtc})
+                """);
         return rows;
+    }
+
+    private static async Task<(string Id, string Status, string Date)[]> ReadLegacyRowsAsync(SqliteConnection connection)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id, Status, RequestedAtUtc FROM Enrollments ORDER BY Id";
+        await using var reader = await command.ExecuteReaderAsync();
+        var rows = new List<(string, string, string)>();
+        while (await reader.ReadAsync())
+            rows.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2)));
+        return rows.ToArray();
     }
 }

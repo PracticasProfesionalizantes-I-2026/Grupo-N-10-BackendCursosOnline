@@ -1,0 +1,22 @@
+meta {
+  name: Finalizar
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/courses/{{policyCourseId}}/finish
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test('HTTP 200 y contrato', function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().status).to.equal('Finalizado');
+  });
+}

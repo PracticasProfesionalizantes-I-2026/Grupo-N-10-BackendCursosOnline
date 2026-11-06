@@ -3,7 +3,6 @@ using Lumen.Shared.Enums;
 namespace Lumen.Shared.DTOs;
 
 public sealed record EnrollmentCreateDTO(Guid CourseId);
-public sealed record EnrollmentUpdateDTO(EnrollmentStatus Status);
 public sealed record EnrollmentDecisionDTO(EnrollmentStatus Decision);
 
 public sealed record EnrollmentResponseDTO(
@@ -14,7 +13,10 @@ public sealed record EnrollmentResponseDTO(
     EnrollmentStatus Status,
     DateTime RequestedAtUtc,
     DateTime? ResolvedAtUtc,
-    DateTime? CanceledAtUtc);
+    DateTime? CanceledAtUtc)
+{
+    public string? ResolutionReason { get; init; }
+}
 
 public sealed record ProgressResponseDTO(
     Guid EnrollmentId,

@@ -1,0 +1,29 @@
+meta {
+  name: Alumno C login
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/api/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {"email": "politica-c@example.test", "password": "Lumen123!"}
+}
+
+script:post-response {
+  bru.setVar('studentCToken', res.getBody().accessToken);
+}
+
+tests {
+  test('HTTP 200 y contrato', function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

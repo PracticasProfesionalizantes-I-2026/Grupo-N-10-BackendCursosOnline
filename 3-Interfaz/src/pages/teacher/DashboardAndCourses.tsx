@@ -6,7 +6,7 @@ import { CourseCard } from '@/components/CourseCard'
 import { CourseForm } from '@/components/CourseForm'
 import { CourseStatusBadge, EmptyState, MetricCard, PageHeader, SearchInput } from '@/components/UI'
 import { useApp } from '@/hooks/useApp'
-import { courseService } from '@/services/courseService'
+import { canEditWorkingCourse, canRecoverWorkingDraft, courseService, getCourseDisplayStatus } from '@/services/courseService'
 import { formatDate, formatDuration } from '@/utils/format'
 
 export function TeacherDashboard() {
@@ -97,7 +97,8 @@ export function TeacherCourses() {
     [currentUser, state],
   )
   const filtered = useMemo(
-    () => courses.filter((course) => course.title.toLowerCase().includes(query.toLowerCase()) && (status === 'TODOS' || course.status === status)),
+    () => courses.map((course) => ({ ...course, status: getCourseDisplayStatus(course) }))
+      .filter((course) => course.title.toLowerCase().includes(query.toLowerCase()) && (status === 'TODOS' || course.status === status)),
     [courses, query, status],
   )
   if (!currentUser) return null
@@ -162,20 +163,27 @@ export function TeacherCreateCourse() {
 }
 
 export function TeacherEditCourse() {
-  const { state, currentUser, updateCourse } = useApp()
+  const { state, currentUser, updateCourse, recoverCourse } = useApp()
   const { courseId } = useParams()
   const navigate = useNavigate()
   const course = state.courses.find((item) => item.id === courseId)
-  if (!course || !currentUser || course.teacherId !== currentUser.id) return <Navigate to="/teacher/courses" replace />
+  const isAdmin = currentUser?.role === 'ADMINISTRADOR'
+  const returnTo = isAdmin ? '/admin/courses' : '/teacher/courses'
+  if (!course || !currentUser || (!isAdmin && course.teacherId !== currentUser.id)) return <Navigate to={returnTo} replace />
+  const displayStatus = getCourseDisplayStatus(course)
+  const canEdit = canEditWorkingCourse(course)
+  const canRecover = canRecoverWorkingDraft(course)
 
   return (
     <>
       <PageHeader
         eyebrow="Edición de curso"
         title={course.title}
-        description={course.status === 'FINALIZADO' ? 'Este curso está FINALIZADO y no admite modificaciones.' : 'Editá el contenido y volvé a enviarlo para su revisión administrativa.'}
-        backTo="/teacher/courses"
-        actions={<CourseStatusBadge status={course.status} />}
+        description={canRecover ? 'Creá un nuevo borrador sin alterar el rechazo ni la publicación anterior.'
+          : canEdit ? 'Editá el contenido y volvé a enviarlo para su revisión administrativa.'
+            : 'El estado actual de la versión de trabajo no admite modificaciones.'}
+        backTo={returnTo}
+        actions={<CourseStatusBadge status={displayStatus} />}
       />
 
       {course.adminObservation && (
@@ -188,6 +196,12 @@ export function TeacherEditCourse() {
         </div>
       )}
 
+      {canRecover && (
+        <button className="btn-primary mb-6" onClick={() => {
+          if (recoverCourse(course.id)) toast.success('Se creó un nuevo borrador.')
+        }}>Crear borrador desde el rechazo</button>
+      )}
+
       {course.publishedVersion && (
         <div className="mb-6 rounded-xl border border-primary-border bg-primary-soft p-5 text-orange-100">
           <p className="font-bold">Versión actualmente publicada</p>
@@ -195,10 +209,10 @@ export function TeacherEditCourse() {
         </div>
       )}
 
-      {course.status === 'FINALIZADO' ? (
+      {!canEdit ? (
         <section className="panel">
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div><dt className="text-xs font-bold uppercase tracking-wider text-slate-400">Estado</dt><dd className="mt-2"><CourseStatusBadge status={course.status} /></dd></div>
+            <div><dt className="text-xs font-bold uppercase tracking-wider text-slate-400">Estado</dt><dd className="mt-2"><CourseStatusBadge status={displayStatus} /></dd></div>
             <div><dt className="text-xs font-bold uppercase tracking-wider text-slate-400">Módulos</dt><dd className="mt-2 font-bold text-foreground">{course.modules.length}</dd></div>
             <div><dt className="text-xs font-bold uppercase tracking-wider text-slate-400">Duración</dt><dd className="mt-2 font-bold text-foreground">{formatDuration(course.durationHours)}</dd></div>
             <div><dt className="text-xs font-bold uppercase tracking-wider text-slate-400">Actualizado</dt><dd className="mt-2 font-bold text-foreground">{formatDate(course.updatedAt)}</dd></div>
@@ -214,7 +228,7 @@ export function TeacherEditCourse() {
               return
             }
             toast.success(submit ? 'Cambios enviados. Estado: EN REVISIÓN' : 'Cambios guardados como BORRADOR')
-            navigate('/teacher/courses')
+            navigate(returnTo)
           }}
         />
       )}

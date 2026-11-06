@@ -4,7 +4,7 @@ import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, X
 import { toast } from 'sonner'
 import { EmptyState, MetricCard, PageHeader } from '@/components/UI'
 import { useApp } from '@/hooks/useApp'
-import { dateInputValue } from '@/utils/format'
+import { dateInputValue, reportDateRange } from '@/utils/format'
 
 type Range = { from: string; to: string }
 
@@ -18,12 +18,7 @@ export function AdminReports() {
   const [error, setError] = useState('')
 
   const report = useMemo(() => {
-    const from = new Date(range.from + 'T00:00:00')
-    const to = new Date(range.to + 'T23:59:59')
-    const inRange = (date: string) => {
-      const value = new Date(date)
-      return value >= from && value <= to
-    }
+    const inRange = reportDateRange(range.from, range.to)
     const users = state.users.filter((item) => inRange(item.createdAt))
     const courses = state.courses.filter((item) => inRange(item.createdAt))
     const enrollments = state.enrollments.filter((item) => inRange(item.requestedAt))

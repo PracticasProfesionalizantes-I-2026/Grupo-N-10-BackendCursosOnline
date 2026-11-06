@@ -21,10 +21,17 @@ public sealed class LoggingIntegrationTests
     public async Task DefaultLogging_ExcludesWindowsEventLogAndKeepsConsoleAndDiagnostics(string environment)
     {
         using var root = new LumenApiFactory { PreserveDefaultLogging = true };
+        var administratorEmail = DemoAccounts.AdministratorEmail;
         if (environment == "Production")
         {
-            // Existing data is prepared by the Testing host, never seeded by Production.
+            // Exercise the same authenticated queries in Production with a non-demo identity.
             using var seedClient = root.CreateClient();
+            await AuthenticateAsync(seedClient, DemoAccounts.AdministratorEmail);
+            administratorEmail = "logging-regression@example.test";
+            using var provisioned = await seedClient.PostAsJsonAsync("/api/users/administrators",
+                new AdministratorCreateDTO(administratorEmail, DbInitializer.DemoPassword,
+                    "Logging", "Regression", "12345678", "11-1234-5678", "Dirección", "1000"), Json);
+            Assert.Equal(HttpStatusCode.Created, provisioned.StatusCode);
         }
         using var factory = root.WithWebHostBuilder(builder =>
         {
@@ -50,7 +57,7 @@ public sealed class LoggingIntegrationTests
 
         // Exercise the real production query paths that emitted the problematic warnings.
         using var login = await client.PostAsJsonAsync("/api/auth/login",
-            new LoginRequestDTO("admin@lumen.local", DbInitializer.DemoPassword), Json);
+            new LoginRequestDTO(administratorEmail, DbInitializer.DemoPassword), Json);
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         var authenticated = await login.Content.ReadFromJsonAsync<LoginResponseDTO>(Json);
         Assert.NotNull(authenticated);

@@ -2,8 +2,8 @@
 
 > Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
 > según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
-> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
-> técnica; el documento fuente define actualmente un prototipo frontend académico.
+> Los códigos HTTP describen la API vigente. La sección de evidencia vincula las pruebas
+> ejecutables y distingue las diferencias del prototipo local.
 
 | Campo | Valor |
 | --- | --- |
@@ -35,7 +35,7 @@ Permite consultar el listado y el detalle de cursos PUBLICADOS sin tener que ini
 ### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 200)
 
 1. El usuario accede a la consulta de cursos publicados.
-2. El sistema muestra el listado de cursos en estado PUBLICADO.
+2. El sistema muestra el listado de cursos en estado PUBLICADO. La API devuelve la publicación vigente mientras el curso esté operativo, incluso durante la revisión de cambios. La API exige JWT. El prototipo ofrece también un catálogo público de demostración. El listado admite limit de 1 a 100 y offset desde cero. Sin esos parámetros devuelve el arreglo completo. El detalle de un curso que ya no está disponible devuelve 404.
 3. El usuario selecciona un curso.
 4. El sistema muestra su detalle y la información documentada del curso, incluidos sus módulos y duración total.
 5. El usuario revisa la información y puede volver al listado. Si es Alumno y desea inscribirse, inicia CU-06.
@@ -46,7 +46,7 @@ Permite consultar el listado y el detalle de cursos PUBLICADOS sin tener que ini
   1. El sistema informa que no hay cursos disponibles para consultar.
   2. El usuario puede volver a su panel.
 
-* **4a. El curso dejó de estar PUBLICADO — A2 (HTTP 409 Conflict):**
+* **4a. El curso dejó de estar PUBLICADO — A2 (HTTP 404 Not Found):**
   1. El sistema informa que el curso seleccionado ya no está disponible en el catálogo.
   2. Actualiza la consulta sin permitir una nueva solicitud de inscripción a ese curso.
 
@@ -71,25 +71,20 @@ Permite consultar el listado y el detalle de cursos PUBLICADOS sin tener que ini
 | Código HTTP | Nombre Técnico | Contexto de Aplicación en el Caso de Uso |
 | --- | --- | --- |
 | `200` | OK | resultado satisfactorio de Consultar Cursos Publicados; A1: No hay cursos PUBLICADOS; A3: Consulta como Profesor o Administrador. |
-| `409` | Conflict | A2: El curso dejó de estar PUBLICADO. |
+| `400` | Bad Request | Parámetros de paginación inválidos. |
+| `404` | Not Found | A2: El curso dejó de estar PUBLICADO. |
 
 ### Nota: Validación vs. Verificación aplicada
 
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
-- **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
+- **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `404 Not Found`, según corresponda.
 
-### Matriz de trazabilidad CU-11 → Test
+### Evidencia ejecutable de CU-11
 
-| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
-| --- | --- | --- | --- |
-| Paso 1. Flujo principal | `200 OK` | `CU11_Step01_WhenValidState_ContinuesUseCase` | `CU11_Step01_WhenValidRequest_Returns200OK` |
-| Paso 2. Flujo principal | `200 OK` | `CU11_Step02_WhenValidState_ContinuesUseCase` | `CU11_Step02_WhenValidRequest_Returns200OK` |
-| Paso 3. Flujo principal | `200 OK` | `CU11_Step03_WhenValidState_ContinuesUseCase` | `CU11_Step03_WhenValidRequest_Returns200OK` |
-| Paso 4. Flujo principal | `200 OK` | `CU11_Step04_WhenValidState_ContinuesUseCase` | `CU11_Step04_WhenValidRequest_Returns200OK` |
-| Paso 5. Flujo principal | `200 OK` | `CU11_Step05_WhenValidState_ContinuesUseCase` | `CU11_Step05_WhenValidRequest_Returns200OK` |
-| 2a. No hay cursos PUBLICADOS (A1) | `200 OK` | `CU11_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU11_Alt01_WhenConditionOccurs_Returns200OK` |
-| 4a. El curso dejó de estar PUBLICADO (A2) | `409 Conflict` | `CU11_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU11_Alt02_WhenConditionOccurs_Returns409Conflict` |
-| 5a. Consulta como Profesor o Administrador (A3) | `200 OK` | `CU11_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU11_Alt03_WhenConditionOccurs_Returns200OK` |
+| Fuente | Recorrido o contrato |
+|---|---|
+| API | `GET /api/catalog/courses; GET /api/catalog/courses/{id}` |
+| Pruebas automatizadas | ApiIntegrationTests; TraceabilityContractIntegrationTests; demo.test.mjs |
+| Bruno | Catalog/01–02 |
 
-> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
-> suite automatizada cuando exista una implementación backend.
+200 arreglo o detalle, 404 si ya no está disponible y 400 por paginación inválida. Solo Alumno solicita inscripción.

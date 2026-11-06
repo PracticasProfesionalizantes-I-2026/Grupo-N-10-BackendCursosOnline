@@ -16,6 +16,7 @@ auth:bearer {
 
 headers {
   Content-Type: application/json
+  If-Match: {{courseEditTag}}
 }
 
 body:json {
@@ -53,12 +54,17 @@ script:pre-request {
   }
   const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
   if (!isGuid(bru.getVar("courseId"))) throw new Error("Falta courseId: ejecutar su paso previo en esta misma base.");
+  if (!bru.getVar("courseEditTag")) throw new Error("Consultar el curso para obtener el ETag antes de editar.");
   ["moduleId", "moduleIds", "progressSnapshot"].forEach(name => bru.deleteVar(name));
 }
 
 tests {
   test("HTTP 200", function () {
     expect(res.getStatus()).to.equal(200);
+  });
+  test("La edición devuelve un ETag nuevo", function () {
+    expect(res.getHeader("etag")).to.match(/^"[a-f0-9]{32}\.[a-f0-9]{16}"$/);
+    expect(res.getHeader("etag")).not.to.equal(bru.getVar("courseEditTag"));
   });
   const body = res.getBody();
   const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";

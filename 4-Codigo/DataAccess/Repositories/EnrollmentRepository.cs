@@ -1,4 +1,5 @@
 using Lumen.DataAccess.Entities;
+using Lumen.Shared.DTOs;
 using Lumen.Shared.Enums;
 using Lumen.Shared.Exceptions;
 using Microsoft.Data.Sqlite;
@@ -27,14 +28,21 @@ public sealed class EnrollmentRepository(LumenDbContext context) : IEnrollmentRe
         Guid resolvedByUserId,
         CancellationToken cancellationToken = default)
     {
-        // Check the expected state and write the resolution in the same UPDATE.
-        // A previous decision or cancellation cannot be overwritten by a stale read.
-        var updated = await context.Enrollments
-            .Where(x => x.Id == id && x.Status == expectedStatus)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Status, decision)
-                .SetProperty(x => x.ResolvedAtUtc, resolvedAtUtc)
-                .SetProperty(x => x.ResolvedByUserId, resolvedByUserId), cancellationToken);
+        // SQLite serializes the write, including the capacity check in this statement.
+        var updated = await context.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE "Enrollments"
+            SET "Status" = {decision.ToString()}, "ResolvedAtUtc" = {resolvedAtUtc},
+                "ResolvedByUserId" = {resolvedByUserId}, "ResolutionReason" = NULL
+            WHERE "Id" = {id} AND "Status" = {expectedStatus.ToString()}
+              AND ({decision.ToString()} <> 'Aprobada' OR EXISTS (
+                  SELECT 1 FROM "Courses" AS c
+                  JOIN "CourseRevisions" AS r ON r."Id" = c."PublishedRevisionId" AND r."CourseId" = c."Id"
+                  WHERE c."Id" = "Enrollments"."CourseId"
+                    AND c."OperationalStatus" <> 'Finalizado'
+                    AND r."MaxCapacity" > (
+                        SELECT COUNT(*) FROM "Enrollments" AS occupied
+                        WHERE occupied."CourseId" = c."Id" AND occupied."Status" = 'Aprobada')))
+            """, cancellationToken);
         return updated == 1;
     }
 
@@ -69,8 +77,9 @@ public sealed class EnrollmentRepository(LumenDbContext context) : IEnrollmentRe
             SELECT e."Id", m."Id", {completion.CompletedAtUtc}
             FROM "Enrollments" AS e
             INNER JOIN "Courses" AS c ON c."Id" = e."CourseId"
+            INNER JOIN "CourseRevisions" AS r ON r."Id" = c."PublishedRevisionId" AND r."CourseId" = c."Id"
             INNER JOIN "CourseModules" AS m
-                ON m."RevisionId" = c."PublishedRevisionId" AND m."Id" = {completion.ModuleId}
+                ON m."RevisionId" = r."Id" AND m."Id" = {completion.ModuleId}
             WHERE e."Id" = {completion.EnrollmentId}
               AND e."StudentId" = {studentId}
               AND e."Status" = {status}
@@ -97,11 +106,11 @@ public sealed class EnrollmentRepository(LumenDbContext context) : IEnrollmentRe
             // SQLite serializes this write with concurrent pause/finish operations.
             var inserted = await context.Database.ExecuteSqlInterpolatedAsync($"""
                 INSERT INTO "Enrollments" ("Id", "StudentId", "CourseId", "Status", "RequestedAtUtc")
-                SELECT {enrollment.Id}, {enrollment.StudentId}, "Id", {status}, {enrollment.RequestedAtUtc}
-                FROM "Courses"
-                WHERE "Id" = {enrollment.CourseId}
-                  AND "PublishedRevisionId" IS NOT NULL
-                  AND "OperationalStatus" = {operationalStatus}
+                SELECT {enrollment.Id}, {enrollment.StudentId}, c."Id", {status}, {enrollment.RequestedAtUtc}
+                FROM "Courses" AS c
+                INNER JOIN "CourseRevisions" AS r ON r."Id" = c."PublishedRevisionId" AND r."CourseId" = c."Id"
+                WHERE c."Id" = {enrollment.CourseId}
+                  AND c."OperationalStatus" = {operationalStatus}
                 """, cancellationToken);
             return inserted == 1;
         }
@@ -120,20 +129,22 @@ public sealed class EnrollmentRepository(LumenDbContext context) : IEnrollmentRe
     public Task<Enrollment?> GetByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default) =>
         TrackedGraph().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-    public async Task<IReadOnlyList<Enrollment>> GetByStudentAsync(Guid studentId, CancellationToken cancellationToken = default) =>
-        await ReadGraph().Where(x => x.StudentId == studentId).OrderByDescending(x => x.RequestedAtUtc).ToListAsync(cancellationToken);
+    public async Task<IReadOnlyList<Enrollment>> GetByStudentAsync(Guid studentId, CancellationToken cancellationToken = default, ListPage? page = null) =>
+        await SummaryGraph().Where(x => x.StudentId == studentId).OrderByDescending(x => x.RequestedAtUtc)
+            .ThenBy(x => x.Id).WithPage(page).ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<Enrollment>> GetByCourseAsync(Guid courseId, CancellationToken cancellationToken = default) =>
-        await ReadGraph().Where(x => x.CourseId == courseId).OrderBy(x => x.Student.LastName).ToListAsync(cancellationToken);
+    public async Task<IReadOnlyList<Enrollment>> GetApprovedByCourseAsync(Guid courseId, CancellationToken cancellationToken = default, ListPage? page = null) =>
+        await ReadGraph().Where(x => x.CourseId == courseId && x.Status == EnrollmentStatus.Aprobada)
+            .OrderBy(x => x.Student.LastName).ThenBy(x => x.Id).WithPage(page).ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<Enrollment>> GetAllAsync(EnrollmentStatus? status, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Enrollment>> GetAllAsync(EnrollmentStatus? status, CancellationToken cancellationToken = default, ListPage? page = null)
     {
-        var query = ReadGraph();
+        var query = SummaryGraph();
         if (status.HasValue)
         {
             query = query.Where(x => x.Status == status);
         }
-        return await query.OrderByDescending(x => x.RequestedAtUtc).ToListAsync(cancellationToken);
+        return await query.OrderByDescending(x => x.RequestedAtUtc).ThenBy(x => x.Id).WithPage(page).ToListAsync(cancellationToken);
     }
 
     public Task<bool> HasPendingOrApprovedAsync(Guid studentId, Guid courseId, CancellationToken cancellationToken = default) =>
@@ -147,6 +158,10 @@ public sealed class EnrollmentRepository(LumenDbContext context) : IEnrollmentRe
             .Include(x => x.Student)
             .Include(x => x.ModuleCompletions)
             .Include(x => x.Course).ThenInclude(x => x.PublishedRevision).ThenInclude(x => x!.Modules);
+
+    private IQueryable<Enrollment> SummaryGraph() =>
+        context.Enrollments.AsNoTracking()
+            .Include(x => x.Course).ThenInclude(x => x.PublishedRevision);
 
     private IQueryable<Enrollment> TrackedGraph() =>
         context.Enrollments

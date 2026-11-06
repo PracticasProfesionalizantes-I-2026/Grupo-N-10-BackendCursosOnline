@@ -18,7 +18,8 @@ export type AuditDecision = 'APROBADA' | 'CAMBIOS SOLICITADOS' | 'RECHAZADA'
 export interface User {
   id: string
   email: string
-  password: string
+  credential?: { salt: string; digest: string }
+  demoAccount?: true
   role: Role
   firstName: string
   lastName: string
@@ -55,6 +56,7 @@ export interface Course extends CourseVersion {
   id: string
   teacherId: string
   status: CourseStatus
+  operationalStatus?: 'PAUSADO' | 'FINALIZADO'
   createdAt: string
   updatedAt: string
   publishedAt?: string
@@ -69,10 +71,12 @@ export interface Enrollment {
   status: EnrollmentStatus
   requestedAt: string
   resolvedAt?: string
+  resolutionReason?: string
 }
 
 export interface ProgressRecord {
   id: string
+  enrollmentId?: string // Unassigned legacy records are kept as history but never shown as active progress.
   studentId: string
   courseId: string
   completedModuleIds: string[]
@@ -91,6 +95,7 @@ export interface Audit {
   resolvedAt?: string
   decision?: AuditDecision
   observations?: string
+  submission?: CourseVersion
 }
 
 export interface Activity {
@@ -134,7 +139,6 @@ export type AppAction =
   | { type: 'UPDATE_ENROLLMENT'; enrollmentId: string; status: EnrollmentStatus; date: string }
   | { type: 'UPDATE_PROGRESS'; progress: ProgressRecord }
   | { type: 'SET_COURSE_STATUS'; courseId: string; status: CourseStatus; date: string }
-  | { type: 'ADMIN_EDIT_COURSE'; courseId: string; title: string; description: string; maxCapacity: number; date: string }
   | { type: 'TOGGLE_USER_STATUS'; userId: string }
   | { type: 'MARK_NOTIFICATIONS_READ'; userId: string }
   | { type: 'RESET'; state: AppState }

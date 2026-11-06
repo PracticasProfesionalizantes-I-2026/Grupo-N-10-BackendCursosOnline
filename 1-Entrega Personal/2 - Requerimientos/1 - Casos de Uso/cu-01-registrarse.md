@@ -2,8 +2,8 @@
 
 > Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
 > según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
-> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
-> técnica; el documento fuente define actualmente un prototipo frontend académico.
+> Los códigos HTTP describen la API vigente. La sección de evidencia vincula las pruebas
+> ejecutables y distingue las diferencias del prototipo local.
 
 | Campo | Valor |
 | --- | --- |
@@ -36,11 +36,11 @@ Permite que una persona cree una cuenta pública como Alumno o Profesor, registr
 ### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 201)
 
 1. El usuario selecciona la opción de registro.
-2. El sistema solicita seleccionar el tipo de cuenta: Alumno o Profesor. **Reglas aplicables:** **RN-01**.
+2. El sistema solicita seleccionar el tipo de cuenta: Alumno o Profesor. La API rechaza su omisión con HTTP 400 y no crea una cuenta. **Reglas aplicables:** **RN-01**.
 3. El usuario ingresa email y contraseña.
 4. El sistema valida que el email no se encuentre registrado y que los campos obligatorios estén completos.
 5. El usuario completa Nombre, Apellido, DNI, Teléfono, Dirección y Código Postal. **Reglas aplicables:** **RN-02**.
-6. El sistema valida la información personal. **Reglas aplicables:** **RN-02**.
+6. El sistema valida la información personal. La API comprueba formato de email, campos obligatorios y longitudes definidas por el modelo. **Reglas aplicables:** **RN-02**. El alta exige los datos personales y el rol permitido. DNI y teléfono con caracteres de control internos reciben HTTP 400. Se aplican los formatos argentinos aprobados para DNI, teléfono y código postal. El correo mal formado, un campo obligatorio incompleto o una longitud superior al modelo dan HTTP 400. Si el correo ya existe, la API devuelve 409. El alta exitosa devuelve 201 con los datos de la cuenta. El prototipo conserva un derivado local de la contraseña para iniciar sesión. Si el cuerpo del alta supera el límite de transporte, la API responde HTTP 413 y no crea la cuenta. Para cuentas nuevas, el DNI tiene 7 u 8 dígitos, el teléfono argentino usa de 10 a 15 dígitos y el código postal tiene cuatro dígitos o un CPA de ocho caracteres. La contraseña admite de 8 a 128 caracteres sin exigir composición; los datos inválidos reciben HTTP 400 sin crear la cuenta.
 7. El sistema muestra una revisión de los datos ingresados.
 8. El usuario confirma el registro.
 9. El sistema registra la cuenta y muestra una confirmación.
@@ -77,27 +77,19 @@ Permite que una persona cree una cuenta pública como Alumno o Profesor, registr
 | `201` | Created | resultado satisfactorio de Registrarse. |
 | `409` | Conflict | A1: Email ya registrado. |
 | `400` | Bad Request | A2: Información obligatoria incompleta. |
+| `413` | Content Too Large | Cuerpo mayor que el límite de transporte de la API. |
 
 ### Nota: Validación vs. Verificación aplicada
 
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
 - **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
-### Matriz de trazabilidad CU-01 → Test
+### Evidencia ejecutable de CU-01
 
-| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
-| --- | --- | --- | --- |
-| Paso 1. Flujo principal | `201 Created` | `CU01_Step01_WhenValidState_ContinuesUseCase` | `CU01_Step01_WhenValidRequest_Returns201Created` |
-| Paso 2. Flujo principal | `201 Created` | `CU01_Step02_WhenValidState_ContinuesUseCase` | `CU01_Step02_WhenValidRequest_Returns201Created` |
-| Paso 3. Flujo principal | `201 Created` | `CU01_Step03_WhenValidState_ContinuesUseCase` | `CU01_Step03_WhenValidRequest_Returns201Created` |
-| Paso 4. Flujo principal | `201 Created` | `CU01_Step04_WhenValidState_ContinuesUseCase` | `CU01_Step04_WhenValidRequest_Returns201Created` |
-| Paso 5. Flujo principal | `201 Created` | `CU01_Step05_WhenValidState_ContinuesUseCase` | `CU01_Step05_WhenValidRequest_Returns201Created` |
-| Paso 6. Flujo principal | `201 Created` | `CU01_Step06_WhenValidState_ContinuesUseCase` | `CU01_Step06_WhenValidRequest_Returns201Created` |
-| Paso 7. Flujo principal | `201 Created` | `CU01_Step07_WhenValidState_ContinuesUseCase` | `CU01_Step07_WhenValidRequest_Returns201Created` |
-| Paso 8. Flujo principal | `201 Created` | `CU01_Step08_WhenValidState_ContinuesUseCase` | `CU01_Step08_WhenValidRequest_Returns201Created` |
-| Paso 9. Flujo principal | `201 Created` | `CU01_Step09_WhenValidState_ContinuesUseCase` | `CU01_Step09_WhenValidRequest_Returns201Created` |
-| 4a. Email ya registrado (A1) | `409 Conflict` | `CU01_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU01_Alt01_WhenConditionOccurs_Returns409Conflict` |
-| 6a. Información obligatoria incompleta (A2) | `400 Bad Request` | `CU01_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU01_Alt02_WhenConditionOccurs_Returns400BadRequest` |
+| Fuente | Recorrido o contrato |
+|---|---|
+| API | `POST /api/auth/register` |
+| Pruebas automatizadas | AccountValidationIntegrationTests; RegistrationConcurrencyRegressionTests |
+| Bruno | Auth/04 |
 
-> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
-> suite automatizada cuando exista una implementación backend.
+Rol y datos explícitos. 201; 400 o 409 conservan el padrón.

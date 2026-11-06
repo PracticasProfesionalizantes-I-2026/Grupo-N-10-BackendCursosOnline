@@ -1,6 +1,8 @@
 using System.Text;
+using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Lumen.API.OpenApi;
+using Lumen.API.Errors;
 using Lumen.API.Security;
 using Lumen.BusinessLogic;
 using Lumen.BusinessLogic.Abstractions;
@@ -63,8 +65,22 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key!)),
             ClockSkew = TimeSpan.FromSeconds(15)
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                var host = context.HttpContext.RequestServices.GetRequiredService<IHostEnvironment>();
+                var email = context.Principal?.FindFirstValue(ClaimTypes.Email);
+                if (!DemoAccounts.IsAllowedIn(host.EnvironmentName) && DemoAccounts.IsReserved(email))
+                {
+                    context.Fail("La identidad de demostración no está habilitada en este entorno.");
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddRateLimiter(LoginRateLimit.Configure);
 
 var app = builder.Build();
 
@@ -76,6 +92,9 @@ await using (var scope = app.Services.CreateAsyncScope())
     await scope.ServiceProvider.GetRequiredService<DbInitializer>().InitializeAsync(app.Environment.EnvironmentName);
 }
 
+app.UseMiddleware<ApiExceptionMiddleware>();
+app.UseRouting();
+app.UseRateLimiter();
 app.MapOpenApi();
 app.MapScalarApiReference();
 app.UseAuthentication();

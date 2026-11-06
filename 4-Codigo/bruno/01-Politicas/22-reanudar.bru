@@ -1,0 +1,22 @@
+meta {
+  name: Reanudar
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{baseUrl}}/api/courses/{{policyCourseId}}/resume
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{teacherToken}}
+}
+
+tests {
+  test('HTTP 200 y contrato', function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().status).to.equal('Publicado');
+  });
+}

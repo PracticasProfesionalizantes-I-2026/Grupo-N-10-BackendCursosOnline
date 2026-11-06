@@ -1,0 +1,30 @@
+meta {
+  name: Rechazar auditoría en el recorrido de recuperación
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/course-reviews/{{reviewId}}/decision
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  { "decision": "Rechazada", "observation": "Revisar objetivos" }
+}
+
+tests {
+  test("El rechazo conserva el ID del envío y su observación", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.id).to.equal(bru.getVar("reviewId"));
+    expect(body.decision).to.equal("Rechazada");
+    expect(body.observation).to.equal("Revisar objetivos");
+    bru.setVar("rejectedVersion", body.version);
+  });
+}

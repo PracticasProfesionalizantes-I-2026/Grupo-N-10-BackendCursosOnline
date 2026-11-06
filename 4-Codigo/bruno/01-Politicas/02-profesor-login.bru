@@ -1,0 +1,29 @@
+meta {
+  name: Profesor login
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {"email": "profesor@lumen.local", "password": "Lumen123!"}
+}
+
+script:post-response {
+  bru.setVar('teacherToken', res.getBody().accessToken);
+}
+
+tests {
+  test('HTTP 200 y contrato', function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

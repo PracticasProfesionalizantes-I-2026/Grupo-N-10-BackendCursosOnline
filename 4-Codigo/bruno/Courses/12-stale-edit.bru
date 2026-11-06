@@ -1,0 +1,40 @@
+meta {
+  name: Rechazar edición con ETag obsoleto
+  type: http
+  seq: 12
+}
+
+put {
+  url: {{baseUrl}}/api/courses/{{courseId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{teacherToken}}
+}
+
+headers {
+  If-Match: {{courseEditTag}}
+}
+
+body:json {
+  {
+    "title": "Edición obsoleta",
+    "description": "El intento debe dejar intacta la versión vigente",
+    "category": "Tecnología",
+    "level": "Intermedio",
+    "modality": "Online",
+    "maxCapacity": 25,
+    "learningObjectives": [],
+    "suggestedPrerequisites": [],
+    "modules": []
+  }
+}
+
+tests {
+  test("HTTP 412 si otro guardado dejó obsoleta la etiqueta", function () {
+    expect(res.getStatus()).to.equal(412);
+    expect(res.getBody().code).to.equal("CourseVersionMismatchException");
+  });
+}

@@ -2,8 +2,8 @@
 
 > Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
 > según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
-> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
-> técnica; el documento fuente define actualmente un prototipo frontend académico.
+> Los códigos HTTP describen la API vigente. La sección de evidencia vincula las pruebas
+> ejecutables y distingue las diferencias del prototipo local.
 
 | Campo | Valor |
 | --- | --- |
@@ -40,9 +40,9 @@ Permite retomar un BORRADOR o modificar un curso PUBLICADO o con CAMBIOS SOLICIT
 1. El Profesor accede a sus cursos o a sus solicitudes de auditoría; el Administrador accede a la gestión de cursos.
 2. El sistema muestra los cursos accesibles según el rol y, cuando corresponda, el estado de la auditoría y las observaciones recibidas.
 3. El usuario selecciona el curso y solicita editarlo. El sistema verifica el rol y la propiedad cuando actúa un Profesor. **Reglas aplicables:** **RN-03**.
-4. El sistema muestra los datos actuales y los módulos del curso.
+4. El sistema muestra los datos actuales y los módulos del curso. En la API la consulta de gestión entrega ETag. Guardar o recuperar requiere el ETag específico en If-Match. Una etiqueta ausente o el comodín devuelven 428. Una etiqueta obsoleta devuelve 412 sin escribir, incluso si otra edición ganó durante la persistencia. Una cabecera mal formada devuelve 400. Editar una revisión en EN REVISIÓN o RECHAZADA devuelve 409 con una etiqueta vigente. El Administrador edita la versión de trabajo mediante el mismo flujo de auditoría.
 5. El usuario modifica los datos del curso o sus módulos, con nombre, descripción, duración y contenido o recursos. **Reglas aplicables:** **RN-15**.
-6. El sistema valida los datos obligatorios y la existencia de al menos un módulo, y recalcula la duración total como suma de sus duraciones. **Reglas aplicables:** **RN-04**, **RN-05**.
+6. El sistema valida los datos obligatorios y la existencia de al menos un módulo, y recalcula la duración total como suma de sus duraciones. **Reglas aplicables:** **RN-04**, **RN-05**. Si el cuerpo del guardado supera el límite de transporte, la API responde HTTP 413 y conserva la revisión vigente. La edición permite reducir gradualmente colecciones o textos históricos que superan los topes nuevos, sin aumentar un exceso. El cupo no puede reducirse por debajo de las inscripciones aprobadas.
 7. El usuario confirma el envío de los cambios a revisión.
 8. El sistema registra las modificaciones, cambia el curso a EN REVISIÓN y genera la solicitud de auditoría del CU-04. **Reglas aplicables:** **RN-06**, **RN-07**.
 9. El sistema informa el resultado y lo muestra en las solicitudes de auditoría del usuario.
@@ -66,6 +66,10 @@ Permite retomar un BORRADOR o modificar un curso PUBLICADO o con CAMBIOS SOLICIT
   1. El sistema detecta que el curso no pertenece al Profesor. **Reglas aplicables:** **RN-03**.
   2. Restringe la edición y conserva la información y el estado del curso.
 
+* **A5. Precondición de edición ausente u obsoleta:** El editor recarga la revisión. La API devuelve 428 sin etiqueta específica y 412 si la etiqueta quedó obsoleta. El guardado no se aplica.
+
+* **A6. Recuperar una revisión rechazada:** El Profesor propietario o Administrador confirma la recuperación. La API crea un BORRADOR nuevo a partir de la revisión rechazada y devuelve 200 con otro ETag. Conserva la decisión y, si existía, la publicación. Un estado que no sea RECHAZADO devuelve 409 con una etiqueta vigente.
+
 ### 5. SUB-VARIACIONES (opcional)
 
 - No se especifican sub-variaciones adicionales en el documento fuente.
@@ -87,29 +91,22 @@ Permite retomar un BORRADOR o modificar un curso PUBLICADO o con CAMBIOS SOLICIT
 | `200` | OK | resultado satisfactorio de Actualizar Curso Creado; A2: Corregir CAMBIOS SOLICITADOS; A3: Retomar un BORRADOR. |
 | `400` | Bad Request | A1: Datos obligatorios incompletos o curso sin módulos. |
 | `403` | Forbidden | A4: Profesor intenta editar un curso ajeno. |
+| `412` | Precondition Failed | A5: etiqueta de edición obsoleta. |
+| `428` | Precondition Required | A5: falta una etiqueta específica. |
+| `409` | Conflict | Estado incompatible o conflicto durante la escritura. |
+| `413` | Content Too Large | Cuerpo mayor que el límite de transporte de la API. |
 
 ### Nota: Validación vs. Verificación aplicada
 
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
 - **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
-### Matriz de trazabilidad CU-05 → Test
+### Evidencia ejecutable de CU-05
 
-| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
-| --- | --- | --- | --- |
-| Paso 1. Flujo principal | `200 OK` | `CU05_Step01_WhenValidState_ContinuesUseCase` | `CU05_Step01_WhenValidRequest_Returns200OK` |
-| Paso 2. Flujo principal | `200 OK` | `CU05_Step02_WhenValidState_ContinuesUseCase` | `CU05_Step02_WhenValidRequest_Returns200OK` |
-| Paso 3. Flujo principal | `200 OK` | `CU05_Step03_WhenValidState_ContinuesUseCase` | `CU05_Step03_WhenValidRequest_Returns200OK` |
-| Paso 4. Flujo principal | `200 OK` | `CU05_Step04_WhenValidState_ContinuesUseCase` | `CU05_Step04_WhenValidRequest_Returns200OK` |
-| Paso 5. Flujo principal | `200 OK` | `CU05_Step05_WhenValidState_ContinuesUseCase` | `CU05_Step05_WhenValidRequest_Returns200OK` |
-| Paso 6. Flujo principal | `200 OK` | `CU05_Step06_WhenValidState_ContinuesUseCase` | `CU05_Step06_WhenValidRequest_Returns200OK` |
-| Paso 7. Flujo principal | `200 OK` | `CU05_Step07_WhenValidState_ContinuesUseCase` | `CU05_Step07_WhenValidRequest_Returns200OK` |
-| Paso 8. Flujo principal | `200 OK` | `CU05_Step08_WhenValidState_ContinuesUseCase` | `CU05_Step08_WhenValidRequest_Returns200OK` |
-| Paso 9. Flujo principal | `200 OK` | `CU05_Step09_WhenValidState_ContinuesUseCase` | `CU05_Step09_WhenValidRequest_Returns200OK` |
-| 6a. Datos obligatorios incompletos o curso sin módulos (A1) | `400 Bad Request` | `CU05_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU05_Alt01_WhenConditionOccurs_Returns400BadRequest` |
-| 4a. Corregir CAMBIOS SOLICITADOS (A2) | `200 OK` | `CU05_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU05_Alt02_WhenConditionOccurs_Returns200OK` |
-| 3a. Retomar un BORRADOR (A3) | `200 OK` | `CU05_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU05_Alt03_WhenConditionOccurs_Returns200OK` |
-| 3b. Profesor intenta editar un curso ajeno (A4) | `403 Forbidden` | `CU05_Alt04_WhenConditionOccurs_HandlesExpectedBranch` | `CU05_Alt04_WhenConditionOccurs_Returns403Forbidden` |
+| Fuente | Recorrido o contrato |
+|---|---|
+| API | `GET y PUT /api/courses/{id}; POST /api/courses/{id}/recover-draft y /submit-review` |
+| Pruebas automatizadas | CourseUpdateIntegrationTests; TraceabilityContractIntegrationTests; CourseReviewHistoryIntegrationTests; demo.test.mjs |
+| Bruno | Courses/02,04,12,13,15,16,05 |
 
-> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
-> suite automatizada cuando exista una implementación backend.
+Guardado y envío separados. 403 por curso ajeno, 409 por estado, 412 por etiqueta obsoleta y 428 por etiqueta ausente o comodín. La publicación anterior sigue vigente.

@@ -1,11 +1,12 @@
 using Lumen.Shared.Enums;
+using System.Text.Json.Serialization;
 
 namespace Lumen.Shared.DTOs;
 
 public sealed record UserCreateDTO(
     string Email,
     string Password,
-    UserRole Role,
+    [property: JsonRequired] UserRole Role,
     string FirstName,
     string LastName,
     string Dni,

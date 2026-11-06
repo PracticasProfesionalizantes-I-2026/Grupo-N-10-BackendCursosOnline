@@ -6,8 +6,8 @@ namespace Lumen.BusinessLogic.Interfaces;
 public interface IEnrollmentService
 {
     Task<EnrollmentResponseDTO> CreateAsync(EnrollmentCreateDTO dto, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<EnrollmentResponseDTO>> GetMineAsync(CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<EnrollmentResponseDTO>> GetAllAsync(EnrollmentStatus? status, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<EnrollmentResponseDTO>> GetMineAsync(CancellationToken cancellationToken = default, ListPage? page = null);
+    Task<IReadOnlyList<EnrollmentResponseDTO>> GetAllAsync(EnrollmentStatus? status, CancellationToken cancellationToken = default, ListPage? page = null);
     Task<EnrollmentResponseDTO> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<PublishedCourseResponseDTO> GetCourseContentAsync(Guid id, CancellationToken cancellationToken = default);
     Task<EnrollmentResponseDTO> ResolveAsync(Guid id, EnrollmentDecisionDTO dto, CancellationToken cancellationToken = default);

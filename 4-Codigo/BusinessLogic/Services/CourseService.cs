@@ -5,6 +5,7 @@ using Lumen.DataAccess.Repositories;
 using Lumen.Shared.DTOs;
 using Lumen.Shared.Enums;
 using Lumen.Shared.Exceptions;
+using System.Text.Json;
 
 namespace Lumen.BusinessLogic.Services;
 
@@ -12,10 +13,10 @@ public sealed class CourseService(
     ICourseRepository courseRepository,
     ICurrentUser currentUser) : ICourseService
 {
-    public async Task<IReadOnlyList<PublishedCourseResponseDTO>> GetPublishedAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<PublishedCourseResponseDTO>> GetPublishedAsync(CancellationToken cancellationToken = default, ListPage? page = null)
     {
         ServiceGuard.Authenticated(currentUser);
-        var courses = await courseRepository.GetPublishedAsync(cancellationToken);
+        var courses = await courseRepository.GetPublishedAsync(cancellationToken, page);
         return courses.Select(course => MapToPublishedResponseDTO(course, includeContent: false)).ToList();
     }
 
@@ -27,12 +28,12 @@ public sealed class CourseService(
         return MapToPublishedResponseDTO(course, includeContent: false);
     }
 
-    public async Task<IReadOnlyList<CourseResponseDTO>> GetManageableAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CourseResponseDTO>> GetManageableAsync(CancellationToken cancellationToken = default, ListPage? page = null)
     {
         ServiceGuard.Role(currentUser, UserRole.Profesor, UserRole.Administrador);
         var courses = currentUser.Role == UserRole.Profesor
-            ? await courseRepository.GetByOwnerAsync(currentUser.UserId, cancellationToken)
-            : await courseRepository.GetAllAsync(cancellationToken);
+            ? await courseRepository.GetByOwnerAsync(currentUser.UserId, cancellationToken, page)
+            : await courseRepository.GetAllAsync(cancellationToken, page);
         return courses.Select(MapToResponseDTO).ToList();
     }
 
@@ -71,11 +72,13 @@ public sealed class CourseService(
         return MapToResponseDTO(course);
     }
 
-    public async Task<CourseResponseDTO> UpdateAsync(Guid id, CourseUpdateDTO dto, CancellationToken cancellationToken = default)
+    public async Task<CourseResponseDTO> UpdateAsync(Guid id, CourseUpdateDTO dto, CancellationToken cancellationToken = default,
+        IReadOnlyCollection<long>? expectedUpdates = null)
     {
         ServiceGuard.Role(currentUser, UserRole.Profesor, UserRole.Administrador);
         var course = await courseRepository.GetByIdForUpdateAsync(id, cancellationToken) ?? throw new CourseNotFoundException(id);
         EnsureCanManage(course);
+        EnsureExpectedVersion(course, expectedUpdates);
         var working = course.WorkingRevision ?? throw new CourseStateConflictException("El curso no posee una versión de trabajo.");
 
         if (working.Status is not (CourseRevisionStatus.Publicado or CourseRevisionStatus.Borrador or CourseRevisionStatus.CambiosSolicitados))
@@ -83,25 +86,69 @@ public sealed class CourseService(
             throw new CourseStateConflictException("El estado actual del curso no permite editar su versión de trabajo.");
         }
         // Validate and build a detached replacement before changing any tracked entity.
-        var changes = BuildRevision(dto, working.Modules.Select(x => x.Id).ToHashSet());
-        changes.UpdatedAtUtc = NextTimestamp(course.UpdatedAtUtc > working.UpdatedAtUtc ? course.UpdatedAtUtc : working.UpdatedAtUtc);
+        var changes = BuildRevision(dto, working.Modules.Select(x => x.Id).ToHashSet(), working);
+        if (changes.MaxCapacity < working.MaxCapacity &&
+            changes.MaxCapacity < await courseRepository.GetApprovedCountAsync(id, cancellationToken))
+            throw new CourseStateConflictException("El cupo no puede reducirse por debajo de las inscripciones aprobadas.");
+        KeepOnlyUnchangedPublishedModuleIds(course, changes);
         if (working.Status == CourseRevisionStatus.Publicado)
         {
-            if (working.Version == int.MaxValue)
-            {
-                throw new CourseStateConflictException("No puede incrementarse la versión del curso.");
-            }
-            changes.Version = working.Version + 1;
-            changes.CreatedAtUtc = changes.UpdatedAtUtc;
-            course.UpdatedAtUtc = changes.UpdatedAtUtc;
-            await courseRepository.AddRevisionAsync(course, changes, cancellationToken);
+            await AddWorkingRevisionAsync(course, working, changes, expectedUpdates, cancellationToken);
         }
         else
         {
+            changes.UpdatedAtUtc = NextTimestamp(course.UpdatedAtUtc > working.UpdatedAtUtc ? course.UpdatedAtUtc : working.UpdatedAtUtc);
             course.UpdatedAtUtc = changes.UpdatedAtUtc;
-            await courseRepository.UpdateWorkingRevisionAsync(course, changes, cancellationToken);
+            await SaveEditAsync(() => courseRepository.UpdateWorkingRevisionAsync(course, changes, cancellationToken), expectedUpdates);
         }
         return MapToResponseDTO(course);
+    }
+
+    public async Task<CourseResponseDTO> RecoverRejectedDraftAsync(Guid id, IReadOnlyCollection<long> expectedUpdates,
+        CancellationToken cancellationToken = default)
+    {
+        ServiceGuard.Role(currentUser, UserRole.Profesor, UserRole.Administrador);
+        var course = await courseRepository.GetByIdForUpdateAsync(id, cancellationToken) ?? throw new CourseNotFoundException(id);
+        EnsureCanManage(course);
+        EnsureExpectedVersion(course, expectedUpdates);
+        if (course.WorkingRevision is not { Status: CourseRevisionStatus.Rechazado } rejected)
+            throw new CourseStateConflictException("Solo se puede recuperar una revisión de trabajo rechazada.");
+
+        var draft = BuildRevision(ToUpdate(rejected), rejected.Modules.Select(x => x.Id).ToHashSet(), rejected);
+        KeepOnlyUnchangedPublishedModuleIds(course, draft);
+        await AddWorkingRevisionAsync(course, rejected, draft, expectedUpdates, cancellationToken);
+        return MapToResponseDTO(course);
+    }
+
+    private async Task AddWorkingRevisionAsync(Course course, CourseRevision previous, CourseRevision changes,
+        IReadOnlyCollection<long>? expectedUpdates, CancellationToken cancellationToken)
+    {
+        if (previous.Version == int.MaxValue)
+            throw new CourseStateConflictException("No puede incrementarse la versión del curso.");
+
+        changes.Version = previous.Version + 1;
+        changes.UpdatedAtUtc = NextTimestamp(course.UpdatedAtUtc > previous.UpdatedAtUtc ? course.UpdatedAtUtc : previous.UpdatedAtUtc);
+        changes.CreatedAtUtc = changes.UpdatedAtUtc;
+        course.UpdatedAtUtc = changes.UpdatedAtUtc;
+        await SaveEditAsync(() => courseRepository.AddRevisionAsync(course, changes, cancellationToken), expectedUpdates);
+    }
+
+    private static void EnsureExpectedVersion(Course course, IReadOnlyCollection<long>? expectedUpdates)
+    {
+        if (expectedUpdates is not null && !expectedUpdates.Contains(course.UpdatedAtUtc.Ticks))
+            throw new CourseVersionMismatchException();
+    }
+
+    private static async Task SaveEditAsync(Func<Task> save, IReadOnlyCollection<long>? expectedUpdates)
+    {
+        try
+        {
+            await save();
+        }
+        catch (CourseStateConflictException) when (expectedUpdates is not null)
+        {
+            throw new CourseVersionMismatchException();
+        }
     }
 
     public async Task<CourseReviewResponseDTO> SubmitForReviewAsync(Guid id, CancellationToken cancellationToken = default)
@@ -125,25 +172,37 @@ public sealed class CourseService(
             CourseRevisionId = revision.Id,
             Type = course.PublishedRevisionId is null ? CourseReviewType.Creacion : CourseReviewType.Modificacion,
             RequestedByUserId = currentUser.UserId,
-            RequestedAtUtc = DateTime.UtcNow
+            RequestedAtUtc = updatedAt,
+            Snapshot = new CourseReviewSnapshot { ContentJson = JsonSerializer.Serialize(MapToResponseDTO(course)) }
         };
         await courseRepository.CreateReviewAsync(review, cancellationToken);
         review.CourseRevision = revision;
         return MapToReviewResponseDTO(review);
     }
 
-    public async Task<IReadOnlyList<CourseReviewResponseDTO>> GetPendingReviewsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CourseReviewResponseDTO>> GetPendingReviewsAsync(CancellationToken cancellationToken = default, ListPage? page = null)
     {
         ServiceGuard.Role(currentUser, UserRole.Administrador);
-        var reviews = await courseRepository.GetPendingReviewsAsync(cancellationToken);
+        var reviews = await courseRepository.GetPendingReviewsAsync(cancellationToken, page);
         return reviews.Select(MapToReviewResponseDTO).ToList();
     }
 
-    public async Task<IReadOnlyList<CourseReviewResponseDTO>> GetMyReviewsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CourseReviewResponseDTO>> GetMyReviewsAsync(CancellationToken cancellationToken = default, ListPage? page = null)
     {
         ServiceGuard.Role(currentUser, UserRole.Profesor, UserRole.Administrador);
-        var reviews = await courseRepository.GetReviewsByRequesterAsync(currentUser.UserId, cancellationToken);
+        var reviews = await courseRepository.GetReviewsByRequesterAsync(currentUser.UserId, cancellationToken, page);
         return reviews.Select(MapToReviewResponseDTO).ToList();
+    }
+
+    public async Task<CourseReviewSnapshotResponseDTO> GetReviewSnapshotAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        ServiceGuard.Role(currentUser, UserRole.Profesor, UserRole.Administrador);
+        var review = await courseRepository.GetReviewByIdAsync(id, cancellationToken) ?? throw new CourseReviewNotFoundException(id);
+        if (currentUser.Role != UserRole.Administrador && review.RequestedByUserId != currentUser.UserId)
+            throw new ForbiddenOperationException();
+        return new CourseReviewSnapshotResponseDTO(MapToReviewResponseDTO(review), review.Snapshot is null
+            ? null
+            : JsonSerializer.Deserialize<CourseResponseDTO>(review.Snapshot.ContentJson));
     }
 
     public async Task<CourseReviewResponseDTO> ResolveReviewAsync(
@@ -197,10 +256,10 @@ public sealed class CourseService(
     }
 
     public Task<CourseResponseDTO> PauseAsync(Guid id, CancellationToken cancellationToken = default) =>
-        ChangeOperationalStatusAsync(id, CourseOperationalStatus.Activo, CourseOperationalStatus.Pausado, false, cancellationToken);
+        ChangeOperationalStatusAsync(id, CourseOperationalStatus.Activo, CourseOperationalStatus.Pausado, cancellationToken);
 
     public Task<CourseResponseDTO> ResumeAsync(Guid id, CancellationToken cancellationToken = default) =>
-        ChangeOperationalStatusAsync(id, CourseOperationalStatus.Pausado, CourseOperationalStatus.Activo, false, cancellationToken);
+        ChangeOperationalStatusAsync(id, CourseOperationalStatus.Pausado, CourseOperationalStatus.Activo, cancellationToken);
 
     public async Task<CourseResponseDTO> FinishAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -213,7 +272,7 @@ public sealed class CourseService(
         }
         course.OperationalStatus = CourseOperationalStatus.Finalizado;
         course.UpdatedAtUtc = NextTimestamp(course.UpdatedAtUtc);
-        await courseRepository.SaveAsync(cancellationToken);
+        await courseRepository.FinishAndRejectPendingAsync(course, currentUser.UserId, DateTime.UtcNow, cancellationToken);
         return MapToResponseDTO(course);
     }
 
@@ -221,10 +280,9 @@ public sealed class CourseService(
         Guid id,
         CourseOperationalStatus expected,
         CourseOperationalStatus target,
-        bool adminOnly,
         CancellationToken cancellationToken)
     {
-        ServiceGuard.Role(currentUser, adminOnly ? [UserRole.Administrador] : [UserRole.Profesor, UserRole.Administrador]);
+        ServiceGuard.Role(currentUser, UserRole.Profesor, UserRole.Administrador);
         var course = await courseRepository.GetByIdForUpdateAsync(id, cancellationToken) ?? throw new CourseNotFoundException(id);
         EnsureCanManage(course);
         if (course.PublishedRevisionId is null || course.OperationalStatus != expected)
@@ -245,16 +303,18 @@ public sealed class CourseService(
         }
     }
 
-    private static CourseRevision BuildRevision(CourseUpdateDTO dto, HashSet<Guid> allowedModuleIds)
+    private static CourseRevision BuildRevision(CourseUpdateDTO dto, HashSet<Guid> allowedModuleIds,
+        CourseRevision? baseline = null)
     {
         if (dto is null || dto.Modules is null || dto.Modules.Any(x => x is null))
         {
             throw new LumenValidationException("El curso y su lista de módulos deben ser válidos.");
         }
-        if (dto.MaxCapacity < 0)
+        if (dto.MaxCapacity <= 0)
         {
-            throw new LumenValidationException("El cupo no puede ser negativo.");
+            throw new LumenValidationException("El cupo máximo debe ser mayor que cero.");
         }
+        ValidateCount(dto.Modules.Count, 100, baseline?.Modules.Count, "módulos");
         var revision = new CourseRevision
         {
             Status = CourseRevisionStatus.Borrador,
@@ -264,8 +324,8 @@ public sealed class CourseService(
             Level = NormalizeText(dto.Level, 100, "nivel"),
             Modality = NormalizeText(dto.Modality, 100, "modalidad"),
             MaxCapacity = dto.MaxCapacity,
-            LearningObjectives = NormalizeList(dto.LearningObjectives),
-            SuggestedPrerequisites = NormalizeList(dto.SuggestedPrerequisites)
+            LearningObjectives = NormalizeList(dto.LearningObjectives, 30, 500, "objetivos de aprendizaje", baseline?.LearningObjectives),
+            SuggestedPrerequisites = NormalizeList(dto.SuggestedPrerequisites, 30, 500, "requisitos previos", baseline?.SuggestedPrerequisites)
         };
         var suppliedIds = new HashSet<Guid>();
         long totalDuration = 0;
@@ -292,7 +352,7 @@ public sealed class CourseService(
                 Description = NormalizeText(input.Description, 2000, "descripción del módulo"),
                 DurationMinutes = input.DurationMinutes,
                 Content = NormalizeText(input.Content, 8000, "contenido del módulo"),
-                Resources = NormalizeList(input.Resources)
+                Resources = NormalizeList(input.Resources, 50, 2000, "recursos", baseline?.Modules.FirstOrDefault(x => x.Id == input.Id)?.Resources)
             });
         }
         revision.TotalDurationMinutes = (int)totalDuration;
@@ -313,14 +373,29 @@ public sealed class CourseService(
         }
     }
 
-    private static List<string> NormalizeList(IReadOnlyList<string>? values)
+    private static List<string> NormalizeList(IReadOnlyList<string>? values, int maximumCount,
+        int maximumLength, string field, IReadOnlyList<string>? baseline)
     {
         if (values is null) return [];
         if (values.Any(x => x is null))
         {
             throw new LumenValidationException("Las listas no pueden contener elementos nulos.");
         }
-        return values.Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
+        var normalized = values.Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
+        ValidateCount(normalized.Count, maximumCount, baseline?.Count, field);
+        for (var i = 0; i < normalized.Count; i++)
+        {
+            var previousLength = baseline is not null && i < baseline.Count ? baseline[i].Length : 0;
+            if (normalized[i].Length > maximumLength && normalized[i].Length > previousLength)
+                throw new LumenValidationException($"Cada elemento de {field} admite hasta {maximumLength} caracteres.");
+        }
+        return normalized;
+    }
+
+    private static void ValidateCount(int count, int maximum, int? previous, string field)
+    {
+        if (count > maximum && count > (previous ?? 0))
+            throw new LumenValidationException($"El curso admite hasta {maximum} {field}.");
     }
 
     private static DateTime NextTimestamp(DateTime previous)
@@ -334,13 +409,32 @@ public sealed class CourseService(
         return previous.AddTicks(1);
     }
 
+    private static CourseUpdateDTO ToUpdate(CourseRevision revision) =>
+        new(revision.Title, revision.Description, revision.Category,
+            revision.Level, revision.Modality, revision.MaxCapacity, revision.LearningObjectives,
+            revision.SuggestedPrerequisites, revision.Modules.OrderBy(x => x.Order).Select(x => new CourseModuleUpdateDTO(x.Id,
+                x.Name, x.Description, x.DurationMinutes, x.Content, x.Resources)).ToList());
+
+    private static void KeepOnlyUnchangedPublishedModuleIds(Course course, CourseRevision changes)
+    {
+        if (course.PublishedRevision is not { } published) return;
+        var originalById = published.Modules.ToDictionary(x => x.Id);
+        foreach (var module in changes.Modules)
+        {
+            if (originalById.TryGetValue(module.Id, out var original) &&
+                (module.Name != original.Name || module.Description != original.Description ||
+                 module.DurationMinutes != original.DurationMinutes || module.Content != original.Content ||
+                 !module.Resources.SequenceEqual(original.Resources)))
+            {
+                // A completion follows an unchanged module, never a replacement with different content.
+                module.Id = Guid.Empty;
+            }
+        }
+    }
+
     private static int ValidateComplete(CourseRevision revision)
     {
-        var validated = BuildRevision(new CourseUpdateDTO(revision.Title, revision.Description, revision.Category,
-            revision.Level, revision.Modality, revision.MaxCapacity, revision.LearningObjectives,
-            revision.SuggestedPrerequisites, revision.Modules.Select(x => new CourseModuleUpdateDTO(x.Id,
-                x.Name, x.Description, x.DurationMinutes, x.Content, x.Resources)).ToList()),
-            revision.Modules.Select(x => x.Id).ToHashSet());
+        var validated = BuildRevision(ToUpdate(revision), revision.Modules.Select(x => x.Id).ToHashSet(), revision);
         ServiceGuard.Required(validated.Title, "título");
         ServiceGuard.Required(validated.Description, "descripción");
         ServiceGuard.Required(validated.Category, "categoría");
@@ -398,12 +492,12 @@ public sealed class CourseService(
             revision.SuggestedPrerequisites,
             revision.Modules.OrderBy(x => x.Order).Select(x => MapToModuleResponseDTO(x, true)).ToList(),
             course.CreatedAtUtc,
-            course.UpdatedAtUtc);
+            course.UpdatedAtUtc) { WorkingStatus = revision.Status.ToString() };
     }
 
     internal static PublishedCourseResponseDTO MapToPublishedResponseDTO(Course course, bool includeContent)
     {
-        var revision = course.PublishedRevision ?? throw new CourseStateConflictException("El curso no posee una versión publicada.");
+        var revision = RequireOwnPublication(course);
         return new PublishedCourseResponseDTO(
             course.Id,
             revision.Version,
@@ -419,6 +513,13 @@ public sealed class CourseService(
             revision.Modules.OrderBy(x => x.Order).Select(x => MapToModuleResponseDTO(x, includeContent)).ToList(),
             revision.PublishedAtUtc ?? revision.UpdatedAtUtc);
     }
+
+    internal static CourseRevision RequireOwnPublication(Course course) =>
+        OwnRevision(course, course.PublishedRevision)
+            ?? throw new CourseStateConflictException("El curso no posee una versión publicada válida.");
+
+    internal static CourseRevision? OwnRevision(Course course, CourseRevision? revision) =>
+        revision?.CourseId == course.Id ? revision : null;
 
     private static CourseModuleResponseDTO MapToModuleResponseDTO(CourseModule module, bool includeContent) =>
         new(module.Id, module.Order, module.Name, module.Description, module.DurationMinutes,

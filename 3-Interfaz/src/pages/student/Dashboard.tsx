@@ -15,7 +15,7 @@ import {
   SearchInput,
 } from '@/components/UI'
 import { useApp } from '@/hooks/useApp'
-import { courseService } from '@/services/courseService'
+import { courseService, getEnrollmentProgress, getPublication } from '@/services/courseService'
 import { formatDate, formatDuration, fullName } from '@/utils/format'
 
 export function StudentDashboard() {
@@ -24,11 +24,14 @@ export function StudentDashboard() {
 
   const approved = state.enrollments.filter((item) => item.studentId === currentUser.id && item.status === 'APROBADA')
   const pending = state.enrollments.filter((item) => item.studentId === currentUser.id && item.status === 'PENDIENTE')
-  const progress = state.progressRecords.filter((item) => item.studentId === currentUser.id)
+  const progress = approved.flatMap((item) => {
+    const record = getEnrollmentProgress(state, item)
+    return record ? [record] : []
+  })
   const completed = progress.filter((item) => item.status === 'COMPLETADO').length
   const average = progress.length ? Math.round(progress.reduce((sum, item) => sum + item.percentage, 0) / progress.length) : 0
   const activeProgress = [...progress].filter((item) => item.status !== 'COMPLETADO').sort((a, b) => b.percentage - a.percentage)[0] ?? progress[0]
-  const activeCourse = state.courses.find((item) => item.id === activeProgress?.courseId)
+  const activeCourse = getPublication(state.courses.find((item) => item.id === activeProgress?.courseId))
   const teacher = state.users.find((item) => item.id === activeCourse?.teacherId)
   const explore = courseService
     .getPublishedCourses(state)

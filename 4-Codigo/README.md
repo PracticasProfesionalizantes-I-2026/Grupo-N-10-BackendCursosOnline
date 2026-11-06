@@ -6,6 +6,8 @@ API RESTful en .NET 10 para el Sistema de Gestión de Cursos Online LUMEN. Imple
 
 La solución utiliza arquitectura N-Tier e inyección de dependencias por constructor. `API` recibe HTTP y resuelve autenticación, autorización por endpoint y traducción de errores; `BusinessLogic` valida reglas, permisos y transiciones; `DataAccess` concentra entidades, configuración EF Core, repositories y `LumenDbContext`. `Shared` contiene DTOs, enums y excepciones; `Migrations` contiene las migraciones y su ejecutor.
 
+El [registro de auditoría](../AUDITORIA_Y_PLAN_DE_CORRECCIONES.md) vincula los contratos con los 16 casos de uso y sus pruebas. El prototipo usa datos locales y sus diferencias de alcance se identifican por caso.
+
 ~~~text
 Cliente HTTP
     ↓
@@ -41,7 +43,7 @@ Los controllers no contienen reglas de negocio. Los services validan permisos, d
 
 Requisitos:
 
-- **SDK .NET 10.0.400**, según [global.json](global.json). La política `rollForward: latestPatch` permite parches posteriores dentro de la misma banda **10.0.4xx**; no cambia de banda ni de versión mayor o menor. El runtime por sí solo no alcanza.
+- **SDK .NET 10.0.403**, según [global.json](global.json), y runtime **ASP.NET Core 10.0.14** o parche posterior de .NET 10 para ejecutar la API publicada. `rollForward: latestPatch` permite parches posteriores de SDK dentro de **10.0.4xx**. El runtime por sí solo no alcanza para compilar.
 - **Windows PowerShell 5.1 o PowerShell 7** para los bloques de esta guía. Los ejemplos de generación aleatoria son compatibles con ambas versiones.
 - Acceso a NuGet para restaurar paquetes que no estén en la caché local. Bruno se necesita únicamente para utilizar su colección; la API y las pruebas .NET no lo requieren.
 
@@ -162,6 +164,8 @@ Referencias: [User Secrets](https://learn.microsoft.com/en-us/aspnet/core/securi
 | Testing | Sí | Solo si no existen usuarios |
 | Production u otro entorno | Sí | No |
 
+La siembra demo se confirma en una sola transacción. Si falla, SQLite revierte la siembra y se puede reintentar sin reconstruir la base. En entornos no demo también se rechaza el acceso de las tres identidades reservadas, incluso con tokens emitidos previamente; las filas existentes se conservan. Production no crea un administrador automáticamente: el aprovisionamiento de la primera cuenta real debe realizarse con un procedimiento operativo aprobado.
+
 Sin un entorno explícito, la API utiliza Production y el ejecutor de migraciones tampoco genera demos. El perfil `http` y los bloques anteriores seleccionan Development explícitamente. Las pruebas y el recorrido temporal de Bruno utilizan Testing.
 
 Una Production vacía puede arrancar sin cuentas. Su primer Administrador requiere aprovisionamiento controlado fuera de este recorrido; el registro público sigue permitiendo únicamente Alumno y Profesor. Esta política no elimina cuentas demo que ya existieran.
@@ -175,6 +179,8 @@ En una base nueva de Development o Testing, las cuentas demo siguientes utilizan
 | Administrador | admin@lumen.local |
 
 ## Persistencia y versiones
+
+El [modelo de datos](MODELO_DE_DATOS.md) describe las relaciones y las restricciones de SQLite.
 
 SQLite se configura mediante ConnectionStrings:Lumen. La base predeterminada es lumen.db.
 
@@ -196,6 +202,14 @@ El servicio valida y construye los cambios antes de modificar entidades rastread
 El repositorio guarda la retirada explícita, la modificación y el agregado de módulos en una única transacción. Para intercambiar posiciones bajo el índice único (RevisionId, Order), utiliza posiciones negativas temporales y luego aplica el orden positivo final. Esas posiciones nunca se confirman como resultado de la actualización: cualquier error revierte toda la transacción, incluido UpdatedAtUtc.
 
 EF usa como tokens de concurrencia los campos existentes UpdatedAtUtc y WorkingRevisionId de Course, UpdatedAtUtc y Status de CourseRevision, y Decision de CourseReview. El servicio hace avanzar estrictamente la fecha de actualización, aun si el reloj devuelve un valor igual o anterior. Las escrituras comprueban los valores originales; un conflicto se traduce a CourseStateConflictException (409). Esta protección cubre envíos duplicados, ediciones concurrentes con el envío, primeras actualizaciones simultáneas y decisiones administrativas tardías. No agrega columnas ni requiere una migración. La creación de una revisión y el cambio del puntero de trabajo son atómicos; el envío guarda la solicitud y la transición juntos. Una decisión solo se aplica a una solicitud pendiente de la revisión de trabajo vigente.
+
+`GET /api/courses/{id}` y `PUT /api/courses/{id}` devuelven `ETag`. La edición requiere la etiqueta fuerte y específica de la lectura en `If-Match`. La falta de etiqueta o el comodín devuelven `428`; un valor obsoleto devuelve `412` sin escritura y uno sintácticamente inválido devuelve `400`. Ante `412`, volver a consultar, revisar las diferencias y reintentar sobre la nueva etiqueta. `409` identifica un estado incompatible con una etiqueta vigente. [RFC 6585](https://www.rfc-editor.org/rfc/rfc6585.html#section-3).
+
+`POST /api/courses/{id}/recover-draft` exige la misma precondición. El Profesor propietario o Administrador obtiene un borrador con una versión nueva a partir del contenido rechazado. Se conservan la decisión, la revisión rechazada y la publicación anterior. `workingStatus` identifica el estado de la revisión incluso si `status` refleja pausa o finalización.
+
+`GET /api/course-reviews/{id}` entrega al Administrador o Profesor solicitante la decisión, observaciones, fechas y copia exacta de lo enviado. `submission.publishedVersion` indica qué versión estaba publicada al enviar. Un envío aprobado se identifica por `review.version` y la decisión `Aprobada`. Los envíos previos a la migración devuelven `submission: null`.
+
+Los listados de cursos, catálogo, auditorías, usuarios, inscripciones y progreso por curso aceptan `limit` de 1 a 100 y `offset` desde cero. El valor por defecto de `offset` es cero. Los parámetros inválidos devuelven 400 y sin parámetros se conserva el arreglo completo. Los filtros y permisos se aplican antes de paginar en SQLite. El orden existente desempata por ID. Aplicar `offset` sobre una colección cambiante puede desplazar elementos.
 
 Los siguientes aspectos funcionales siguen abiertos en las fuentes oficiales. CU-05 conserva el comportamiento previo, sin establecer reglas nuevas: la edición depende del estado de la revisión aunque el curso esté Pausado o Finalizado; guardar correcciones de CambiosSolicitados pasa a Borrador; objetivos y requisitos sugeridos pueden estar vacíos; alumnos y progreso usan la publicación vigente, conservando finalizaciones por ID de módulo. Las solicitudes conservan decisiones y observaciones, pero no una fotografía inmutable del contenido corregido posteriormente.
 
@@ -337,9 +351,9 @@ Estos criterios completan aspectos que los requisitos originales no definen expr
 - Durante una nueva auditoría se admiten solicitudes si el curso conserva PublishedRevisionId y su estado operativo es Activo. Los cambios sin aprobar no sustituyen la versión pública.
 - Curso inexistente devuelve 404; curso existente sin publicación, Pausado o Finalizado devuelve 409.
 - CourseId ausente o vacío devuelve 400. Una identidad autenticada sin identificador de alumno válido devuelve 403. Los identificadores de alumno y el estado recibidos como campos extra del cuerpo no se utilizan.
-- No se incorporan restricciones de cupo a la solicitud.
+- Una solicitud Pendiente no ocupa cupo. La aprobación comprueba el cupo disponible en la misma sentencia SQLite que cambia el estado.
 
-El servicio conserva las verificaciones de rol, identidad, curso y duplicados. El repositorio inserta solamente la nueva fila mediante ExecuteSqlInterpolatedAsync de EF, con parámetros y un SELECT condicionado a la publicación y al estado operativo requerido por el servicio. La comprobación final y la inserción forman una única sentencia: si pausa/finalización se confirma antes, la solicitud se rechaza; si la inserción se confirma primero, la solicitud queda registrada y la transición posterior no la cancela. Esto evita insertar el grafo del curso obtenido con AsNoTracking.
+El servicio conserva las verificaciones de rol, identidad, curso y duplicados. El repositorio inserta solamente la nueva fila mediante ExecuteSqlInterpolatedAsync de EF, con parámetros y un SELECT condicionado a la publicación y al estado operativo requerido por el servicio. La comprobación final y la inserción forman una única sentencia. Si la pausa se confirma antes, la solicitud nueva se rechaza; si la inserción se confirma primero, la solicitud queda pendiente para resolución durante la pausa. Finalizar rechaza todas las pendientes del curso en la misma transacción. Esto evita insertar el grafo del curso obtenido con AsNoTracking.
 
 SQLite garantiza una única inscripción Pendiente o Aprobada por alumno/curso mediante un índice único parcial sobre StudentId y CourseId. Las solicitudes concurrentes que infringen esa restricción se traducen específicamente a DuplicateEnrollmentException (409); otros errores de persistencia no se presentan como duplicados.
 
@@ -353,7 +367,11 @@ Referencias técnicas: [sentencias y transacciones SQLite](https://learn.microso
 
 ## Errores HTTP
 
-Las excepciones de negocio son tipadas y se convierten explícitamente en cada controller.
+El registro público requiere un rol explícito y devuelve `201` con el usuario creado. Tanto el alta pública como la interna validan el formato del correo y las longitudes del modelo. El inicio de sesión conserva la compatibilidad con correos aceptados antes de esa validación. La auditoría requiere una decisión explícita. La observación es obligatoria al solicitar cambios. Una solicitud inválida no cambia la publicación.
+
+Los errores inesperados devuelven `500 application/problem+json` con `traceId`, sin detalles de la excepción. Los errores de negocio mantienen `code` y `message`.
+
+Un middleware traduce las excepciones de negocio tipadas a respuestas HTTP.
 
 | HTTP | Uso |
 |---|---|
@@ -362,10 +380,29 @@ Las excepciones de negocio son tipadas y se convierten explícitamente en cada c
 | 403 | Rol, propiedad o acceso no permitido |
 | 404 | Recurso inexistente |
 | 409 | Duplicados o transición incompatible |
+| 412 | Etiqueta de edición de curso obsoleta |
+| 413 | El cuerpo excede el límite de transporte del servidor |
+| 428 | Se requiere un ETag específico en `If-Match` |
+| 429 | Límite temporal de intentos de login, con `Retry-After` en segundos |
+| 500 | Error inesperado, con identificador de trazabilidad |
+
+El login admite 20 solicitudes por ventana de 60 segundos por IP de conexión e instancia. El contador no confía en `X-Forwarded-For` recibido del cliente. En despliegues con proxy o múltiples instancias, el límite local puede agrupar usuarios o multiplicarse entre instancias. El límite agregado requiere una política en el borde.
+
+Un correo inexistente pasa por una verificación con un hash señuelo antes de devolver `401`. Se usa el algoritmo del hasher de Identity instalado. Si cambia su configuración, revisar también el costo del señuelo. Esta defensa reduce la señal temporal de existencia de cuentas. Los hashes históricos o diferencias del despliegue aún pueden alterar los tiempos.
+
+Los endpoints JSON devuelven `413` si el servidor rechaza el tamaño del cuerpo. Si la excepción llega a la aplicación, la respuesta usa `application/problem+json` y omite los detalles internos. El límite efectivo depende del servidor y del proxy. Los máximos funcionales de módulos y recursos se validan por separado.
+
+En `GET /api/reports/summary`, `timeZone` habilita el modo de fechas civiles. Con esa opción, `from` y `to` usan `AAAA-MM-DD` y la zona usa un identificador IANA. Se cuenta desde la medianoche de `from` hasta la siguiente a `to`, excluida. Se devuelve `timeZone` y las medianoches de ambas fechas seleccionadas convertidas a UTC. Una medianoche inexistente devuelve 400 y, si es ambigua, se usa su primera ocurrencia. Sin `timeZone` se conserva el contrato histórico.
 
 ## Migraciones
 
 La migración incremental EnforceSingleActiveEnrollment agrega el índice único parcial sin cambiar la migración inicial ni el historial de inscripciones. Si ya existen duplicados Pendiente/Aprobada, su aplicación falla y no los elimina ni cambia sus estados automáticamente.
+
+`EnforceCourseRevisionOwnership` incorpora disparadores SQLite que impiden asignar al curso una revisión de otro curso o mover de dueño una revisión referenciada. No reescribe filas existentes. Antes de reparar cualquier inconsistencia histórica, aplicar el diagnóstico de solo lectura del [modelo de datos](MODELO_DE_DATOS.md).
+
+`PreserveReviewSnapshots` agrega una tabla de evidencia por envío. Los disparadores impiden modificarla o borrarla. El esquema es aditivo y la migración impide una reversión que eliminaría evidencia. Una versión anterior del binario puede ignorar la tabla, pero los envíos realizados con ese binario carecerían de copia.
+
+`PreventReviewSnapshotReplacement` agrega un control de inserción sobre una auditoría que ya tiene copia. Cubre `INSERT OR REPLACE` incluso con disparadores recursivos desactivados. La migración conserva las copias existentes.
 
 Antes de aplicar esta migración a una base existente, verificar la ruta absoluta de destino, conservar un respaldo y ejecutar sobre ese destino esta consulta de diagnóstico:
 
@@ -399,6 +436,16 @@ finally {
 
 El ejemplo no requiere JWT y deja la base en `$migrationDatabase`. No cambia la base utilizada por la API. Para migrar un destino elegido, detener las instancias que lo usan y proporcionar su ruta absoluta en el mismo argumento `--connection`. El ejecutor usa `DOTNET_ENVIRONMENT`, luego `ASPNETCORE_ENVIRONMENT`; Production, un entorno desconocido o la ausencia de ambos aplican solamente el esquema. No cambia la política de cuentas existentes.
 
+## Decisiones funcionales aprobadas en la quinta ronda
+
+El registro público y el alta interna exigen nombre, apellido, dirección y correo. El DNI se conserva como cadena de 7 u 8 dígitos, incluidos ceros iniciales. El teléfono admite formatos nacionales y `+54`, con 10 a 15 dígitos y separadores de espacio, guion o paréntesis. El código postal acepta cuatro dígitos o CPA argentino y se guarda en mayúsculas. Las contraseñas nuevas admiten de 8 a 128 caracteres, incluidos símbolos, Unicode y espacios internos. Se pasan sin recortar al hasher. El login conserva la compatibilidad de cuentas anteriores y no revalida sus datos de alta.
+
+La creación de cursos limita a 100 módulos, 30 objetivos, 30 requisitos y 50 recursos por módulo. Objetivos y requisitos admiten 500 caracteres cada uno; cada recurso textual admite 2.000. Los topes escalares anteriores siguen vigentes. Un borrador puede estar incompleto, pero respeta esos máximos. Una edición de datos históricos por encima de ellos puede reducir un exceso sin aumentarlo. La consulta de esos cursos continúa disponible.
+
+El cupo positivo es efectivo al aprobar una inscripción y solo cuenta las aprobadas activas. La sentencia de aprobación comprueba ocupación y estado operativo en SQLite antes de actualizar. Cancelar libera plaza. Reducir el cupo por debajo de la ocupación devuelve 409. Un curso pausado admite la resolución de pendientes anteriores. Finalizar el curso y rechazar todas sus pendientes con motivo «Curso finalizado.» ocurre en una transacción, conservando las inscripciones aprobadas y el progreso. La sexta migración `EnforceCourseCapacity` agrega `ResolutionReason` a inscripciones y protege cambios de cupo y de revisión publicada frente a reducciones incompatibles. Se aplica sobre bases temporales en las pruebas.
+
+OpenAPI declara contratos, Scalar ofrece exploración interactiva y Bruno ejecuta los recorridos HTTP. La aceptación académica de Scalar y los niveles de complejidad siguen pendientes de confirmación.
+
 ## Validación
 
 ~~~powershell
@@ -408,14 +455,16 @@ dotnet test Lumen.slnx -c Release --no-build --no-restore
 
 Las pruebas unitarias usan xUnit y Moq sin base de datos. Las pruebas de integración usan WebApplicationFactory y bases SQLite únicas en el directorio temporal, con pooling deshabilitado y limpieza al finalizar. Las pruebas de migración de CU-06 usan SQLite en memoria. No utilizan las bases lumen.db de desarrollo.
 
-La última auditoría del código aprobó **350 pruebas: 101 unitarias y 249 de integración**, incluidas las regresiones JWT, concurrencia, EventLog, OpenAPI e inicialización por entorno. No se necesita configurar una clave personal para ejecutarlas: las fábricas de integración generan claves independientes en memoria.
+La cuarta ronda aprobó **389 pruebas** (102 unitarias y 287 de integración), con SDK 10.0.403 y runtime 10.0.14. Incluye concurrencia, recuperación, historial de auditoría, republicación, paginación, seguridad, el límite de transporte en Kestrel y cinco migraciones en SQLite temporal. Las fábricas de integración generan sus claves en memoria.
 
 Las suites EnrollmentCreationServiceTests, EnrollmentCreationIntegrationTests y EnrollmentPersistenceIntegrationTests verifican CU-06, incluyendo HTTP, identidad JWT, persistencia sin alterar cursos/revisiones/módulos, concurrencia, carreras con pausa/finalización, nueva solicitud tras rechazo/cancelación, progreso separado y migración de datos existentes.
 
 ## Bruno
 
-La colección contiene **50 requests** y dos environments: `local` para el puerto 5080 y `demo-temporal` para el 5081. El [README de Bruno](bruno/README.md) documenta preparación, arranque aislado, precondiciones, orden y limpieza.
+La colección contiene **58 requests** y dos environments: `local` para el puerto 5080 y `demo-temporal` para el 5081. El [README de Bruno](bruno/README.md) documenta preparación, arranque aislado, precondiciones, orden y limpieza.
 
-`00-Exposicion` contiene **19 requests**: autentica los tres roles, crea un curso de tres módulos, lo publica mediante auditoría, solicita y aprueba una inscripción y registra progreso hasta 100 %, incluida una repetición idempotente. Ejecutar esa carpeta completa en orden, una iteración y concurrencia 1. Los 31 requests generales tienen precondiciones propias y no deben ejecutarse como una secuencia automática de toda la raíz.
+`00-Exposicion` contiene **19 requests**: autentica los tres roles, crea un curso de tres módulos, lo publica mediante auditoría, solicita y aprueba una inscripción y registra progreso hasta 100 %, incluida una repetición idempotente. Ejecutar esa carpeta completa en orden, una iteración y concurrencia 1. La guía separa el recorrido general del recorrido de rechazo y recuperación.
 
-En la auditoría se verificaron 69 llamadas HTTP reales sobre los 50 requests distintos y **171 tests Bruno aprobados**, mediante los parsers y motores ScriptRuntime/TestRuntime NodeVM del Bruno instalado. La interfaz gráfica y QuickJS no forman parte de esa comprobación. Los tokens e IDs se mantienen en variables runtime; no guardarlos en environments ni compartir exports o capturas que los contengan.
+En la segunda etapa Bruno CLI 4.3.0 aprobó los 54 requests y 123 tests en dos instancias SQLite temporales. Los tokens e IDs se mantienen en variables runtime durante el recorrido.
+
+En la cuarta ronda se volvieron a verificar los **58 requests distintos** en 64 ejecuciones y con 139 tests aprobados en tres instancias temporales.

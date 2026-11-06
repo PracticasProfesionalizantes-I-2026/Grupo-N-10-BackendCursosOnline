@@ -20,6 +20,8 @@ public sealed class EnrollmentCreationServiceTests
             PublishedRevision = new CourseRevision { Title = "Versión pública" },
             WorkingRevision = new CourseRevision { Title = "Cambios en revisión", Status = CourseRevisionStatus.EnRevision }
         };
+        course.PublishedRevision.CourseId = course.Id;
+        course.WorkingRevision.CourseId = course.Id;
         var courses = new Mock<ICourseRepository>();
         courses.Setup(x => x.GetPublishedByIdAsync(course.Id, It.IsAny<CancellationToken>())).ReturnsAsync(course);
         var enrollments = new Mock<IEnrollmentRepository>();

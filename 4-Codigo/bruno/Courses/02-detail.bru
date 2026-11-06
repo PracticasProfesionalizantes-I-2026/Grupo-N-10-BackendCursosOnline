@@ -26,6 +26,11 @@ tests {
   test("HTTP 200", function () {
     expect(res.getStatus()).to.equal(200);
   });
+  test("ETag fuerte para editar esta versión", function () {
+    const tag = res.getHeader("etag");
+    expect(tag).to.match(/^"[a-f0-9]{32}\.[a-f0-9]{16}"$/);
+    bru.setVar("courseEditTag", tag);
+  });
   const body = res.getBody();
   const isGuid = value => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) && value !== "00000000-0000-0000-0000-000000000000";
   test("Curso identificado, módulos y duración coherentes", function () {

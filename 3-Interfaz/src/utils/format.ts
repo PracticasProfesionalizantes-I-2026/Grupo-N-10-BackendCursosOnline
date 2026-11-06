@@ -47,7 +47,19 @@ export const courseVersion = (course: Course): CourseVersion => ({
 
 export const publishedCourseView = (course: Course): Course => {
   if (!course.publishedVersion) return course
-  return { ...course, ...course.publishedVersion, status: 'PUBLICADO' }
+  return { ...course, ...course.publishedVersion }
 }
 
-export const dateInputValue = (date: Date) => date.toISOString().slice(0, 10)
+export const dateInputValue = (date: Date) =>
+  [date.getFullYear(), date.getMonth() + 1, date.getDate()]
+    .map((part, index) => String(part).padStart(index === 0 ? 4 : 2, '0')).join('-')
+
+export const reportDateRange = (from: string, to: string) => {
+  const start = new Date(from + 'T00:00:00')
+  const end = new Date(to + 'T00:00:00')
+  end.setDate(end.getDate() + 1)
+  return (timestamp: string) => {
+    const value = new Date(timestamp)
+    return value >= start && value < end
+  }
+}

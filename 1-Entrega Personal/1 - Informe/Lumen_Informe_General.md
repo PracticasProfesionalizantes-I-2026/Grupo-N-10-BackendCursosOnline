@@ -29,7 +29,7 @@ Actualmente, muchas academias pequeñas, profesores independientes y emprendimie
 
 - Las tareas manuales de control y seguimiento aumentan el riesgo de errores e inconsistencias.
 
-El propósito de Lumen es centralizar estos procesos en un Sistema de Gestión de Cursos Online (LMS), definiendo de forma clara qué puede hacer cada tipo de usuario y representando esos flujos mediante un prototipo frontend funcional y navegable. En la etapa actual no se considera implementado un backend productivo.
+El propósito de Lumen es centralizar estos procesos en un Sistema de Gestión de Cursos Online (LMS), con funciones diferenciadas por rol. El prototipo representa los flujos; el repositorio también incluye una API académica con persistencia SQLite, independiente del prototipo.
 
 ### 1.2 Oportunidad del negocio
 
@@ -146,9 +146,13 @@ El MVP documenta las capacidades esenciales de Lumen y las representa mediante u
 
 - Reportes administrativos básicos con filtros Desde y Hasta.
 
-La entrega práctica actual se centra en documentación y prototipado frontend. No se considera obligatoria la implementación de una API real, base de datos productiva, servidor backend, autenticación productiva ni mecanismos técnicos específicos.
+La etapa inicial se centró en documentación y prototipado frontend. La entrega posterior incorpora una API ejecutable, persistencia SQLite, autenticación y pruebas. El prototipo sigue usando datos locales; su integración con la API y un despliegue productivo quedan fuera de esta entrega.
+
+El catálogo y el alumno consultan la publicación vigente. Las modificaciones se guardan en una versión de trabajo hasta que se aprueban. La API exige edición condicional, permite recuperar rechazos como borradores separados y conserva una copia por envío a auditoría. Los reportes admiten fechas civiles con zona explícita. La autenticación aplica un límite temporal por IP. Los casos de uso detallan estas condiciones.
 
 ### 4.2 Limitaciones y exclusiones (Out of Scope)
+
+Las exclusiones técnicas de esta lista describen el alcance aprobado para la etapa inicial de prototipado; no son un inventario de la implementación posterior de la API.
 
 - Sistemas de pago, tarjetas o billeteras virtuales.
 
@@ -382,3 +386,10 @@ Transiciones principales: BORRADOR -> EN REVISIÓN -> PUBLICADO / CAMBIOS SOLICI
 - **RN-15:** Los módulos deben pertenecer a un curso existente.
 
 - **RN-16:** Los reportes administrativos básicos deben respetar el rango de fechas definido mediante Desde y Hasta.
+
+### 5.6 Decisiones funcionales complementarias aprobadas por el equipo (noviembre de 2026)
+
+- **VAL-002.** Altas nuevas: DNI de 7 u 8 dígitos, teléfono argentino de 10 a 15 dígitos, código postal de cuatro dígitos o CPA y contraseña de 8 a 128 caracteres. El login histórico se conserva.
+- **VAL-004.** Máximos nuevos: 100 módulos, 30 objetivos, 30 requisitos y 50 recursos por módulo; textos de 500 y 2.000 caracteres. Los excesos históricos pueden reducirse.
+- **DOC-004.** Solo las aprobadas ocupan cupo y cancelar libera una plaza. En pausa se resuelven pendientes; finalizar las rechaza con motivo y conserva acceso y progreso aprobados.
+- **DOC-003.** OpenAPI documenta, Scalar explora y Bruno prueba la API. La aceptación académica sigue pendiente.

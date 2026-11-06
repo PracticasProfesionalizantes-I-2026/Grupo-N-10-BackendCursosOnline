@@ -1,0 +1,37 @@
+meta {
+  name: Rechazar edición sin precondición
+  type: http
+  seq: 13
+}
+
+put {
+  url: {{baseUrl}}/api/courses/{{courseId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{teacherToken}}
+}
+
+body:json {
+  {
+    "title": "Guardado incondicional",
+    "description": "La versión vigente debe conservarse",
+    "category": "Tecnología",
+    "level": "Intermedio",
+    "modality": "Online",
+    "maxCapacity": 25,
+    "learningObjectives": [],
+    "suggestedPrerequisites": [],
+    "modules": []
+  }
+}
+
+tests {
+  test("HTTP 428 si falta la etiqueta específica", function () {
+    expect(res.getStatus()).to.equal(428);
+    expect(res.getBody().code).to.equal("CourseEditPreconditionRequiredException");
+    expect(res.getHeader("cache-control")).to.include("no-store");
+  });
+}

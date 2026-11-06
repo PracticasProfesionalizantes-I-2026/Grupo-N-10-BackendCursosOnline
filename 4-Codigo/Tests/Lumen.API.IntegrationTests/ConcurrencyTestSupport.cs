@@ -177,9 +177,9 @@ internal static class ConcurrencyTestSupport
             await gate.AfterEnrollmentReadAsync(entity, context.ContextId.InstanceId, ct);
             return entity;
         }
-        public Task<IReadOnlyList<Enrollment>> GetByStudentAsync(Guid id, CancellationToken ct = default) => inner.GetByStudentAsync(id, ct);
-        public Task<IReadOnlyList<Enrollment>> GetByCourseAsync(Guid id, CancellationToken ct = default) => inner.GetByCourseAsync(id, ct);
-        public Task<IReadOnlyList<Enrollment>> GetAllAsync(EnrollmentStatus? status, CancellationToken ct = default) => inner.GetAllAsync(status, ct);
+        public Task<IReadOnlyList<Enrollment>> GetByStudentAsync(Guid id, CancellationToken ct = default, ListPage? page = null) => inner.GetByStudentAsync(id, ct, page);
+        public Task<IReadOnlyList<Enrollment>> GetApprovedByCourseAsync(Guid id, CancellationToken ct = default, ListPage? page = null) => inner.GetApprovedByCourseAsync(id, ct, page);
+        public Task<IReadOnlyList<Enrollment>> GetAllAsync(EnrollmentStatus? status, CancellationToken ct = default, ListPage? page = null) => inner.GetAllAsync(status, ct, page);
         public Task<bool> HasPendingOrApprovedAsync(Guid student, Guid course, CancellationToken ct = default) =>
             inner.HasPendingOrApprovedAsync(student, course, ct);
     }
@@ -189,7 +189,7 @@ internal static class ConcurrencyTestSupport
         public Task<User> CreateAsync(User user, CancellationToken ct = default) => inner.CreateAsync(user, ct);
         public Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default) => inner.GetByIdAsync(id, ct);
         public Task<User?> GetByEmailAsync(string email, CancellationToken ct = default) => inner.GetByEmailAsync(email, ct);
-        public Task<IReadOnlyList<User>> GetAllAsync(CancellationToken ct = default) => inner.GetAllAsync(ct);
+        public Task<IReadOnlyList<User>> GetAllAsync(CancellationToken ct = default, ListPage? page = null) => inner.GetAllAsync(ct, page);
         public async Task<bool> EmailExistsAsync(string email, CancellationToken ct = default)
         {
             var exists = await inner.EmailExistsAsync(email, ct);

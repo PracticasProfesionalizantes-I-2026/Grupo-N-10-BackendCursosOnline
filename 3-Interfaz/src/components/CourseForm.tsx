@@ -68,29 +68,57 @@ export function CourseForm({
     setErrors([])
   }
 
-  const validate = () => {
+  const validate = (complete: boolean) => {
     const next: string[] = []
-    if (!draft.title.trim()) next.push('Ingresá el título del curso.')
-    if (!draft.category.trim()) next.push('Seleccioná una categoría.')
-    if (!draft.level.trim()) next.push('Seleccioná un nivel.')
-    if (!draft.modality.trim()) next.push('Seleccioná una modalidad.')
+    if (complete && !draft.title.trim()) next.push('Ingresá el título del curso.')
+    if (complete && !draft.category.trim()) next.push('Seleccioná una categoría.')
+    if (complete && !draft.level.trim()) next.push('Seleccioná un nivel.')
+    if (complete && !draft.modality.trim()) next.push('Seleccioná una modalidad.')
+    if (draft.title.length > 200) next.push('El título admite hasta 200 caracteres.')
+    if (draft.description.length > 4000) next.push('La descripción admite hasta 4.000 caracteres.')
     if (draft.maxCapacity <= 0) next.push('El cupo máximo debe ser mayor a cero.')
-    if (!draft.modules.length) next.push('Agregá al menos un módulo.')
+    const withinCount = (count: number, max: number, previous = 0) => count <= max || count <= previous
+    if (!withinCount(draft.modules.length, 100, initial?.modules.length)) next.push('Se admiten hasta 100 módulos.')
+    if (!withinCount(draft.objectives.length, 30, initial?.objectives.length)) next.push('Se admiten hasta 30 objetivos.')
+    if (!withinCount(draft.prerequisites.length, 30, initial?.prerequisites.length)) next.push('Se admiten hasta 30 requisitos.')
+    for (const [name, values, previous] of [
+      ['objetivo', draft.objectives, initial?.objectives],
+      ['requisito', draft.prerequisites, initial?.prerequisites],
+    ] as const) values.forEach((value, index) => {
+      if (value.length > 500 && value.length > (previous?.[index]?.length ?? 0))
+        next.push('Cada ' + name + ' admite hasta 500 caracteres.')
+    })
+    if (complete && !draft.modules.length) next.push('Agregá al menos un módulo.')
     draft.modules.forEach((module, index) => {
-      if (!module.name.trim()) next.push('Completá el nombre del módulo ' + (index + 1) + '.')
+      const previous = initial?.modules.find((item) => item.id === module.id)
+      if (!withinCount(module.resources.filter((value) => value.trim()).length, 50,
+        previous?.resources.filter((value) => value.trim()).length))
+        next.push('El módulo ' + (index + 1) + ' admite hasta 50 recursos.')
+      module.resources.filter((value) => value.trim()).forEach((value, resourceIndex) => {
+        if (value.trim().length > 2000 && value.trim().length >
+          (previous?.resources[resourceIndex]?.trim().length ?? 0))
+          next.push('Cada recurso admite hasta 2.000 caracteres.')
+      })
+      if (module.name.length > 200) next.push('El nombre del módulo admite hasta 200 caracteres.')
+      if (module.description.length > 2000) next.push('La descripción del módulo admite hasta 2.000 caracteres.')
+      if (complete && !module.name.trim()) next.push('Completá el nombre del módulo ' + (index + 1) + '.')
       if (module.durationHours <= 0) next.push('La duración del módulo ' + (index + 1) + ' debe ser mayor a cero.')
-      if (!module.resources.some((resource) => resource.trim())) next.push('Agregá contenido o recursos al módulo ' + (index + 1) + '.')
+      if (complete && !module.resources.some((resource) => resource.trim())) next.push('Agregá contenido o recursos al módulo ' + (index + 1) + '.')
     })
     setErrors(next)
     return next.length === 0
   }
 
   const submit = () => {
-    if (!validate()) {
+    if (!validate(true)) {
       setStep(draft.title.trim() ? 2 : 1)
       return
     }
     onSave(normalized(), true)
+  }
+
+  const saveDraft = () => {
+    if (validate(false)) onSave(normalized(), false)
   }
 
   return (
@@ -135,10 +163,12 @@ export function CourseForm({
                 <label className="block md:col-span-2">
                   <span className="label">Título *</span>
                   <input className="input" value={draft.title} onChange={(event) => setField('title', event.target.value)} placeholder="Ej. Diseño de productos digitales" />
+                  <span className="text-xs text-slate-500">Hasta 200 caracteres.</span>
                 </label>
                 <label className="block md:col-span-2">
                   <span className="label">Descripción</span>
                   <textarea className="textarea" value={draft.description} onChange={(event) => setField('description', event.target.value)} placeholder="Explicá qué aprenderán los alumnos." />
+                  <span className="text-xs text-slate-500">Hasta 4.000 caracteres.</span>
                 </label>
                 <label className="block">
                   <span className="label">Categoría *</span>
@@ -161,14 +191,17 @@ export function CourseForm({
                 <label className="block">
                   <span className="label">Cupo máximo *</span>
                   <input className="input" type="number" min={1} value={draft.maxCapacity} onChange={(event) => setField('maxCapacity', Number(event.target.value))} />
+                  <span className="text-xs text-slate-500">Debe superar cero y no ser menor que las inscripciones aprobadas.</span>
                 </label>
                 <label className="block">
                   <span className="label">Objetivos de aprendizaje</span>
                   <textarea className="textarea" value={draft.objectives.join('\n')} onChange={(event) => setField('objectives', lines(event.target.value))} placeholder={'Un objetivo por línea'} />
+                  <span className="text-xs text-slate-500">Hasta 30 objetivos de 500 caracteres cada uno.</span>
                 </label>
                 <label className="block">
                   <span className="label">Requisitos previos sugeridos</span>
                   <textarea className="textarea" value={draft.prerequisites.join('\n')} onChange={(event) => setField('prerequisites', lines(event.target.value))} placeholder={'Un requisito por línea'} />
+                  <span className="text-xs text-slate-500">Hasta 30 requisitos de 500 caracteres cada uno.</span>
                 </label>
               </div>
             </>
@@ -180,7 +213,7 @@ export function CourseForm({
                 <div>
                   <p className="eyebrow">Contenido</p>
                   <h2 className="mt-2 text-2xl font-bold text-foreground">Organizá los módulos</h2>
-                  <p className="mt-1 text-sm text-slate-500">La duración total se calcula automáticamente.</p>
+                  <p className="mt-1 text-sm text-slate-500">Hasta 100 módulos por curso. La duración total se calcula automáticamente.</p>
                 </div>
                 <div className="rounded-xl bg-primary-soft px-4 py-3 text-orange-200">
                   <p className="text-[10px] font-bold uppercase tracking-wider">Duración total</p>
@@ -234,7 +267,7 @@ export function CourseForm({
       </AnimatePresence>
 
       <div className="sticky bottom-4 z-10 flex flex-col-reverse gap-3 rounded-xl border border-slate-300 bg-background-secondary/95 p-3 shadow-soft backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-        <button className="btn-secondary" onClick={() => onSave(normalized(), false)}><Save size={17} /> Guardar como borrador</button>
+        <button className="btn-secondary" onClick={saveDraft}><Save size={17} /> Guardar como borrador</button>
         <div className="flex gap-2">
           {step > 1 && <button className="btn-ghost flex-1 sm:flex-none" onClick={() => setStep((value) => value - 1)}><ArrowLeft size={16} /> Atrás</button>}
           {step < 3 ? (
@@ -276,6 +309,7 @@ function ModuleEditor({
         <label className="block">
           <span className="label">Nombre *</span>
           <input className="input" value={module.name} onChange={(event) => onChange(module.id, 'name', event.target.value)} placeholder="Nombre del módulo" />
+          <span className="text-xs text-slate-500">Hasta 200 caracteres.</span>
         </label>
         <label className="block">
           <span className="label">Duración (horas) *</span>
@@ -284,10 +318,12 @@ function ModuleEditor({
         <label className="block md:col-span-2">
           <span className="label">Descripción</span>
           <textarea className="textarea min-h-20" value={module.description} onChange={(event) => onChange(module.id, 'description', event.target.value)} placeholder="Qué trabajarán los alumnos en este módulo." />
+          <span className="text-xs text-slate-500">Hasta 2.000 caracteres.</span>
         </label>
         <label className="block md:col-span-2">
           <span className="label">Contenido / recursos *</span>
           <textarea className="textarea min-h-20" value={module.resources.join('\n')} onChange={(event) => onChange(module.id, 'resources', event.target.value.split('\n'))} placeholder={'Un recurso por línea\nEj. Lectura introductoria\nEj. Video práctico'} />
+          <span className="text-xs text-slate-500">Hasta 50 recursos de 2.000 caracteres cada uno.</span>
         </label>
       </div>
     </article>

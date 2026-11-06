@@ -1,5 +1,6 @@
 using Lumen.DataAccess.Entities;
 using Lumen.Shared.Enums;
+using Lumen.Shared.DTOs;
 
 namespace Lumen.DataAccess.Repositories;
 
@@ -17,9 +18,9 @@ public interface IEnrollmentRepository
         EnrollmentStatus requiredStatus, CancellationToken cancellationToken = default);
     Task<Enrollment?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<Enrollment?> GetByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<Enrollment>> GetByStudentAsync(Guid studentId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<Enrollment>> GetByCourseAsync(Guid courseId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<Enrollment>> GetAllAsync(EnrollmentStatus? status, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Enrollment>> GetByStudentAsync(Guid studentId, CancellationToken cancellationToken = default, ListPage? page = null);
+    Task<IReadOnlyList<Enrollment>> GetApprovedByCourseAsync(Guid courseId, CancellationToken cancellationToken = default, ListPage? page = null);
+    Task<IReadOnlyList<Enrollment>> GetAllAsync(EnrollmentStatus? status, CancellationToken cancellationToken = default, ListPage? page = null);
     Task<bool> HasPendingOrApprovedAsync(Guid studentId, Guid courseId, CancellationToken cancellationToken = default);
 }
 

@@ -1,9 +1,11 @@
 import { BookOpen, Edit3, Eye, PauseCircle, PlayCircle, Power, StopCircle, UserRound } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import type { Course, CourseStatus, Role } from '@/types'
+import type { CourseStatus, Role } from '@/types'
 import { CourseStatusBadge, EmptyState, Modal, PageHeader, SearchInput } from '@/components/UI'
 import { useApp } from '@/hooks/useApp'
+import { canEditWorkingCourse, canRecoverWorkingDraft, getCourseDisplayStatus } from '@/services/courseService'
 import { formatDate, formatDuration, fullName } from '@/utils/format'
 
 const roleLabel: Record<Role, string> = {
@@ -83,39 +85,24 @@ export function AdminUsers() {
 }
 
 export function AdminCourses() {
-  const { state, setCourseStatus, adminEditCourse } = useApp()
+  const { state, setCourseStatus } = useApp()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('TODOS')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [editing, setEditing] = useState(false)
-  const [editValues, setEditValues] = useState({ title: '', description: '', maxCapacity: 1 })
   const filtered = useMemo(
     () =>
       state.courses.filter((course) => {
         const teacher = state.users.find((item) => item.id === course.teacherId)
         const text = (course.title + ' ' + fullName(teacher)).toLowerCase()
-        return text.includes(query.toLowerCase()) && (status === 'TODOS' || course.status === status)
+        return text.includes(query.toLowerCase()) && (status === 'TODOS' || getCourseDisplayStatus(course) === status)
       }),
     [query, state.courses, state.users, status],
   )
   const selected = state.courses.find((item) => item.id === selectedId)
 
-  const open = (course: Course, edit = false) => {
-    setSelectedId(course.id)
-    setEditing(edit)
-    setEditValues({ title: course.title, description: course.description, maxCapacity: course.maxCapacity })
-  }
-
   const changeStatus = (courseId: string, next: CourseStatus) => {
     setCourseStatus(courseId, next)
     toast.success('Estado actualizado a ' + next + '.')
-  }
-
-  const saveEdit = () => {
-    if (!selected || !editValues.title.trim() || editValues.maxCapacity < 1) return
-    adminEditCourse(selected.id, { ...editValues, title: editValues.title.trim() })
-    setEditing(false)
-    toast.success('Información administrativa actualizada.')
   }
 
   return (
@@ -133,6 +120,7 @@ export function AdminCourses() {
             <thead><tr><th>Curso</th><th>Profesor</th><th>Estado</th><th>Alumnos</th><th>Fecha</th><th>Acciones</th></tr></thead>
             <tbody>
               {filtered.map((course) => {
+                const displayStatus = getCourseDisplayStatus(course)
                 const teacher = state.users.find((item) => item.id === course.teacherId)
                 const students = state.enrollments.filter((item) => item.courseId === course.id && item.status === 'APROBADA').length
                 return (
@@ -144,16 +132,17 @@ export function AdminCourses() {
                       </div>
                     </td>
                     <td>{fullName(teacher)}</td>
-                    <td><CourseStatusBadge status={course.status} /></td>
+                    <td><CourseStatusBadge status={displayStatus} /></td>
                     <td>{students}</td>
                     <td>{formatDate(course.createdAt)}</td>
                     <td>
                       <div className="flex flex-wrap gap-1">
-                        <button className="btn-ghost min-h-9 px-2.5 text-xs" onClick={() => open(course)}><Eye size={15} /> Consultar</button>
-                        <button className="btn-ghost min-h-9 px-2.5 text-xs" onClick={() => open(course, true)} disabled={course.status === 'FINALIZADO'}><Edit3 size={15} /> Editar</button>
-                        {course.status === 'PUBLICADO' && <button className="btn-ghost min-h-9 px-2.5 text-xs text-amber-300" onClick={() => changeStatus(course.id, 'PAUSADO')}><PauseCircle size={15} /> Pausar</button>}
-                        {course.status === 'PAUSADO' && <button className="btn-ghost min-h-9 px-2.5 text-xs text-emerald-300" onClick={() => changeStatus(course.id, 'PUBLICADO')}><PlayCircle size={15} /> Reactivar</button>}
-                        {(course.status === 'PUBLICADO' || course.status === 'PAUSADO') && <button className="btn-ghost min-h-9 px-2.5 text-xs text-red-400" onClick={() => changeStatus(course.id, 'FINALIZADO')}><StopCircle size={15} /> Finalizar</button>}
+                        <button className="btn-ghost min-h-9 px-2.5 text-xs" onClick={() => setSelectedId(course.id)}><Eye size={15} /> Consultar</button>
+                        {canEditWorkingCourse(course) && <Link className="btn-ghost min-h-9 px-2.5 text-xs" to={course.id + '/edit'}><Edit3 size={15} /> Editar</Link>}
+                        {canRecoverWorkingDraft(course) && <Link className="btn-ghost min-h-9 px-2.5 text-xs" to={course.id + '/edit'}>Recuperar borrador</Link>}
+                        {displayStatus === 'PUBLICADO' && <button className="btn-ghost min-h-9 px-2.5 text-xs text-amber-300" onClick={() => changeStatus(course.id, 'PAUSADO')}><PauseCircle size={15} /> Pausar</button>}
+                        {displayStatus === 'PAUSADO' && <button className="btn-ghost min-h-9 px-2.5 text-xs text-emerald-300" onClick={() => changeStatus(course.id, 'PUBLICADO')}><PlayCircle size={15} /> Reactivar</button>}
+                        {(displayStatus === 'PUBLICADO' || displayStatus === 'PAUSADO') && <button className="btn-ghost min-h-9 px-2.5 text-xs text-red-400" onClick={() => changeStatus(course.id, 'FINALIZADO')}><StopCircle size={15} /> Finalizar</button>}
                       </div>
                     </td>
                   </tr>
@@ -168,33 +157,16 @@ export function AdminCourses() {
 
       <Modal
         open={Boolean(selected)}
-        onClose={() => {
-          setSelectedId(null)
-          setEditing(false)
-        }}
-        title={editing ? 'Editar curso administrativamente' : selected?.title ?? 'Detalle del curso'}
-        description={editing ? 'Actualizá únicamente la información general permitida.' : fullName(state.users.find((item) => item.id === selected?.teacherId))}
+        onClose={() => setSelectedId(null)}
+        title={selected?.title ?? 'Detalle del curso'}
+        description={fullName(state.users.find((item) => item.id === selected?.teacherId))}
         size="lg"
-        footer={
-          editing ? (
-            <>
-              <button className="btn-secondary" onClick={() => setEditing(false)}>Cancelar</button>
-              <button className="btn-primary" onClick={saveEdit} disabled={!editValues.title.trim() || editValues.maxCapacity < 1}>Guardar cambios</button>
-            </>
-          ) : <button className="btn-secondary" onClick={() => setSelectedId(null)}>Cerrar</button>
-        }
+        footer={<button className="btn-secondary" onClick={() => setSelectedId(null)}>Cerrar</button>}
       >
-        {selected && editing && (
-          <div className="space-y-4">
-            <label className="block"><span className="label">Título *</span><input className="input" value={editValues.title} onChange={(event) => setEditValues((current) => ({ ...current, title: event.target.value }))} /></label>
-            <label className="block"><span className="label">Descripción</span><textarea className="textarea" value={editValues.description} onChange={(event) => setEditValues((current) => ({ ...current, description: event.target.value }))} /></label>
-            <label className="block"><span className="label">Cupo máximo *</span><input className="input" type="number" min={1} value={editValues.maxCapacity} onChange={(event) => setEditValues((current) => ({ ...current, maxCapacity: Number(event.target.value) }))} /></label>
-          </div>
-        )}
-        {selected && !editing && (
+        {selected && (
           <div className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-4">
-              <div className="rounded-xl bg-background-secondary p-3"><p className="text-xs font-bold text-slate-400">Estado</p><div className="mt-2"><CourseStatusBadge status={selected.status} /></div></div>
+              <div className="rounded-xl bg-background-secondary p-3"><p className="text-xs font-bold text-slate-400">Estado</p><div className="mt-2"><CourseStatusBadge status={getCourseDisplayStatus(selected)} /></div></div>
               <div className="rounded-xl bg-background-secondary p-3"><p className="text-xs font-bold text-slate-400">Módulos</p><p className="mt-2 font-bold text-foreground">{selected.modules.length}</p></div>
               <div className="rounded-xl bg-background-secondary p-3"><p className="text-xs font-bold text-slate-400">Duración</p><p className="mt-2 font-bold text-foreground">{formatDuration(selected.durationHours)}</p></div>
               <div className="rounded-xl bg-background-secondary p-3"><p className="text-xs font-bold text-slate-400">Cupo</p><p className="mt-2 font-bold text-foreground">{selected.maxCapacity}</p></div>

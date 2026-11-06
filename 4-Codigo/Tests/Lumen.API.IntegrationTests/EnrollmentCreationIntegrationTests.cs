@@ -265,7 +265,9 @@ public sealed class EnrollmentCreationIntegrationTests
         var update = new CourseUpdateDTO("Cambios sin aprobar", course.Description, course.Category, course.Level,
             course.Modality, course.MaxCapacity, course.LearningObjectives, course.SuggestedPrerequisites,
             course.Modules.Select(x => new CourseModuleUpdateDTO(x.Id, x.Name, x.Description, x.DurationMinutes, x.Content!, x.Resources)).ToList());
-        Assert.Equal(HttpStatusCode.OK, (await teacher.PutAsJsonAsync($"/api/courses/{course.Id}", update, JsonOptions)).StatusCode);
+        using var edited = await CourseTestClient.SendEditAsync(teacher, course.Id, update,
+            await CourseTestClient.ReadTagAsync(teacher, course.Id));
+        Assert.Equal(HttpStatusCode.OK, edited.StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await teacher.PostAsync($"/api/courses/{course.Id}/submit-review", null)).StatusCode);
         using var student = factory.CreateClient();
         await RegisterStudentAsync(student);
@@ -374,7 +376,7 @@ public sealed class EnrollmentCreationIntegrationTests
     {
         var email = $"cu06-{Guid.NewGuid():N}@lumen.local";
         var registration = await client.PostAsJsonAsync("/api/auth/register", new UserCreateDTO(
-            email, DbInitializer.DemoPassword, UserRole.Alumno, "Alumno", "CU06", "12345678", "123456", "Dirección", "1000"), JsonOptions);
+            email, DbInitializer.DemoPassword, UserRole.Alumno, "Alumno", "CU06", "12345678", "11-1234-5678", "Dirección", "1000"), JsonOptions);
         Assert.Equal(HttpStatusCode.Created, registration.StatusCode);
         await AuthenticateAsync(client, email);
         return (await registration.Content.ReadFromJsonAsync<UserResponseDTO>(JsonOptions))!;

@@ -14,10 +14,10 @@ public sealed class UserService(
     IPasswordHasher<User> passwordHasher,
     ICurrentUser currentUser) : IUserService
 {
-    public async Task<IReadOnlyList<UserResponseDTO>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<UserResponseDTO>> GetAllAsync(CancellationToken cancellationToken = default, ListPage? page = null)
     {
         ServiceGuard.Role(currentUser, UserRole.Administrador);
-        var users = await userRepository.GetAllAsync(cancellationToken);
+        var users = await userRepository.GetAllAsync(cancellationToken, page);
         return users.Select(MapToResponseDTO).ToList();
     }
 
@@ -31,14 +31,8 @@ public sealed class UserService(
     public async Task<UserResponseDTO> CreateAdministratorAsync(AdministratorCreateDTO dto, CancellationToken cancellationToken = default)
     {
         ServiceGuard.Role(currentUser, UserRole.Administrador);
-        var normalizedEmail = ServiceGuard.NormalizeEmail(dto.Email);
-        ServiceGuard.Required(dto.Password, "contraseña");
-        ServiceGuard.Required(dto.FirstName, "nombre");
-        ServiceGuard.Required(dto.LastName, "apellido");
-        ServiceGuard.Required(dto.Dni, "DNI");
-        ServiceGuard.Required(dto.Phone, "teléfono");
-        ServiceGuard.Required(dto.Address, "dirección");
-        ServiceGuard.Required(dto.PostalCode, "código postal");
+        var normalizedEmail = ServiceGuard.NormalizeNewEmail(dto.Email);
+        ServiceGuard.ValidatePersonalData(dto.FirstName, dto.LastName, dto.Dni, dto.Phone, dto.Address, dto.PostalCode, dto.Password);
         if (await userRepository.EmailExistsAsync(normalizedEmail, cancellationToken))
         {
             throw new DuplicateEmailException(dto.Email);
@@ -54,7 +48,7 @@ public sealed class UserService(
             Dni = dto.Dni.Trim(),
             Phone = dto.Phone.Trim(),
             Address = dto.Address.Trim(),
-            PostalCode = dto.PostalCode.Trim(),
+            PostalCode = dto.PostalCode.Trim().ToUpperInvariant(),
             IsActive = true,
             CreatedAtUtc = DateTime.UtcNow
         };

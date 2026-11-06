@@ -1,189 +1,26 @@
-import { createContext, useEffect, useMemo, useReducer, type ReactNode } from 'react'
-import { createDemoState, DEMO_STATE_KEY } from '@/data/seed'
-import type { AppAction, AppState, AuditDecision, Course, CourseDraft, CourseStatus, EnrollmentStatus, Role, User } from '@/types'
-import { courseVersion, progressStatus, uid } from '@/utils/format'
+import { createContext, useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
+import { createDemoState, DEMO_STATE_KEY, demoUsers, matchesSeedPassword } from '@/data/seed'
+import type { AppState, AuditDecision, Course, CourseDraft, CourseStatus, EnrollmentStatus, Role, User } from '@/types'
+import { courseVersion, uid } from '@/utils/format'
+import {
+  calculatePublishedProgress, canEditWorkingCourse, canRequestEnrollment,
+  getApprovedEnrollment, getPublication, getWorkingEditBase, identifyWorkingModules, linkLegacyProgress, recoverWorkingDraft,
+} from '@/services/courseService'
+import { appReducer } from './appReducer'
+import { createDemoCredential, matchesDemoCredential, migrateDemoUsers } from '@/services/demoCredentials'
 
-const loadState = (): AppState => {
+const loadState = async (): Promise<AppState> => {
+  let state: AppState
   try {
     const saved = localStorage.getItem(DEMO_STATE_KEY)
-    return saved ? (JSON.parse(saved) as AppState) : createDemoState()
+    if (!saved) return createDemoState()
+    state = JSON.parse(saved) as AppState
+    if (!Array.isArray(state.users) || !Array.isArray(state.enrollments) || !Array.isArray(state.progressRecords))
+      return createDemoState()
   } catch {
     return createDemoState()
   }
-}
-
-export const appReducer = (state: AppState, action: AppAction): AppState => {
-  switch (action.type) {
-    case 'LOGIN':
-      return { ...state, currentUserId: action.userId }
-    case 'LOGOUT':
-      return { ...state, currentUserId: null }
-    case 'REGISTER':
-      return { ...state, users: [...state.users, action.user], currentUserId: action.user.id }
-    case 'CREATE_COURSE':
-      return {
-        ...state,
-        courses: [action.course, ...state.courses],
-        audits: action.audit ? [action.audit, ...state.audits] : state.audits,
-        recentActivity: [action.activity, ...state.recentActivity],
-      }
-    case 'UPDATE_COURSE':
-      return {
-        ...state,
-        courses: state.courses.map((course) => (course.id === action.course.id ? action.course : course)),
-        audits: action.audit ? [action.audit, ...state.audits] : state.audits,
-        recentActivity: [action.activity, ...state.recentActivity],
-      }
-    case 'RESOLVE_AUDIT': {
-      const audit = state.audits.find((item) => item.id === action.auditId)
-      if (!audit) return state
-      const statusByDecision: Record<AuditDecision, CourseStatus> = {
-        APROBADA: 'PUBLICADO',
-        'CAMBIOS SOLICITADOS': 'CAMBIOS SOLICITADOS',
-        RECHAZADA: 'RECHAZADO',
-      }
-      const course = state.courses.find((item) => item.id === audit.courseId)
-      const nextCourse = course
-        ? {
-            ...course,
-            status: statusByDecision[action.decision],
-            adminObservation: action.observations,
-            publishedAt: action.decision === 'APROBADA' ? action.date : course.publishedAt,
-            publishedVersion: action.decision === 'APROBADA' ? undefined : course.publishedVersion,
-            updatedAt: action.date,
-          }
-        : undefined
-      return {
-        ...state,
-        courses: nextCourse ? state.courses.map((item) => (item.id === nextCourse.id ? nextCourse : item)) : state.courses,
-        audits: state.audits.map((item) =>
-          item.id === action.auditId
-            ? { ...item, status: 'RESUELTA', decision: action.decision, observations: action.observations, resolvedAt: action.date }
-            : item,
-        ),
-        notifications: [
-          {
-            id: uid('not'),
-            userId: audit.teacherId,
-            title: action.decision === 'APROBADA' ? 'Curso aprobado' : action.decision === 'RECHAZADA' ? 'Curso rechazado' : 'Cambios solicitados',
-            body: (course?.title ?? 'Tu curso') + ' tiene una nueva decisión de auditoría.',
-            createdAt: action.date,
-            read: false,
-          },
-          ...state.notifications,
-        ],
-        recentActivity: [
-          { id: uid('act'), audience: 'ADMINISTRADOR', message: (course?.title ?? 'El curso') + ' pasó a ' + statusByDecision[action.decision] + '.', createdAt: action.date },
-          ...state.recentActivity,
-        ],
-      }
-    }
-    case 'REQUEST_ENROLLMENT':
-      return {
-        ...state,
-        enrollments: [action.enrollment, ...state.enrollments],
-        notifications: [
-          {
-            id: uid('not'),
-            userId: action.enrollment.studentId,
-            title: 'Solicitud enviada',
-            body: 'Tu solicitud quedó PENDIENTE y espera revisión administrativa.',
-            createdAt: action.enrollment.requestedAt,
-            read: false,
-          },
-          ...state.notifications,
-        ],
-      }
-    case 'UPDATE_ENROLLMENT': {
-      const enrollment = state.enrollments.find((item) => item.id === action.enrollmentId)
-      if (!enrollment) return state
-      const updated = { ...enrollment, status: action.status, resolvedAt: action.date }
-      const hasProgress = state.progressRecords.some(
-        (item) => item.courseId === enrollment.courseId && item.studentId === enrollment.studentId,
-      )
-      const newProgress =
-        action.status === 'APROBADA' && !hasProgress
-          ? {
-              id: uid('progress'),
-              studentId: enrollment.studentId,
-              courseId: enrollment.courseId,
-              completedModuleIds: [],
-              percentage: 0,
-              status: progressStatus(0),
-              lastActivityAt: action.date,
-            }
-          : undefined
-      return {
-        ...state,
-        enrollments: state.enrollments.map((item) => (item.id === updated.id ? updated : item)),
-        progressRecords: newProgress ? [newProgress, ...state.progressRecords] : state.progressRecords,
-        notifications: [
-          {
-            id: uid('not'),
-            userId: enrollment.studentId,
-            title: 'Inscripción ' + action.status.toLowerCase(),
-            body:
-              action.status === 'APROBADA'
-                ? 'Ya podés acceder al curso desde Mis cursos.'
-                : action.status === 'CANCELADA'
-                  ? 'El acceso al curso fue retirado.'
-                  : 'Consultá el detalle en Mis solicitudes.',
-            createdAt: action.date,
-            read: false,
-          },
-          ...state.notifications,
-        ],
-      }
-    }
-    case 'UPDATE_PROGRESS':
-      return {
-        ...state,
-        progressRecords: state.progressRecords.some((item) => item.id === action.progress.id)
-          ? state.progressRecords.map((item) => (item.id === action.progress.id ? action.progress : item))
-          : [action.progress, ...state.progressRecords],
-        recentActivity: [
-          {
-            id: uid('act'),
-            audience: 'PROFESOR',
-            message: 'Un alumno actualizó su progreso al ' + action.progress.percentage + ' %.',
-            createdAt: action.progress.lastActivityAt,
-          },
-          ...state.recentActivity,
-        ],
-      }
-    case 'SET_COURSE_STATUS':
-      return {
-        ...state,
-        courses: state.courses.map((item) =>
-          item.id === action.courseId ? { ...item, status: action.status, updatedAt: action.date } : item,
-        ),
-      }
-    case 'ADMIN_EDIT_COURSE':
-      return {
-        ...state,
-        courses: state.courses.map((item) =>
-          item.id === action.courseId
-            ? { ...item, title: action.title, description: action.description, maxCapacity: action.maxCapacity, updatedAt: action.date }
-            : item,
-        ),
-      }
-    case 'TOGGLE_USER_STATUS':
-      return {
-        ...state,
-        users: state.users.map((item) => (item.id === action.userId ? { ...item, active: !item.active } : item)),
-      }
-    case 'MARK_NOTIFICATIONS_READ':
-      return {
-        ...state,
-        notifications: state.notifications.map((item) =>
-          item.userId === action.userId ? { ...item, read: true } : item,
-        ),
-      }
-    case 'RESET':
-      return action.state
-    default:
-      return state
-  }
+  return { ...state, users: await migrateDemoUsers(state.users, demoUsers), progressRecords: linkLegacyProgress(state) }
 }
 
 interface RegisterPayload {
@@ -201,18 +38,18 @@ interface RegisterPayload {
 interface AppContextValue {
   state: AppState
   currentUser?: User
-  login: (email: string, password: string) => User | undefined
+  login: (email: string, password: string) => Promise<User | undefined>
   loginAs: (role: Role) => User
   logout: () => void
-  register: (payload: RegisterPayload) => User
+  register: (payload: RegisterPayload) => Promise<User>
   createCourse: (draft: CourseDraft, submit: boolean) => Course
   updateCourse: (courseId: string, draft: CourseDraft, submit: boolean) => Course | undefined
+  recoverCourse: (courseId: string) => boolean
   resolveAudit: (auditId: string, decision: AuditDecision, observations?: string) => void
   requestEnrollment: (courseId: string) => boolean
   updateEnrollment: (enrollmentId: string, status: EnrollmentStatus) => void
   toggleModule: (courseId: string, moduleId: string) => void
   setCourseStatus: (courseId: string, status: CourseStatus) => void
-  adminEditCourse: (courseId: string, values: { title: string; description: string; maxCapacity: number }) => void
   toggleUserStatus: (userId: string) => void
   markNotificationsRead: () => void
   resetDemoData: () => void
@@ -221,7 +58,21 @@ interface AppContextValue {
 export const AppContext = createContext<AppContextValue | undefined>(undefined)
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(appReducer, undefined, loadState)
+  const [initialState, setInitialState] = useState<AppState>()
+  const [error, setError] = useState(false)
+  useEffect(() => {
+    let active = true
+    void loadState().then((state) => { if (active) setInitialState(state) },
+      () => { if (active) setError(true) })
+    return () => { active = false }
+  }, [])
+  if (error) return <p role="alert">No pudimos abrir la demostración. Probá en un navegador con conexión segura.</p>
+  if (!initialState) return <p role="status">Cargando demostración…</p>
+  return <AppSessionProvider initialState={initialState}>{children}</AppSessionProvider>
+}
+
+function AppSessionProvider({ children, initialState }: { children: ReactNode; initialState: AppState }) {
+  const [state, dispatch] = useReducer(appReducer, initialState)
   const currentUser = state.users.find((user) => user.id === state.currentUserId)
 
   useEffect(() => {
@@ -280,11 +131,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return {
       state,
       currentUser,
-      login: (email, password) => {
+      login: async (email, password) => {
         const user = state.users.find(
-          (item) => item.email.toLowerCase() === email.trim().toLowerCase() && item.password === password && item.active,
+          (item) => item.email.toLowerCase() === email.trim().toLowerCase() && item.active,
         )
-        if (user) dispatch({ type: 'LOGIN', userId: user.id })
+        if (!user || !(user.demoAccount ? matchesSeedPassword(password) : await matchesDemoCredential(password, user.credential)))
+          return undefined
+        dispatch({ type: 'LOGIN', userId: user.id })
         return user
       },
       loginAs: (role) => {
@@ -298,9 +151,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return user
       },
       logout: () => dispatch({ type: 'LOGOUT' }),
-      register: (payload) => {
+      register: async ({ password, ...profile }) => {
+        const credential = await createDemoCredential(password)
         const user: User = {
-          ...payload,
+          ...profile,
+          credential,
           id: uid('user'),
           createdAt: now(),
           active: true,
@@ -320,7 +175,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           updatedAt: date,
         }
         const audit = submit
-          ? { id: uid('audit'), courseId: course.id, teacherId: currentUser.id, type: 'Creación' as const, status: 'PENDIENTE' as const, createdAt: date }
+          ? { id: uid('audit'), courseId: course.id, teacherId: currentUser.id, type: 'Creación' as const,
+              status: 'PENDIENTE' as const, createdAt: date, submission: structuredClone(courseVersion(course)) }
           : undefined
         dispatch({
           type: 'CREATE_COURSE',
@@ -340,14 +196,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!currentUser) return undefined
         const original = state.courses.find((item) => item.id === courseId)
         const ownsCourse = original?.teacherId === currentUser.id
-        if (!original || (currentUser.role === 'PROFESOR' && !ownsCourse) || original.status === 'FINALIZADO') return undefined
+        if (!original || !canEditWorkingCourse(original) ||
+          !(currentUser.role === 'ADMINISTRADOR' || (currentUser.role === 'PROFESOR' && ownsCourse))) return undefined
+        const occupied = state.enrollments.filter((item) =>
+          item.courseId === courseId && item.status === 'APROBADA').length
+        if (draft.maxCapacity < original.maxCapacity && draft.maxCapacity < occupied) return undefined
         const date = now()
-        const preservePublished = original.status === 'PUBLICADO' ? courseVersion(original) : original.publishedVersion
+        const editBase = getWorkingEditBase(original)
         const updated: Course = {
           ...original,
           ...draft,
+          modules: identifyWorkingModules(original, draft.modules),
           status: submit ? 'EN REVISIÓN' : 'BORRADOR',
-          publishedVersion: preservePublished,
+          ...editBase,
           adminObservation: submit ? undefined : original.adminObservation,
           updatedAt: date,
         }
@@ -356,9 +217,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
               id: uid('audit'),
               courseId: original.id,
               teacherId: original.teacherId,
-              type: original.publishedAt || preservePublished ? ('Modificación' as const) : ('Creación' as const),
+              type: original.publishedAt || editBase.publishedVersion ? ('Modificación' as const) : ('Creación' as const),
               status: 'PENDIENTE' as const,
               createdAt: date,
+              submission: structuredClone(courseVersion(updated)),
             }
           : undefined
         dispatch({
@@ -375,8 +237,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         })
         return updated
       },
-      resolveAudit: (auditId, decision, observations) =>
-        dispatch({ type: 'RESOLVE_AUDIT', auditId, decision, observations, date: now() }),
+      recoverCourse: (courseId) => {
+        const course = state.courses.find((item) => item.id === courseId)
+        if (!currentUser || !course || !(currentUser.role === 'ADMINISTRADOR' ||
+          (currentUser.role === 'PROFESOR' && course.teacherId === currentUser.id))) return false
+        const date = now()
+        const draft = recoverWorkingDraft(course, date)
+        if (!draft) return false
+        dispatch({ type: 'UPDATE_COURSE', course: draft, activity: {
+          id: uid('act'), audience: currentUser.role, userId: currentUser.id,
+          message: 'Se recuperó un borrador de ' + course.title + '.', createdAt: date,
+        } })
+        return true
+      },
+      resolveAudit: (auditId, decision, observations) => {
+        if (currentUser?.role === 'ADMINISTRADOR')
+          dispatch({ type: 'RESOLVE_AUDIT', auditId, decision, observations, date: now() })
+      },
       requestEnrollment: (courseId) => {
         if (!currentUser || currentUser.role !== 'ALUMNO') return false
         const course = state.courses.find((item) => item.id === courseId)
@@ -386,7 +263,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             item.studentId === currentUser.id &&
             (item.status === 'PENDIENTE' || item.status === 'APROBADA'),
         )
-        if (!course || course.status !== 'PUBLICADO' || duplicate) return false
+        if (!canRequestEnrollment(course) || duplicate) return false
         dispatch({
           type: 'REQUEST_ENROLLMENT',
           enrollment: {
@@ -399,39 +276,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
         })
         return true
       },
-      updateEnrollment: (enrollmentId, status) =>
-        dispatch({ type: 'UPDATE_ENROLLMENT', enrollmentId, status, date: now() }),
+      updateEnrollment: (enrollmentId, status) => {
+        const enrollment = state.enrollments.find((item) => item.id === enrollmentId)
+        if (!enrollment || !currentUser ||
+          (currentUser.role !== 'ADMINISTRADOR' &&
+            !(currentUser.role === 'ALUMNO' && status === 'CANCELADA' && enrollment.studentId === currentUser.id))) return
+        const course = state.courses.find((item) => item.id === enrollment.courseId)
+        if (status === 'APROBADA' && (!course || course.operationalStatus === 'FINALIZADO' ||
+          state.enrollments.filter((item) => item.courseId === enrollment.courseId && item.status === 'APROBADA').length >=
+            (getPublication(course)?.maxCapacity ?? course.maxCapacity))) return
+        dispatch({ type: 'UPDATE_ENROLLMENT', enrollmentId, status, date: now() })
+      },
       toggleModule: (courseId, moduleId) => {
         if (!currentUser || currentUser.role !== 'ALUMNO') return
-        const approved = state.enrollments.some(
-          (item) => item.studentId === currentUser.id && item.courseId === courseId && item.status === 'APROBADA',
-        )
-        const course = state.courses.find((item) => item.id === courseId)
-        if (!approved || !course) return
+        const approved = getApprovedEnrollment(state, currentUser.id, courseId)
+        const course = getPublication(state.courses.find((item) => item.id === courseId))
+        if (!approved || !course?.modules.some((item) => item.id === moduleId)) return
         const existing = state.progressRecords.find(
-          (item) => item.studentId === currentUser.id && item.courseId === courseId,
+          (item) => item.enrollmentId === approved.id,
         )
         const completed = new Set(existing?.completedModuleIds ?? [])
         if (completed.has(moduleId)) completed.delete(moduleId)
         else completed.add(moduleId)
-        const percentage = Math.round((completed.size / course.modules.length) * 100)
+        const { percentage, status } = calculatePublishedProgress(course, completed)
         dispatch({
           type: 'UPDATE_PROGRESS',
           progress: {
             id: existing?.id ?? uid('progress'),
+            enrollmentId: approved.id,
             studentId: currentUser.id,
             courseId,
             completedModuleIds: Array.from(completed),
             percentage,
-            status: progressStatus(percentage),
+            status,
             lastActivityAt: now(),
           },
         })
       },
       setCourseStatus: (courseId, status) =>
         dispatch({ type: 'SET_COURSE_STATUS', courseId, status, date: now() }),
-      adminEditCourse: (courseId, values) =>
-        dispatch({ type: 'ADMIN_EDIT_COURSE', courseId, ...values, date: now() }),
       toggleUserStatus: (userId) => dispatch({ type: 'TOGGLE_USER_STATUS', userId }),
       markNotificationsRead: () => {
         if (currentUser) dispatch({ type: 'MARK_NOTIFICATIONS_READ', userId: currentUser.id })

@@ -2,8 +2,8 @@
 
 > Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
 > según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
-> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
-> técnica; el documento fuente define actualmente un prototipo frontend académico.
+> Los códigos HTTP describen la API vigente. La sección de evidencia vincula las pruebas
+> ejecutables y distingue las diferencias del prototipo local.
 
 | Campo | Valor |
 | --- | --- |
@@ -41,7 +41,7 @@ Permite pausar un curso PUBLICADO o reanudar un curso PAUSADO. El Profesor actú
 3. El actor selecciona un curso PUBLICADO y solicita pausarlo.
 4. El sistema verifica los permisos y el estado del curso. **Reglas aplicables:** **RN-03**, **RN-12**.
 5. El actor confirma la pausa.
-6. El sistema cambia el curso a PAUSADO e informa que no admite nuevas solicitudes de inscripción. **Reglas aplicables:** **RN-12**.
+6. El sistema cambia el curso a PAUSADO e informa que no admite nuevas solicitudes de inscripción. **Reglas aplicables:** **RN-12**. La pausa conserva la publicación y las inscripciones ya registradas. Enviar o decidir una revisión no reanuda el curso. Para volver a admitir solicitudes debe ejecutarse la reanudación. La pausa conserva las solicitudes anteriores y el Administrador puede aprobarlas si queda cupo o rechazarlas.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
 
@@ -58,7 +58,7 @@ Permite pausar un curso PUBLICADO o reanudar un curso PAUSADO. El Profesor actú
   1. El sistema detecta que el curso no está PUBLICADO para pausar o PAUSADO para reanudar. **Reglas aplicables:** **RN-12**.
   2. Muestra el estado actual y no realiza la transición.
 
-* **5a. No confirmar la operación — A4 (HTTP 200 OK):**
+* **5a. No confirmar la operación — A4 (Sin solicitud HTTP):**
   1. El actor abandona la confirmación y el curso conserva su estado.
 
 ### 5. SUB-VARIACIONES (opcional)
@@ -79,7 +79,7 @@ Permite pausar un curso PUBLICADO o reanudar un curso PAUSADO. El Profesor actú
 
 | Código HTTP | Nombre Técnico | Contexto de Aplicación en el Caso de Uso |
 | --- | --- | --- |
-| `200` | OK | resultado satisfactorio de Pausar o Reanudar Curso; A1: Reanudar un curso PAUSADO; A4: No confirmar la operación. |
+| `200` | OK | resultado satisfactorio de Pausar o Reanudar Curso; A1: Reanudar un curso PAUSADO. |
 | `403` | Forbidden | A2: Rol sin permiso o curso ajeno al Profesor. |
 | `409` | Conflict | A3: Estado incompatible con la operación. |
 
@@ -88,20 +88,12 @@ Permite pausar un curso PUBLICADO o reanudar un curso PAUSADO. El Profesor actú
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
 - **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
-### Matriz de trazabilidad CU-14 → Test
+### Evidencia ejecutable de CU-14
 
-| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
-| --- | --- | --- | --- |
-| Paso 1. Flujo principal | `200 OK` | `CU14_Step01_WhenValidState_ContinuesUseCase` | `CU14_Step01_WhenValidRequest_Returns200OK` |
-| Paso 2. Flujo principal | `200 OK` | `CU14_Step02_WhenValidState_ContinuesUseCase` | `CU14_Step02_WhenValidRequest_Returns200OK` |
-| Paso 3. Flujo principal | `200 OK` | `CU14_Step03_WhenValidState_ContinuesUseCase` | `CU14_Step03_WhenValidRequest_Returns200OK` |
-| Paso 4. Flujo principal | `200 OK` | `CU14_Step04_WhenValidState_ContinuesUseCase` | `CU14_Step04_WhenValidRequest_Returns200OK` |
-| Paso 5. Flujo principal | `200 OK` | `CU14_Step05_WhenValidState_ContinuesUseCase` | `CU14_Step05_WhenValidRequest_Returns200OK` |
-| Paso 6. Flujo principal | `200 OK` | `CU14_Step06_WhenValidState_ContinuesUseCase` | `CU14_Step06_WhenValidRequest_Returns200OK` |
-| 3a. Reanudar un curso PAUSADO (A1) | `200 OK` | `CU14_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU14_Alt01_WhenConditionOccurs_Returns200OK` |
-| 4a. Rol sin permiso o curso ajeno al Profesor (A2) | `403 Forbidden` | `CU14_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU14_Alt02_WhenConditionOccurs_Returns403Forbidden` |
-| 4b. Estado incompatible con la operación (A3) | `409 Conflict` | `CU14_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU14_Alt03_WhenConditionOccurs_Returns409Conflict` |
-| 5a. No confirmar la operación (A4) | `200 OK` | `CU14_Alt04_WhenConditionOccurs_HandlesExpectedBranch` | `CU14_Alt04_WhenConditionOccurs_Returns200OK` |
+| Fuente | Recorrido o contrato |
+|---|---|
+| API | `POST /api/courses/{id}/pause y /resume` |
+| Pruebas automatizadas | EnrollmentCreationIntegrationTests; OpenApiContractTests; demo.test.mjs |
+| Bruno | Courses/06–07 |
 
-> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
-> suite automatizada cuando exista una implementación backend.
+200 en transición válida. 403 por alcance o 409 por estado. Pausar conserva la publicación y cierra nuevas solicitudes.

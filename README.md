@@ -87,7 +87,7 @@ Los contratos HTTP utilizan DTOs. Las pruebas unitarias y de integración se enc
 
 **Seguir la [guía operativa del backend](4-Codigo/README.md)** para ejecutar desde una copia limpia. Incluye los bloques completos de PowerShell, la configuración segura de JWT, las migraciones y los comandos de inicio y pruebas.
 
-1. Instalar el **SDK .NET 10.0.400** indicado en [global.json](4-Codigo/global.json). Su política `latestPatch` admite parches posteriores de la misma banda **10.0.4xx**. Los ejemplos operativos son compatibles con Windows PowerShell 5.1 y PowerShell 7.
+1. Instalar el **SDK .NET 10.0.403** indicado en [global.json](4-Codigo/global.json). Su política `latestPatch` admite parches posteriores de la misma banda **10.0.4xx**. Los ejemplos operativos son compatibles con Windows PowerShell 5.1 y PowerShell 7.
 2. Restaurar y compilar desde la raíz del repositorio:
 
    ```powershell
@@ -116,7 +116,11 @@ La API expone **29 operaciones HTTP**. Con la instancia local iniciada en el pue
 
 El recorrido **`00-Exposicion` contiene 19 solicitudes ordenadas**: autenticar los tres roles, crear y aprobar un curso, solicitar y aprobar una inscripción, consultar contenido y completar módulos hasta el 100%, comprobando también la repetición idempotente. Los tokens e identificadores se obtienen de respuestas reales y se mantienen como variables de ejecución. La guía explica cómo utilizarlo con una API temporal en el puerto 5081.
 
-La última ejecución verificada de la suite .NET registró **350 pruebas aprobadas: 101 unitarias y 249 de integración**. Incluye regresiones de concurrencia, JWT, permisos, contratos OpenAPI, logging e inicialización por entorno. Las pruebas de integración utilizan bases SQLite temporales aisladas.
+La cuarta ronda aprobó **389 pruebas .NET** (102 unitarias y 287 de integración) sobre bases SQLite temporales. El prototipo aprobó diez pruebas, lint y build. La [verificación de CI](.github/workflows/verification.yml) incluye ambos proyectos.
+
+La quinta ronda incorpora las políticas aprobadas de datos argentinos, límites de cursos y cupo efectivo. La API registra el motivo al rechazar pendientes durante la finalización. Los resultados de las verificaciones de esta ronda constan en [la auditoría](AUDITORIA_Y_PLAN_DE_CORRECCIONES.md).
+
+El [seguimiento de auditoría](AUDITORIA_Y_PLAN_DE_CORRECCIONES.md) conserva los 33 hallazgos, la matriz de trazabilidad y la revisión de CU-01 a CU-16.
 
 ## Prototipo frontend
 

@@ -70,7 +70,7 @@ public sealed class EnrollmentResolutionConcurrencyIntegrationTests
         var winningAdministrator = await AuthenticateAsync(administrator, "admin@lumen.local");
         var lateEmail = $"late-admin-{Guid.NewGuid():N}@lumen.local";
         var registration = await administrator.PostAsJsonAsync("/api/users/administrators", new AdministratorCreateDTO(
-            lateEmail, DbInitializer.DemoPassword, "Administrador", "Atrasado", "87654321", "123456", "Dirección", "1000"), JsonOptions);
+            lateEmail, DbInitializer.DemoPassword, "Administrador", "Atrasado", "87654321", "11-1234-5678", "Dirección", "1000"), JsonOptions);
         Assert.Equal(HttpStatusCode.Created, registration.StatusCode);
         using var lateAdministrator = factory.CreateClient();
         var lateUser = await AuthenticateAsync(lateAdministrator, lateEmail);
@@ -191,9 +191,9 @@ public sealed class EnrollmentResolutionConcurrencyIntegrationTests
             await gate.AfterReadAsync(await inner.GetByIdAsync(id, ct), ct);
         public async Task<Enrollment?> GetByIdForUpdateAsync(Guid id, CancellationToken ct = default) =>
             await gate.AfterReadAsync(await inner.GetByIdForUpdateAsync(id, ct), ct);
-        public Task<IReadOnlyList<Enrollment>> GetByStudentAsync(Guid id, CancellationToken ct = default) => inner.GetByStudentAsync(id, ct);
-        public Task<IReadOnlyList<Enrollment>> GetByCourseAsync(Guid id, CancellationToken ct = default) => inner.GetByCourseAsync(id, ct);
-        public Task<IReadOnlyList<Enrollment>> GetAllAsync(EnrollmentStatus? status, CancellationToken ct = default) => inner.GetAllAsync(status, ct);
+        public Task<IReadOnlyList<Enrollment>> GetByStudentAsync(Guid id, CancellationToken ct = default, ListPage? page = null) => inner.GetByStudentAsync(id, ct, page);
+        public Task<IReadOnlyList<Enrollment>> GetApprovedByCourseAsync(Guid id, CancellationToken ct = default, ListPage? page = null) => inner.GetApprovedByCourseAsync(id, ct, page);
+        public Task<IReadOnlyList<Enrollment>> GetAllAsync(EnrollmentStatus? status, CancellationToken ct = default, ListPage? page = null) => inner.GetAllAsync(status, ct, page);
         public Task<bool> HasPendingOrApprovedAsync(Guid studentId, Guid courseId, CancellationToken ct = default) =>
             inner.HasPendingOrApprovedAsync(studentId, courseId, ct);
     }

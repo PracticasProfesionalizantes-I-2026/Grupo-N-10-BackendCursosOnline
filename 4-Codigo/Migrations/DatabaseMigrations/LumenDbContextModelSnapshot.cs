@@ -15,7 +15,7 @@ namespace Lumen.Migrations.DatabaseMigrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.14");
 
             modelBuilder.Entity("Lumen.DataAccess.Entities.Course", b =>
                 {
@@ -41,9 +41,11 @@ namespace Lumen.Migrations.DatabaseMigrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("UpdatedAtUtc")
+                        .IsConcurrencyToken()
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("WorkingRevisionId")
+                        .IsConcurrencyToken()
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -114,6 +116,7 @@ namespace Lumen.Migrations.DatabaseMigrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Decision")
+                        .IsConcurrencyToken()
                         .HasMaxLength(30)
                         .HasColumnType("TEXT");
 
@@ -151,6 +154,20 @@ namespace Lumen.Migrations.DatabaseMigrations
                     b.HasIndex("ReviewedByUserId");
 
                     b.ToTable("CourseReviews", (string)null);
+                });
+
+            modelBuilder.Entity("Lumen.DataAccess.Entities.CourseReviewSnapshot", b =>
+                {
+                    b.Property<Guid>("ReviewId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ReviewId");
+
+                    b.ToTable("CourseReviewSnapshots", (string)null);
                 });
 
             modelBuilder.Entity("Lumen.DataAccess.Entities.CourseRevision", b =>
@@ -196,6 +213,7 @@ namespace Lumen.Migrations.DatabaseMigrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Status")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("TEXT");
@@ -213,6 +231,7 @@ namespace Lumen.Migrations.DatabaseMigrations
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("UpdatedAtUtc")
+                        .IsConcurrencyToken()
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Version")
@@ -247,6 +266,10 @@ namespace Lumen.Migrations.DatabaseMigrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ResolutionReason")
+                        .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("ResolvedByUserId")
@@ -439,6 +462,15 @@ namespace Lumen.Migrations.DatabaseMigrations
                     b.Navigation("ReviewedByUser");
                 });
 
+            modelBuilder.Entity("Lumen.DataAccess.Entities.CourseReviewSnapshot", b =>
+                {
+                    b.HasOne("Lumen.DataAccess.Entities.CourseReview", null)
+                        .WithOne("Snapshot")
+                        .HasForeignKey("Lumen.DataAccess.Entities.CourseReviewSnapshot", "ReviewId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Lumen.DataAccess.Entities.CourseRevision", b =>
                 {
                     b.HasOne("Lumen.DataAccess.Entities.Course", "Course")
@@ -499,6 +531,11 @@ namespace Lumen.Migrations.DatabaseMigrations
                     b.Navigation("Enrollments");
 
                     b.Navigation("Revisions");
+                });
+
+            modelBuilder.Entity("Lumen.DataAccess.Entities.CourseReview", b =>
+                {
+                    b.Navigation("Snapshot");
                 });
 
             modelBuilder.Entity("Lumen.DataAccess.Entities.CourseRevision", b =>

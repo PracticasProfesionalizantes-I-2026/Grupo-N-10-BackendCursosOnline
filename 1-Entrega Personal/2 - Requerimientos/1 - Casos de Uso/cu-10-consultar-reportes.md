@@ -2,8 +2,8 @@
 
 > Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
 > según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
-> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
-> técnica; el documento fuente define actualmente un prototipo frontend académico.
+> Los códigos HTTP describen la API vigente. La sección de evidencia vincula las pruebas
+> ejecutables y distingue las diferencias del prototipo local.
 
 | Campo | Valor |
 | --- | --- |
@@ -39,7 +39,7 @@ Permite que un Administrador consulte información básica del sistema aplicando
 2. El sistema muestra los campos obligatorios "Desde" y "Hasta".
 3. El Administrador selecciona una fecha inicial (`from`) y una fecha final (`to`).
 4. El Administrador confirma el filtro.
-5. El sistema exige los parámetros obligatorios `from` y `to`. Si una fecha recibida tiene formato inválido, ASP.NET Core puede rechazar la solicitud con HTTP `400 Bad Request` y `ValidationProblemDetails` antes de ejecutar el controlador. Si no existen errores de conversión, el controlador valida la presencia de ambas fechas (A3) y el sistema valida el orden del rango (A1). **Reglas aplicables:** **RN-16**.
+5. El sistema exige los parámetros obligatorios `from` y `to`. Si una fecha recibida tiene formato inválido, ASP.NET Core puede rechazar la solicitud con HTTP `400 Bad Request` y `ValidationProblemDetails` antes de ejecutar el controlador. Si no existen errores de conversión, el controlador valida la presencia de ambas fechas (A3) y el sistema valida el orden del rango (A1). **Reglas aplicables:** **RN-16**. El prototipo toma fechas civiles en la zona del navegador. La API acepta una zona IANA mediante timeZone con fechas AAAA-MM-DD. Cuenta desde la medianoche de Desde hasta la siguiente a Hasta, excluida. Devuelve las medianoches de las fechas seleccionadas en UTC y la zona. Zona o límites inválidos devuelven 400. Las consultas sin zona conservan su contrato.
 6. El sistema muestra información básica de usuarios registrados, cursos creados e inscripciones realizadas dentro del rango seleccionado. **Reglas aplicables:** **RN-16**.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
@@ -91,25 +91,12 @@ Permite que un Administrador consulte información básica del sistema aplicando
 - **Implementación actual:** el controlador recibe fechas anulables para detectar ausencias y utiliza `LumenValidationException` antes de llamar al servicio. ASP.NET Core mantiene el rechazo automático por errores de conversión. El servicio conserva la validación de fechas invertidas (A1) y el filtrado inclusivo del día Hasta. A2 mantiene el resultado HTTP `200 OK` cuando no hay datos.
 - **Antecedente de la revisión técnica previa a la mejora:** si faltaba `from`, la API podía devolver HTTP `200` utilizando `DateTime.MinValue`; si faltaba `to`, devolvía HTTP `400` con un mensaje que no representaba correctamente su ausencia; si faltaban ambos, podía devolver HTTP `200`. La validación actual de presencia evita estos comportamientos.
 
-### Matriz de trazabilidad CU-10 → Test
+### Evidencia ejecutable de CU-10
 
-| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
-| --- | --- | --- | --- |
-| Paso 1. Flujo principal | `200 OK` | `CU10_Step01_WhenValidState_ContinuesUseCase` | `CU10_Step01_WhenValidRequest_Returns200OK` |
-| Paso 2. Flujo principal | `200 OK` | `CU10_Step02_WhenValidState_ContinuesUseCase` | `CU10_Step02_WhenValidRequest_Returns200OK` |
-| Paso 3. Flujo principal | `200 OK` | `CU10_Step03_WhenValidState_ContinuesUseCase` | `CU10_Step03_WhenValidRequest_Returns200OK` |
-| Paso 4. Flujo principal | `200 OK` | `CU10_Step04_WhenValidState_ContinuesUseCase` | `CU10_Step04_WhenValidRequest_Returns200OK` |
-| Paso 5. Flujo principal | `200 OK` | `CU10_Step05_WhenValidState_ContinuesUseCase` | `CU10_Step05_WhenValidRequest_Returns200OK` |
-| Paso 6. Flujo principal | `200 OK` | `CU10_Step06_WhenValidState_ContinuesUseCase` | `CU10_Step06_WhenValidRequest_Returns200OK` |
-| 5a. Rango de fechas inválido (A1) | `400 Bad Request` | `CU10_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU10_Alt01_WhenConditionOccurs_Returns400BadRequest` |
-| 6a. Sin resultados (A2) | `200 OK` | `CU10_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU10_Alt02_WhenConditionOccurs_Returns200OK` |
-| 5b. Falta `from`, con `to` presente y válido (A3) | `400 Bad Request` | No aplica: validación de presencia (Presentación) | `Summary_WithMissingDates_ReturnsValidationError_WithoutQueryingReports` (`query: "?to=2026-10-05"`): verifica HTTP `400`, código `LumenValidationException`, mensaje "Falta el parámetro obligatorio: from." y cero llamadas al repositorio. |
-| 5b. Falta `to`, con `from` presente y válido (A3) | `400 Bad Request` | No aplica: validación de presencia (Presentación) | `Summary_WithMissingDates_ReturnsValidationError_WithoutQueryingReports` (`query: "?from=2026-10-01"`): verifica HTTP `400`, código `LumenValidationException`, mensaje "Falta el parámetro obligatorio: to." y cero llamadas al repositorio. |
-| 5b. Faltan `from` y `to` (A3) | `400 Bad Request` | No aplica: validación de presencia (Presentación) | `Summary_WithMissingDates_ReturnsValidationError_WithoutQueryingReports` (`query: ""`): verifica HTTP `400`, código `LumenValidationException`, mensaje "Faltan los parámetros obligatorios: from y to." y cero llamadas al repositorio. |
-| Paso 5. `from=not-a-date` y `to` ausente | `400 Bad Request` | No aplica: validación de conversión (Presentación) | `Summary_WithInvalidDateAndMissingOtherDate_ReturnsBadRequest_WithoutQueryingReports` (`invalidParameter: "from"`): verifica HTTP `400`, `ValidationProblemDetails`, error asociado a `from` y cero llamadas al repositorio. |
-| Paso 5. `to=not-a-date` y `from` ausente | `400 Bad Request` | No aplica: validación de conversión (Presentación) | `Summary_WithInvalidDateAndMissingOtherDate_ReturnsBadRequest_WithoutQueryingReports` (`invalidParameter: "to"`): verifica HTTP `400`, `ValidationProblemDetails`, error asociado a `to` y cero llamadas al repositorio. |
+| Fuente | Recorrido o contrato |
+|---|---|
+| API | `GET /api/reports/summary` |
+| Pruebas automatizadas | ReportServiceTests; ReportsIntegrationTests; TraceabilityContractIntegrationTests |
+| Bruno | Reports/01–04 |
 
-> Los nombres de tests del flujo principal, A1 y A2 se conservan como propuestas
-> de trazabilidad; no se han verificado como nombres de pruebas existentes en esta etapa.
-> Las filas de A3 y de escenarios combinados referencian métodos existentes y sus
-> datos de prueba en `ReportsIntegrationTests.cs`; no se modifican las pruebas anteriores.
+200 con conteos o cero; 400 por límites o fechas inválidos. Fechas civiles con zona optativa y prueba de cambio horario.

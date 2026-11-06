@@ -1,0 +1,27 @@
+meta {
+  name: Período anterior a los datos demo
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/reports/summary?from=1900-01-01&to=1900-01-02
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test("HTTP 200 con período exacto y sin datos de la instancia demo", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(new Date(body.from).toISOString().slice(0, 10)).to.equal("1900-01-01");
+    expect(new Date(body.to).toISOString().slice(0, 10)).to.equal("1900-01-02");
+    expect(body.registeredUsers).to.equal(0);
+    expect(body.createdCourses).to.equal(0);
+    expect(body.requestedEnrollments).to.equal(0);
+  });
+}

@@ -2,8 +2,8 @@
 
 > Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
 > según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
-> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
-> técnica; el documento fuente define actualmente un prototipo frontend académico.
+> Los códigos HTTP describen la API vigente. La sección de evidencia vincula las pruebas
+> ejecutables y distingue las diferencias del prototipo local.
 
 | Campo | Valor |
 | --- | --- |
@@ -37,7 +37,7 @@ Permite que un usuario registrado acceda al sistema y sea dirigido al panel corr
 1. El usuario selecciona "Iniciar Sesión".
 2. El sistema solicita email y contraseña.
 3. El usuario ingresa sus credenciales.
-4. El sistema valida las credenciales.
+4. El sistema valida las credenciales. La API verifica la contraseña antes de informar si la cuenta está deshabilitada. Una contraseña incorrecta recibe 401 y una válida en una cuenta inactiva recibe 403. Si una misma IP supera 20 intentos en una ventana de 60 segundos, la API responde 429 con Retry-After y el usuario debe esperar antes de reintentar. Las credenciales demo de la API solo se admiten en entornos de demostración. Un correo inexistente también pasa por una verificación de contraseña de costo comparable y recibe HTTP 401. Si el cuerpo supera el límite de transporte, la API devuelve HTTP 413 sin iniciar sesión. Las cuentas existentes siguen autenticándose con su contraseña anterior; la política de alta nueva no se aplica al login.
 5. El sistema identifica el rol asociado a la cuenta.
 6. El sistema habilita las funcionalidades correspondientes.
 7. El sistema redirige al Panel de Alumno, Profesor o Administrador según corresponda y muestra sus accesos permitidos.
@@ -54,6 +54,9 @@ Permite que un usuario registrado acceda al sistema y sea dirigido al panel corr
 * **4b. Campos vacíos — A2 (HTTP 400 Bad Request):**
   1. El sistema detecta campos obligatorios sin completar.
   2. El sistema informa qué información falta y no permite continuar.
+
+* **4c. Cuenta inactiva con contraseña válida — A3 (HTTP 403 Forbidden):** El sistema deniega el acceso.
+* **4d. Límite temporal de intentos — A4 (HTTP 429 Too Many Requests):** El sistema informa el tiempo de espera mediante `Retry-After`.
 
 ### 5. SUB-VARIACIONES (opcional)
 
@@ -75,27 +78,21 @@ Permite que un usuario registrado acceda al sistema y sea dirigido al panel corr
 | `200` | OK | resultado satisfactorio de Iniciar Sesión. |
 | `401` | Unauthorized | A1: Credenciales incorrectas. |
 | `400` | Bad Request | A2: Campos vacíos. |
+| `403` | Forbidden | A3: cuenta inactiva con contraseña válida. |
+| `429` | Too Many Requests | A4: límite temporal de login. |
+| `413` | Content Too Large | Cuerpo mayor que el límite de transporte de la API. |
 
 ### Nota: Validación vs. Verificación aplicada
 
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
 - **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
-### Matriz de trazabilidad CU-02 → Test
+### Evidencia ejecutable de CU-02
 
-| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
-| --- | --- | --- | --- |
-| Paso 1. Flujo principal | `200 OK` | `CU02_Step01_WhenValidState_ContinuesUseCase` | `CU02_Step01_WhenValidRequest_Returns200OK` |
-| Paso 2. Flujo principal | `200 OK` | `CU02_Step02_WhenValidState_ContinuesUseCase` | `CU02_Step02_WhenValidRequest_Returns200OK` |
-| Paso 3. Flujo principal | `200 OK` | `CU02_Step03_WhenValidState_ContinuesUseCase` | `CU02_Step03_WhenValidRequest_Returns200OK` |
-| Paso 4. Flujo principal | `200 OK` | `CU02_Step04_WhenValidState_ContinuesUseCase` | `CU02_Step04_WhenValidRequest_Returns200OK` |
-| Paso 5. Flujo principal | `200 OK` | `CU02_Step05_WhenValidState_ContinuesUseCase` | `CU02_Step05_WhenValidRequest_Returns200OK` |
-| Paso 6. Flujo principal | `200 OK` | `CU02_Step06_WhenValidState_ContinuesUseCase` | `CU02_Step06_WhenValidRequest_Returns200OK` |
-| Paso 7. Flujo principal | `200 OK` | `CU02_Step07_WhenValidState_ContinuesUseCase` | `CU02_Step07_WhenValidRequest_Returns200OK` |
-| Paso 8. Flujo principal | `200 OK` | `CU02_Step08_WhenValidState_ContinuesUseCase` | `CU02_Step08_WhenValidRequest_Returns200OK` |
-| Paso 9. Flujo principal | `200 OK` | `CU02_Step09_WhenValidState_ContinuesUseCase` | `CU02_Step09_WhenValidRequest_Returns200OK` |
-| 4a. Credenciales incorrectas (A1) | `401 Unauthorized` | `CU02_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU02_Alt01_WhenConditionOccurs_Returns401Unauthorized` |
-| 4b. Campos vacíos (A2) | `400 Bad Request` | `CU02_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU02_Alt02_WhenConditionOccurs_Returns400BadRequest` |
+| Fuente | Recorrido o contrato |
+|---|---|
+| API | `POST /api/auth/login` |
+| Pruebas automatizadas | AccountValidationIntegrationTests; TraceabilityContractIntegrationTests; JwtSecurityIntegrationTests |
+| Bruno | Auth/01–03 |
 
-> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
-> suite automatizada cuando exista una implementación backend.
+200 con token; 400, 401, 403 o 429 según el flujo. Los tokens demo solo sirven en entornos demo.

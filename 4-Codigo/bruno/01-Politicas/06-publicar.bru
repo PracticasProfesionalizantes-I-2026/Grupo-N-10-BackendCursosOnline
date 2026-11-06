@@ -1,0 +1,30 @@
+meta {
+  name: Publicar
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/course-reviews/{{policyReviewId}}/decision
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {"decision": "Aprobada"}
+}
+
+tests {
+  test('HTTP 200 y contrato', function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().decision).to.equal('Aprobada');
+  });
+}

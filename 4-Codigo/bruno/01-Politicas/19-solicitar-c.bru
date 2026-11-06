@@ -1,0 +1,33 @@
+meta {
+  name: Solicitar C
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/enrollments
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{studentCToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {"courseId": "{{policyCourseId}}"}
+}
+
+script:post-response {
+  bru.setVar('policyEnrollmentCId', res.getBody().id);
+}
+
+tests {
+  test('HTTP 201 y contrato', function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+}

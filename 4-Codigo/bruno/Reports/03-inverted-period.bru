@@ -1,0 +1,22 @@
+meta {
+  name: Período invertido
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/reports/summary?from=2026-02-01&to=2026-01-01
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test("HTTP 400 cuando Desde es posterior a Hasta", function () {
+    expect(res.getStatus()).to.equal(400);
+    expect(res.getBody().code).to.equal("InvalidDateRangeException");
+  });
+}
