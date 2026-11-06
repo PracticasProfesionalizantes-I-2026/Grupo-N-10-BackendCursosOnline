@@ -47,7 +47,7 @@ Permite que un Administrador consulte usuarios y gestione internamente cuentas d
   1. El Administrador selecciona la creación interna de una cuenta de Administrador. **Reglas aplicables:** **RN-01**.
   2. El sistema solicita los datos de identificación y acceso de la cuenta, incluidos email y contraseña, y presenta el rol Administrador.
   3. El Administrador completa los datos y confirma la creación.
-  4. El sistema verifica los datos obligatorios y que el email no esté registrado. Si el cuerpo del alta interna supera el límite de transporte, la API responde HTTP 413 sin crear la cuenta.
+  4. El sistema verifica los datos obligatorios y que el email no esté registrado. Si el cuerpo del alta interna supera el límite de transporte, la API responde HTTP 413 sin crear la cuenta. El alta interna aplica los mismos formatos argentinos y la contraseña de 8 a 128 caracteres que el registro público; un dato inválido da HTTP 400 sin crear al Administrador.
   5. El sistema registra la cuenta con rol Administrador y muestra una confirmación.
 
 * **3b. Datos inválidos o correo duplicado en la creación interna — A2 (HTTP 400 o 409):**

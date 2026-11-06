@@ -20,12 +20,12 @@ public sealed class AuthServiceTests
         users.Setup(x => x.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((User user, CancellationToken _) => { user.Id = Guid.NewGuid(); return user; });
         var hasher = new Mock<IPasswordHasher<User>>();
-        hasher.Setup(x => x.HashPassword(It.IsAny<User>(), "secreto")).Returns("hash");
+        hasher.Setup(x => x.HashPassword(It.IsAny<User>(), "secreto8")).Returns("hash");
         var token = new Mock<ITokenService>();
         var service = new AuthService(users.Object, hasher.Object, token.Object);
 
         var result = await service.RegisterAsync(new UserCreateDTO(
-            "alumno@test.com", "secreto", UserRole.Alumno, "Ana", "Pérez", "123", "555", "Calle 1", "1000"));
+            "alumno@test.com", "secreto8", UserRole.Alumno, "Ana", "Pérez", "12345678", "11-1234-5678", "Calle 1", "1000"));
 
         Assert.Equal(UserRole.Alumno, result.Role);
         users.Verify(x => x.CreateAsync(It.Is<User>(u => u.PasswordHash == "hash"), It.IsAny<CancellationToken>()), Times.Once);
@@ -52,7 +52,8 @@ public sealed class AuthServiceTests
         var service = new AuthService(users.Object, Mock.Of<IPasswordHasher<User>>(), Mock.Of<ITokenService>());
 
         await Assert.ThrowsAsync<DuplicateEmailException>(() =>
-            service.RegisterAsync(new UserCreateDTO("a@b.com", "x", UserRole.Alumno, "A", "B", "1", "2", "C", "3")));
+            service.RegisterAsync(new UserCreateDTO("a@b.com", "secreto8", UserRole.Alumno, "A", "B",
+                "12345678", "11-1234-5678", "Calle 1", "1000")));
     }
 
     [Fact]

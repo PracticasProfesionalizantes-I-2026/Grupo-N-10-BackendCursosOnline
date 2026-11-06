@@ -41,7 +41,7 @@ public sealed class AuthService(
             Dni = dto.Dni.Trim(),
             Phone = dto.Phone.Trim(),
             Address = dto.Address.Trim(),
-            PostalCode = dto.PostalCode.Trim(),
+            PostalCode = dto.PostalCode.Trim().ToUpperInvariant(),
             IsActive = true,
             CreatedAtUtc = DateTime.UtcNow
         };

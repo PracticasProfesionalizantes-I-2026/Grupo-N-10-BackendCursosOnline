@@ -22,6 +22,22 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
         Assert.DoesNotContain("observation", required);
     }
 
+    [Fact]
+    public void ApprovedPolicies_AppearInInputAndEnrollmentSchemas()
+    {
+        var schemas = Document.GetProperty("components").GetProperty("schemas");
+        Assert.Contains("DNI de 7 u 8 dígitos", schemas.GetProperty(nameof(UserCreateDTO))
+            .GetProperty("description").GetString());
+        Assert.Contains("100 módulos", schemas.GetProperty(nameof(CourseCreateDTO))
+            .GetProperty("description").GetString());
+        Assert.Contains("reducir gradualmente", schemas.GetProperty(nameof(CourseUpdateDTO))
+            .GetProperty("description").GetString());
+        Assert.Contains("ResolutionReason", schemas.GetProperty(nameof(EnrollmentResponseDTO))
+            .GetProperty("description").GetString());
+        Assert.True(schemas.GetProperty(nameof(EnrollmentResponseDTO)).GetProperty("properties")
+            .TryGetProperty("resolutionReason", out _));
+    }
+
     public static TheoryData<string, string, string, string, bool, string> Operations => new()
     {
         { "/api/auth/register", "post", "201", "UserResponseDTO", false, "400,409" },
@@ -250,7 +266,7 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
     {
         using var client = fixture.Factory.CreateClient();
         var user = new { email = $"openapi-{Guid.NewGuid():N}@example.com", password = "Test123!",
-            role = "Alumno", firstName = "Test", lastName = "Contrato", dni = "12345678", phone = "123456",
+            role = "Alumno", firstName = "Test", lastName = "Contrato", dni = "12345678", phone = "11-1234-5678",
             address = "Calle 1", postalCode = "1000" };
         using var created = await client.PostAsJsonAsync("/api/auth/register", user);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);

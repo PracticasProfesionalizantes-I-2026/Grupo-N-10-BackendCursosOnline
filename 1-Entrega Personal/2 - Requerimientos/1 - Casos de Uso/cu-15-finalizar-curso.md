@@ -40,7 +40,7 @@ Permite que el Administrador cierre el ciclo de un curso PUBLICADO o PAUSADO.
 3. Solicita finalizar el curso.
 4. El sistema muestra la operación y solicita confirmación.
 5. El Administrador confirma la finalización.
-6. El sistema verifica el permiso y el estado, cambia el curso a FINALIZADO e informa el cierre del ciclo y que no admite nuevas solicitudes de inscripción. **Reglas aplicables:** **RN-12**. La operación cierra el curso para nuevas solicitudes, conserva el acceso aprobado y no altera el avance ni cambia por sí misma las solicitudes pendientes.
+6. El sistema verifica el permiso y el estado, cambia el curso a FINALIZADO e informa el cierre del ciclo y que no admite nuevas solicitudes de inscripción. **Reglas aplicables:** **RN-12**. La operación cierra el curso para nuevas solicitudes, conserva el acceso aprobado y no altera el avance y rechaza automáticamente las solicitudes pendientes con motivo. En la misma operación se rechazan todas las solicitudes PENDIENTES con el motivo «Curso finalizado.». No se alteran los accesos ni avances ya aprobados.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
 

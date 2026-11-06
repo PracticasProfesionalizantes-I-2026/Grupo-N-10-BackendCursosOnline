@@ -289,7 +289,7 @@ public sealed class CourseUpdateIntegrationTests
         var email = $"cu05-{Guid.NewGuid():N}@lumen.local";
         Assert.Equal(HttpStatusCode.Created, (await registration.PostAsJsonAsync("/api/auth/register",
             new UserCreateDTO(email, DbInitializer.DemoPassword, UserRole.Alumno, "Alumno", "Nuevo", "12345678",
-                "123", "Dirección", "1000"), CourseTestClient.Json)).StatusCode);
+                "11-1234-5678", "Dirección", "1000"), CourseTestClient.Json)).StatusCode);
         using var student = await CourseTestClient.LoginAsync(factory, email);
         var response = await student.PostAsJsonAsync("/api/enrollments", new EnrollmentCreateDTO(course.Id), CourseTestClient.Json);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);

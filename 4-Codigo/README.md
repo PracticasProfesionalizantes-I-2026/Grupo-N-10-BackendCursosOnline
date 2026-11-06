@@ -351,9 +351,9 @@ Estos criterios completan aspectos que los requisitos originales no definen expr
 - Durante una nueva auditoría se admiten solicitudes si el curso conserva PublishedRevisionId y su estado operativo es Activo. Los cambios sin aprobar no sustituyen la versión pública.
 - Curso inexistente devuelve 404; curso existente sin publicación, Pausado o Finalizado devuelve 409.
 - CourseId ausente o vacío devuelve 400. Una identidad autenticada sin identificador de alumno válido devuelve 403. Los identificadores de alumno y el estado recibidos como campos extra del cuerpo no se utilizan.
-- No se incorporan restricciones de cupo a la solicitud.
+- Una solicitud Pendiente no ocupa cupo. La aprobación comprueba el cupo disponible en la misma sentencia SQLite que cambia el estado.
 
-El servicio conserva las verificaciones de rol, identidad, curso y duplicados. El repositorio inserta solamente la nueva fila mediante ExecuteSqlInterpolatedAsync de EF, con parámetros y un SELECT condicionado a la publicación y al estado operativo requerido por el servicio. La comprobación final y la inserción forman una única sentencia: si pausa/finalización se confirma antes, la solicitud se rechaza; si la inserción se confirma primero, la solicitud queda registrada y la transición posterior no la cancela. Esto evita insertar el grafo del curso obtenido con AsNoTracking.
+El servicio conserva las verificaciones de rol, identidad, curso y duplicados. El repositorio inserta solamente la nueva fila mediante ExecuteSqlInterpolatedAsync de EF, con parámetros y un SELECT condicionado a la publicación y al estado operativo requerido por el servicio. La comprobación final y la inserción forman una única sentencia. Si la pausa se confirma antes, la solicitud nueva se rechaza; si la inserción se confirma primero, la solicitud queda pendiente para resolución durante la pausa. Finalizar rechaza todas las pendientes del curso en la misma transacción. Esto evita insertar el grafo del curso obtenido con AsNoTracking.
 
 SQLite garantiza una única inscripción Pendiente o Aprobada por alumno/curso mediante un índice único parcial sobre StudentId y CourseId. Las solicitudes concurrentes que infringen esa restricción se traducen específicamente a DuplicateEnrollmentException (409); otros errores de persistencia no se presentan como duplicados.
 
@@ -390,7 +390,7 @@ El login admite 20 solicitudes por ventana de 60 segundos por IP de conexión e 
 
 Un correo inexistente pasa por una verificación con un hash señuelo antes de devolver `401`. Se usa el algoritmo del hasher de Identity instalado. Si cambia su configuración, revisar también el costo del señuelo. Esta defensa reduce la señal temporal de existencia de cuentas. Los hashes históricos o diferencias del despliegue aún pueden alterar los tiempos.
 
-Los endpoints JSON devuelven `413` si el servidor rechaza el tamaño del cuerpo. Si la excepción llega a la aplicación, la respuesta usa `application/problem+json` y omite los detalles internos. El límite efectivo depende del servidor y del proxy. Esta comprobación no fija cantidades máximas de módulos ni recursos.
+Los endpoints JSON devuelven `413` si el servidor rechaza el tamaño del cuerpo. Si la excepción llega a la aplicación, la respuesta usa `application/problem+json` y omite los detalles internos. El límite efectivo depende del servidor y del proxy. Los máximos funcionales de módulos y recursos se validan por separado.
 
 En `GET /api/reports/summary`, `timeZone` habilita el modo de fechas civiles. Con esa opción, `from` y `to` usan `AAAA-MM-DD` y la zona usa un identificador IANA. Se cuenta desde la medianoche de `from` hasta la siguiente a `to`, excluida. Se devuelve `timeZone` y las medianoches de ambas fechas seleccionadas convertidas a UTC. Una medianoche inexistente devuelve 400 y, si es ambigua, se usa su primera ocurrencia. Sin `timeZone` se conserva el contrato histórico.
 
@@ -435,6 +435,16 @@ finally {
 ~~~
 
 El ejemplo no requiere JWT y deja la base en `$migrationDatabase`. No cambia la base utilizada por la API. Para migrar un destino elegido, detener las instancias que lo usan y proporcionar su ruta absoluta en el mismo argumento `--connection`. El ejecutor usa `DOTNET_ENVIRONMENT`, luego `ASPNETCORE_ENVIRONMENT`; Production, un entorno desconocido o la ausencia de ambos aplican solamente el esquema. No cambia la política de cuentas existentes.
+
+## Decisiones funcionales aprobadas en la quinta ronda
+
+El registro público y el alta interna exigen nombre, apellido, dirección y correo. El DNI se conserva como cadena de 7 u 8 dígitos, incluidos ceros iniciales. El teléfono admite formatos nacionales y `+54`, con 10 a 15 dígitos y separadores de espacio, guion o paréntesis. El código postal acepta cuatro dígitos o CPA argentino y se guarda en mayúsculas. Las contraseñas nuevas admiten de 8 a 128 caracteres, incluidos símbolos, Unicode y espacios internos. Se pasan sin recortar al hasher. El login conserva la compatibilidad de cuentas anteriores y no revalida sus datos de alta.
+
+La creación de cursos limita a 100 módulos, 30 objetivos, 30 requisitos y 50 recursos por módulo. Objetivos y requisitos admiten 500 caracteres cada uno; cada recurso textual admite 2.000. Los topes escalares anteriores siguen vigentes. Un borrador puede estar incompleto, pero respeta esos máximos. Una edición de datos históricos por encima de ellos puede reducir un exceso sin aumentarlo. La consulta de esos cursos continúa disponible.
+
+El cupo positivo es efectivo al aprobar una inscripción y solo cuenta las aprobadas activas. La sentencia de aprobación comprueba ocupación y estado operativo en SQLite antes de actualizar. Cancelar libera plaza. Reducir el cupo por debajo de la ocupación devuelve 409. Un curso pausado admite la resolución de pendientes anteriores. Finalizar el curso y rechazar todas sus pendientes con motivo «Curso finalizado.» ocurre en una transacción, conservando las inscripciones aprobadas y el progreso. La sexta migración `EnforceCourseCapacity` agrega `ResolutionReason` a inscripciones y protege cambios de cupo y de revisión publicada frente a reducciones incompatibles. Se aplica sobre bases temporales en las pruebas.
+
+OpenAPI declara contratos, Scalar ofrece exploración interactiva y Bruno ejecuta los recorridos HTTP. La aceptación académica de Scalar y los niveles de complejidad siguen pendientes de confirmación.
 
 ## Validación
 

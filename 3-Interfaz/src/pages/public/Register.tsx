@@ -52,15 +52,20 @@ export function Register() {
     if (step === 2) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) next.email = 'Ingresá un email válido.'
       if (state.users.some((user) => user.email.toLowerCase() === form.email.trim().toLowerCase())) next.email = 'Ese email ya está registrado.'
-      if (form.password.length < 6) next.password = 'Usá al menos 6 caracteres.'
+      if (form.password.length < 8 || form.password.length > 128 || !form.password.trim())
+        next.password = 'Usá una contraseña de 8 a 128 caracteres.'
     }
     if (step === 3) {
       ;(['firstName', 'lastName', 'dni', 'phone', 'address', 'postalCode'] as const).forEach((field) => {
         if (!form[field].trim()) next[field] = 'Este campo es obligatorio.'
       })
-      for (const field of ['dni', 'phone'] as const) {
-        if (/\p{Cc}/u.test(form[field].trim())) next[field] = 'El valor contiene caracteres de control.'
-      }
+      if (!/^\d{7,8}$/.test(form.dni.trim())) next.dni = 'El DNI debe tener 7 u 8 dígitos.'
+      const phone = form.phone.trim()
+      if (!/^[+\d ()-]+$/.test(phone) || (phone.includes('+') && !phone.startsWith('+54')) ||
+        (phone.match(/\+/g)?.length ?? 0) > 1 || !/^\d{10,15}$/.test(phone.replace(/\D/g, '')))
+        next.phone = 'Ingresá un teléfono nacional o +54 de 10 a 15 dígitos.'
+      if (!/^(?:\d{4}|[A-Za-z]\d{4}[A-Za-z]{3})$/.test(form.postalCode.trim()))
+        next.postalCode = 'Ingresá cuatro dígitos o un CPA argentino.'
     }
     setErrors(next)
     return Object.keys(next).length === 0
@@ -76,7 +81,7 @@ export function Register() {
     if (submitting) return
     setSubmitting(true)
     try {
-      await register({ ...form, email: form.email.trim().toLowerCase() })
+      await register({ ...form, email: form.email.trim().toLowerCase(), postalCode: form.postalCode.trim().toUpperCase() })
       setForm((current) => ({ ...current, password: '' }))
       setStep(5)
       toast.success('Tu cuenta fue creada')
@@ -162,7 +167,7 @@ export function Register() {
                     <label className="block">
                       <span className="label">Contraseña *</span>
                       <span className="relative block">
-                        <input className="input pr-12" type={showPassword ? 'text' : 'password'} value={form.password} onChange={(event) => setField('password', event.target.value)} placeholder="Mínimo 6 caracteres" autoComplete="new-password" />
+                        <input className="input pr-12" type={showPassword ? 'text' : 'password'} value={form.password} onChange={(event) => setField('password', event.target.value)} placeholder="8 a 128 caracteres" autoComplete="new-password" />
                         <button type="button" className="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-slate-400 hover:bg-surface-raised" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
                           {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
@@ -179,7 +184,7 @@ export function Register() {
                       ['dni', 'DNI *', '30123456'],
                       ['phone', 'Teléfono *', '+54 9 11 5555-1234'],
                       ['address', 'Dirección *', 'Av. Siempre Viva 123'],
-                      ['postalCode', 'Código Postal *', 'C1000'],
+                      ['postalCode', 'Código Postal *', 'C1000ABC'],
                     ].map(([field, label, placeholder]) => (
                       <label key={field} className="block">
                         <span className="label">{label}</span>

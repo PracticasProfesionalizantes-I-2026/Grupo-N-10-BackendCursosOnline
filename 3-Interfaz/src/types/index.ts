@@ -71,6 +71,7 @@ export interface Enrollment {
   status: EnrollmentStatus
   requestedAt: string
   resolvedAt?: string
+  resolutionReason?: string
 }
 
 export interface ProgressRecord {

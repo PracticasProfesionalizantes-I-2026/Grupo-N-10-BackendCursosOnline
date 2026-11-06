@@ -376,7 +376,7 @@ public sealed class EnrollmentCreationIntegrationTests
     {
         var email = $"cu06-{Guid.NewGuid():N}@lumen.local";
         var registration = await client.PostAsJsonAsync("/api/auth/register", new UserCreateDTO(
-            email, DbInitializer.DemoPassword, UserRole.Alumno, "Alumno", "CU06", "12345678", "123456", "Dirección", "1000"), JsonOptions);
+            email, DbInitializer.DemoPassword, UserRole.Alumno, "Alumno", "CU06", "12345678", "11-1234-5678", "Dirección", "1000"), JsonOptions);
         Assert.Equal(HttpStatusCode.Created, registration.StatusCode);
         await AuthenticateAsync(client, email);
         return (await registration.Content.ReadFromJsonAsync<UserResponseDTO>(JsonOptions))!;

@@ -41,7 +41,7 @@ Permite pausar un curso PUBLICADO o reanudar un curso PAUSADO. El Profesor actú
 3. El actor selecciona un curso PUBLICADO y solicita pausarlo.
 4. El sistema verifica los permisos y el estado del curso. **Reglas aplicables:** **RN-03**, **RN-12**.
 5. El actor confirma la pausa.
-6. El sistema cambia el curso a PAUSADO e informa que no admite nuevas solicitudes de inscripción. **Reglas aplicables:** **RN-12**. La pausa conserva la publicación y las inscripciones ya registradas. Enviar o decidir una revisión no reanuda el curso. Para volver a admitir solicitudes debe ejecutarse la reanudación.
+6. El sistema cambia el curso a PAUSADO e informa que no admite nuevas solicitudes de inscripción. **Reglas aplicables:** **RN-12**. La pausa conserva la publicación y las inscripciones ya registradas. Enviar o decidir una revisión no reanuda el curso. Para volver a admitir solicitudes debe ejecutarse la reanudación. La pausa conserva las solicitudes anteriores y el Administrador puede aprobarlas si queda cupo o rechazarlas.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
 

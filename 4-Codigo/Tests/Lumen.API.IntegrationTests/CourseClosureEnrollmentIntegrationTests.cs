@@ -11,7 +11,7 @@ public sealed class CourseClosureEnrollmentIntegrationTests
     [Theory]
     [InlineData("pause")]
     [InlineData("finish")]
-    public async Task Closure_KeepsExistingApprovedAccessAndPendingDecision(string transition)
+    public async Task Closure_KeepsApprovedAccessAndHandlesPendingDecision(string transition)
     {
         using var factory = new LumenApiFactory();
         using var admin = await CourseTestClient.LoginAsync(factory, DemoAccounts.AdministratorEmail);
@@ -28,11 +28,12 @@ public sealed class CourseClosureEnrollmentIntegrationTests
         Assert.Equal(HttpStatusCode.OK, existingAccess.StatusCode);
         var pendingAfter = (await admin.GetFromJsonAsync<EnrollmentResponseDTO>(
             $"/api/enrollments/{pending.Id}", CourseTestClient.Json))!;
-        Assert.Equal(EnrollmentStatus.Pendiente, pendingAfter.Status);
+        Assert.Equal(transition == "finish" ? EnrollmentStatus.Rechazada : EnrollmentStatus.Pendiente, pendingAfter.Status);
+        Assert.Equal(transition == "finish" ? "Curso finalizado." : null, pendingAfter.ResolutionReason);
         using var resolved = await admin.PostAsJsonAsync($"/api/enrollments/{pending.Id}/decision",
             new EnrollmentDecisionDTO(EnrollmentStatus.Aprobada), CourseTestClient.Json);
-        Assert.Equal(HttpStatusCode.OK, resolved.StatusCode);
+        Assert.Equal(transition == "finish" ? HttpStatusCode.Conflict : HttpStatusCode.OK, resolved.StatusCode);
         using var granted = await student.GetAsync($"/api/enrollments/{pending.Id}/course-content");
-        Assert.Equal(HttpStatusCode.OK, granted.StatusCode);
+        Assert.Equal(transition == "finish" ? HttpStatusCode.Conflict : HttpStatusCode.OK, granted.StatusCode);
     }
 }

@@ -13,6 +13,7 @@ public sealed class Enrollment
     public DateTime RequestedAtUtc { get; set; }
     public DateTime? ResolvedAtUtc { get; set; }
     public Guid? ResolvedByUserId { get; set; }
+    public string? ResolutionReason { get; set; }
     public User? ResolvedByUser { get; set; }
     public DateTime? CanceledAtUtc { get; set; }
     public Guid? CanceledByUserId { get; set; }

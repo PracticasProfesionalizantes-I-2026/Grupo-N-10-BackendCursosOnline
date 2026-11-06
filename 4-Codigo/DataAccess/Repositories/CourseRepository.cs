@@ -124,6 +124,29 @@ public sealed class CourseRepository(LumenDbContext context) : ICourseRepository
         {
             throw new CourseStateConflictException("Otra operación ya creó la siguiente versión del curso.");
         }
+        catch (DbUpdateException ex) when (ex.InnerException is SqliteException sqlite &&
+            sqlite.Message.Contains("El cupo", StringComparison.Ordinal))
+        {
+            throw new CourseStateConflictException("El cupo no puede quedar por debajo de las inscripciones aprobadas.");
+        }
+    }
+
+    public Task<int> GetApprovedCountAsync(Guid courseId, CancellationToken cancellationToken = default) =>
+        context.Enrollments.CountAsync(x => x.CourseId == courseId && x.Status == EnrollmentStatus.Aprobada,
+            cancellationToken);
+
+    public async Task FinishAndRejectPendingAsync(Course course, Guid administratorId, DateTime resolvedAtUtc,
+        CancellationToken cancellationToken = default)
+    {
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        await SaveAsync(cancellationToken);
+        await context.Enrollments.Where(x => x.CourseId == course.Id && x.Status == EnrollmentStatus.Pendiente)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.Status, EnrollmentStatus.Rechazada)
+                .SetProperty(x => x.ResolvedAtUtc, resolvedAtUtc)
+                .SetProperty(x => x.ResolvedByUserId, administratorId)
+                .SetProperty(x => x.ResolutionReason, "Curso finalizado."), cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public Task<Course?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>

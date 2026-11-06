@@ -1,0 +1,25 @@
+meta {
+  name: Enviar revision
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/courses/{{policyCourseId}}/submit-review
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{teacherToken}}
+}
+
+script:post-response {
+  bru.setVar('policyReviewId', res.getBody().id);
+}
+
+tests {
+  test('HTTP 200 y contrato', function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

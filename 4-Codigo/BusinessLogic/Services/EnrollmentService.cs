@@ -117,7 +117,7 @@ public sealed class EnrollmentService(
         if (!await enrollmentRepository.TryResolveAsync(id, EnrollmentStatus.Pendiente, dto.Decision,
                 resolvedAtUtc, currentUser.UserId, cancellationToken))
         {
-            throw new EnrollmentStateConflictException("La solicitud ya fue resuelta por otra operación.");
+            throw new EnrollmentStateConflictException("La solicitud ya fue resuelta, el curso finalizó o el cupo está completo.");
         }
         enrollment.Status = dto.Decision;
         enrollment.ResolvedAtUtc = resolvedAtUtc;
@@ -170,7 +170,8 @@ public sealed class EnrollmentService(
             ?? string.Empty;
         return new EnrollmentResponseDTO(
             enrollment.Id, enrollment.StudentId, enrollment.CourseId, title, enrollment.Status,
-            enrollment.RequestedAtUtc, enrollment.ResolvedAtUtc, enrollment.CanceledAtUtc);
+            enrollment.RequestedAtUtc, enrollment.ResolvedAtUtc, enrollment.CanceledAtUtc)
+        { ResolutionReason = enrollment.ResolutionReason };
     }
 }
 

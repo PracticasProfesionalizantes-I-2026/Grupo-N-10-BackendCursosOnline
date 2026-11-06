@@ -29,6 +29,9 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
       const course = state.courses.find((item) => item.id === audit?.courseId)
       if (audit?.status !== 'PENDIENTE' || course?.status !== 'EN REVISIÓN' ||
         (action.decision === 'CAMBIOS SOLICITADOS' && !action.observations?.trim())) return state
+      if (action.decision === 'APROBADA' && state.enrollments.filter(
+        (item) => item.courseId === course.id && item.status === 'APROBADA',
+      ).length > course.maxCapacity) return state
       const statusByDecision: Record<AuditDecision, CourseStatus> = {
         APROBADA: 'PUBLICADO',
         'CAMBIOS SOLICITADOS': 'CAMBIOS SOLICITADOS',
@@ -86,6 +89,10 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
     case 'UPDATE_ENROLLMENT': {
       const enrollment = state.enrollments.find((item) => item.id === action.enrollmentId)
       if (!enrollment || !canTransitionEnrollment(enrollment.status, action.status)) return state
+      const course = state.courses.find((item) => item.id === enrollment.courseId)
+      if (action.status === 'APROBADA' && (!course || course.operationalStatus === 'FINALIZADO' ||
+        state.enrollments.filter((item) => item.courseId === enrollment.courseId && item.status === 'APROBADA').length >=
+          (course.publishedVersion?.maxCapacity ?? course.maxCapacity))) return state
       const updated = { ...enrollment, status: action.status, resolvedAt: action.date }
       const hasProgress = state.progressRecords.some(
         (item) => item.enrollmentId === enrollment.id,
@@ -144,6 +151,11 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
     case 'SET_COURSE_STATUS':
       return {
         ...state,
+        enrollments: action.status === 'FINALIZADO'
+          ? state.enrollments.map((item) => item.courseId === action.courseId && item.status === 'PENDIENTE'
+            ? { ...item, status: 'RECHAZADA' as const, resolvedAt: action.date, resolutionReason: 'Curso finalizado.' }
+            : item)
+          : state.enrollments,
         courses: state.courses.map((item) => {
           if (item.id !== action.courseId) return item
           if (action.status !== 'PUBLICADO' && action.status !== 'PAUSADO' && action.status !== 'FINALIZADO') return item

@@ -1,0 +1,22 @@
+meta {
+  name: Acceso aprobado tras cierre
+  type: http
+  seq: 26
+}
+
+get {
+  url: {{baseUrl}}/api/enrollments/{{policyEnrollmentBId}}/course-content
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{studentBToken}}
+}
+
+tests {
+  test('HTTP 200 y contrato', function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().id).to.equal(bru.getVar('policyCourseId'));
+  });
+}

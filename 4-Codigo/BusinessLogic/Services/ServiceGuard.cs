@@ -66,17 +66,22 @@ internal static class ServiceGuard
     {
         Required(firstName, "nombre", UserFieldLimits.Name);
         Required(lastName, "apellido", UserFieldLimits.Name);
-        ValidateSingleLine(dni, "DNI", UserFieldLimits.Dni);
-        ValidateSingleLine(phone, "teléfono", UserFieldLimits.Phone);
+        var validDni = Required(dni, "DNI", UserFieldLimits.Dni);
+        if (validDni.Length is not (7 or 8) || !validDni.All(c => c is >= '0' and <= '9'))
+            throw new LumenValidationException("El DNI debe tener 7 u 8 dígitos.");
+        var validPhone = Required(phone, "teléfono", UserFieldLimits.Phone);
+        if (!validPhone.All(c => c is >= '0' and <= '9' or '+' or ' ' or '-' or '(' or ')') ||
+            validPhone.Count(c => c == '+') > 1 || (validPhone.Contains('+') && !validPhone.StartsWith("+54", StringComparison.Ordinal)) ||
+            (validPhone.Contains('+') && validPhone[0] != '+') ||
+            validPhone.Count(c => c is >= '0' and <= '9') is < 10 or > 15)
+            throw new LumenValidationException("El teléfono debe tener entre 10 y 15 dígitos y usar un formato nacional o +54.");
         Required(address, "dirección", UserFieldLimits.Address);
-        Required(postalCode, "código postal", UserFieldLimits.PostalCode);
-        Required(password, "contraseña");
+        var validPostalCode = Required(postalCode, "código postal", UserFieldLimits.PostalCode);
+        if (!System.Text.RegularExpressions.Regex.IsMatch(validPostalCode, @"^(?:[0-9]{4}|[A-Za-z][0-9]{4}[A-Za-z]{3})$"))
+            throw new LumenValidationException("El código postal debe tener cuatro dígitos o el formato CPA argentino.");
+        if (string.IsNullOrWhiteSpace(password) || password.Length is < 8 or > 128)
+            throw new LumenValidationException("La contraseña debe tener entre 8 y 128 caracteres.");
     }
 
-    private static void ValidateSingleLine(string? value, string field, int maximumLength)
-    {
-        if (Required(value, field, maximumLength).Any(char.IsControl))
-            throw new LumenValidationException($"El campo {field} contiene caracteres de control.");
-    }
 }
 

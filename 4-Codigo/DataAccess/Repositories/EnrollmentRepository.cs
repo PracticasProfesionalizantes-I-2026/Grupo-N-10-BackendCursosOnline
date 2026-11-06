@@ -28,14 +28,21 @@ public sealed class EnrollmentRepository(LumenDbContext context) : IEnrollmentRe
         Guid resolvedByUserId,
         CancellationToken cancellationToken = default)
     {
-        // Check the expected state and write the resolution in the same UPDATE.
-        // A previous decision or cancellation cannot be overwritten by a stale read.
-        var updated = await context.Enrollments
-            .Where(x => x.Id == id && x.Status == expectedStatus)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(x => x.Status, decision)
-                .SetProperty(x => x.ResolvedAtUtc, resolvedAtUtc)
-                .SetProperty(x => x.ResolvedByUserId, resolvedByUserId), cancellationToken);
+        // SQLite serializes the write, including the capacity check in this statement.
+        var updated = await context.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE "Enrollments"
+            SET "Status" = {decision.ToString()}, "ResolvedAtUtc" = {resolvedAtUtc},
+                "ResolvedByUserId" = {resolvedByUserId}, "ResolutionReason" = NULL
+            WHERE "Id" = {id} AND "Status" = {expectedStatus.ToString()}
+              AND ({decision.ToString()} <> 'Aprobada' OR EXISTS (
+                  SELECT 1 FROM "Courses" AS c
+                  JOIN "CourseRevisions" AS r ON r."Id" = c."PublishedRevisionId" AND r."CourseId" = c."Id"
+                  WHERE c."Id" = "Enrollments"."CourseId"
+                    AND c."OperationalStatus" <> 'Finalizado'
+                    AND r."MaxCapacity" > (
+                        SELECT COUNT(*) FROM "Enrollments" AS occupied
+                        WHERE occupied."CourseId" = c."Id" AND occupied."Status" = 'Aprobada')))
+            """, cancellationToken);
         return updated == 1;
     }
 

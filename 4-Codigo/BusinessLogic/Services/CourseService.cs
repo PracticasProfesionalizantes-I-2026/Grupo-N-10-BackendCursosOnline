@@ -86,7 +86,10 @@ public sealed class CourseService(
             throw new CourseStateConflictException("El estado actual del curso no permite editar su versión de trabajo.");
         }
         // Validate and build a detached replacement before changing any tracked entity.
-        var changes = BuildRevision(dto, working.Modules.Select(x => x.Id).ToHashSet());
+        var changes = BuildRevision(dto, working.Modules.Select(x => x.Id).ToHashSet(), working);
+        if (changes.MaxCapacity < working.MaxCapacity &&
+            changes.MaxCapacity < await courseRepository.GetApprovedCountAsync(id, cancellationToken))
+            throw new CourseStateConflictException("El cupo no puede reducirse por debajo de las inscripciones aprobadas.");
         KeepOnlyUnchangedPublishedModuleIds(course, changes);
         if (working.Status == CourseRevisionStatus.Publicado)
         {
@@ -111,7 +114,7 @@ public sealed class CourseService(
         if (course.WorkingRevision is not { Status: CourseRevisionStatus.Rechazado } rejected)
             throw new CourseStateConflictException("Solo se puede recuperar una revisión de trabajo rechazada.");
 
-        var draft = BuildRevision(ToUpdate(rejected), rejected.Modules.Select(x => x.Id).ToHashSet());
+        var draft = BuildRevision(ToUpdate(rejected), rejected.Modules.Select(x => x.Id).ToHashSet(), rejected);
         KeepOnlyUnchangedPublishedModuleIds(course, draft);
         await AddWorkingRevisionAsync(course, rejected, draft, expectedUpdates, cancellationToken);
         return MapToResponseDTO(course);
@@ -269,7 +272,7 @@ public sealed class CourseService(
         }
         course.OperationalStatus = CourseOperationalStatus.Finalizado;
         course.UpdatedAtUtc = NextTimestamp(course.UpdatedAtUtc);
-        await courseRepository.SaveAsync(cancellationToken);
+        await courseRepository.FinishAndRejectPendingAsync(course, currentUser.UserId, DateTime.UtcNow, cancellationToken);
         return MapToResponseDTO(course);
     }
 
@@ -300,16 +303,18 @@ public sealed class CourseService(
         }
     }
 
-    private static CourseRevision BuildRevision(CourseUpdateDTO dto, HashSet<Guid> allowedModuleIds)
+    private static CourseRevision BuildRevision(CourseUpdateDTO dto, HashSet<Guid> allowedModuleIds,
+        CourseRevision? baseline = null)
     {
         if (dto is null || dto.Modules is null || dto.Modules.Any(x => x is null))
         {
             throw new LumenValidationException("El curso y su lista de módulos deben ser válidos.");
         }
-        if (dto.MaxCapacity < 0)
+        if (dto.MaxCapacity <= 0)
         {
-            throw new LumenValidationException("El cupo no puede ser negativo.");
+            throw new LumenValidationException("El cupo máximo debe ser mayor que cero.");
         }
+        ValidateCount(dto.Modules.Count, 100, baseline?.Modules.Count, "módulos");
         var revision = new CourseRevision
         {
             Status = CourseRevisionStatus.Borrador,
@@ -319,8 +324,8 @@ public sealed class CourseService(
             Level = NormalizeText(dto.Level, 100, "nivel"),
             Modality = NormalizeText(dto.Modality, 100, "modalidad"),
             MaxCapacity = dto.MaxCapacity,
-            LearningObjectives = NormalizeList(dto.LearningObjectives),
-            SuggestedPrerequisites = NormalizeList(dto.SuggestedPrerequisites)
+            LearningObjectives = NormalizeList(dto.LearningObjectives, 30, 500, "objetivos de aprendizaje", baseline?.LearningObjectives),
+            SuggestedPrerequisites = NormalizeList(dto.SuggestedPrerequisites, 30, 500, "requisitos previos", baseline?.SuggestedPrerequisites)
         };
         var suppliedIds = new HashSet<Guid>();
         long totalDuration = 0;
@@ -347,7 +352,7 @@ public sealed class CourseService(
                 Description = NormalizeText(input.Description, 2000, "descripción del módulo"),
                 DurationMinutes = input.DurationMinutes,
                 Content = NormalizeText(input.Content, 8000, "contenido del módulo"),
-                Resources = NormalizeList(input.Resources)
+                Resources = NormalizeList(input.Resources, 50, 2000, "recursos", baseline?.Modules.FirstOrDefault(x => x.Id == input.Id)?.Resources)
             });
         }
         revision.TotalDurationMinutes = (int)totalDuration;
@@ -368,14 +373,29 @@ public sealed class CourseService(
         }
     }
 
-    private static List<string> NormalizeList(IReadOnlyList<string>? values)
+    private static List<string> NormalizeList(IReadOnlyList<string>? values, int maximumCount,
+        int maximumLength, string field, IReadOnlyList<string>? baseline)
     {
         if (values is null) return [];
         if (values.Any(x => x is null))
         {
             throw new LumenValidationException("Las listas no pueden contener elementos nulos.");
         }
-        return values.Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
+        var normalized = values.Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
+        ValidateCount(normalized.Count, maximumCount, baseline?.Count, field);
+        for (var i = 0; i < normalized.Count; i++)
+        {
+            var previousLength = baseline is not null && i < baseline.Count ? baseline[i].Length : 0;
+            if (normalized[i].Length > maximumLength && normalized[i].Length > previousLength)
+                throw new LumenValidationException($"Cada elemento de {field} admite hasta {maximumLength} caracteres.");
+        }
+        return normalized;
+    }
+
+    private static void ValidateCount(int count, int maximum, int? previous, string field)
+    {
+        if (count > maximum && count > (previous ?? 0))
+            throw new LumenValidationException($"El curso admite hasta {maximum} {field}.");
     }
 
     private static DateTime NextTimestamp(DateTime previous)
@@ -414,7 +434,7 @@ public sealed class CourseService(
 
     private static int ValidateComplete(CourseRevision revision)
     {
-        var validated = BuildRevision(ToUpdate(revision), revision.Modules.Select(x => x.Id).ToHashSet());
+        var validated = BuildRevision(ToUpdate(revision), revision.Modules.Select(x => x.Id).ToHashSet(), revision);
         ServiceGuard.Required(validated.Title, "título");
         ServiceGuard.Required(validated.Description, "descripción");
         ServiceGuard.Required(validated.Category, "categoría");

@@ -1,0 +1,22 @@
+meta {
+  name: Cancelar A
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/enrollments/{{policyEnrollmentAId}}/cancel
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{studentAToken}}
+}
+
+tests {
+  test('HTTP 200 y contrato', function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().status).to.equal('Cancelada');
+  });
+}

@@ -13,7 +13,10 @@ public sealed record EnrollmentResponseDTO(
     EnrollmentStatus Status,
     DateTime RequestedAtUtc,
     DateTime? ResolvedAtUtc,
-    DateTime? CanceledAtUtc);
+    DateTime? CanceledAtUtc)
+{
+    public string? ResolutionReason { get; init; }
+}
 
 public sealed record ProgressResponseDTO(
     Guid EnrollmentId,

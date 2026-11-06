@@ -96,6 +96,28 @@ test('cancellation and a new approval preserve history without reusing progress'
   assert.equal(getEnrollmentProgress(approved, approved.enrollments.find(item => item.id === old.id)), undefined)
 })
 
+test('local capacity blocks the second approval and cancellation frees the place', () => {
+  const limited = { ...course, maxCapacity: 1, publishedVersion: { ...course.publishedVersion, maxCapacity: 1 } }
+  const first = { ...old, status: 'PENDIENTE' }
+  const second = { ...old, id: 'second', studentId: 'another', status: 'PENDIENTE' }
+  const pending = { ...state, courses: [limited], enrollments: [first, second] }
+  const approved = appReducer(pending, { type: 'UPDATE_ENROLLMENT', enrollmentId: first.id, status: 'APROBADA', date })
+  assert.equal(appReducer(approved, { type: 'UPDATE_ENROLLMENT', enrollmentId: second.id, status: 'APROBADA', date }), approved)
+  const canceled = appReducer(approved, { type: 'UPDATE_ENROLLMENT', enrollmentId: first.id, status: 'CANCELADA', date })
+  assert.equal(appReducer(canceled, { type: 'UPDATE_ENROLLMENT', enrollmentId: second.id, status: 'APROBADA', date })
+    .enrollments[1].status, 'APROBADA')
+})
+
+test('local finish rejects all pending requests with a reason and preserves approved access', () => {
+  const pending = { ...old, id: 'pending', status: 'PENDIENTE' }
+  const current = { ...state, enrollments: [old, pending] }
+  const finished = appReducer(current, { type: 'SET_COURSE_STATUS', courseId: course.id, status: 'FINALIZADO', date })
+  assert.equal(finished.enrollments[0].status, 'APROBADA')
+  assert.equal(finished.enrollments[1].status, 'RECHAZADA')
+  assert.equal(finished.enrollments[1].resolutionReason, 'Curso finalizado.')
+  assert.equal(getEnrollmentProgress(finished, old).percentage, 100)
+})
+
 test('legacy progress is attributed only when the enrollment is unambiguous', () => {
   const legacy = { ...state.progressRecords[0], enrollmentId: undefined }
   assert.equal(linkLegacyProgress({ ...state, progressRecords: [legacy] })[0].enrollmentId, old.id)

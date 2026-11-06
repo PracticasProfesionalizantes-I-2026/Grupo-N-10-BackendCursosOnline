@@ -41,7 +41,7 @@ Permite cancelar una inscripción APROBADA. El Alumno solo puede cancelar una in
 4. El sistema verifica el rol, la propiedad cuando actúa el Alumno y el estado APROBADA. **Reglas aplicables:** **RN-11**.
 5. El sistema informa que la cancelación retira el acceso activo y solicita confirmación.
 6. El actor confirma la cancelación.
-7. El sistema cambia la inscripción a CANCELADA, retira el acceso activo y muestra la confirmación. **Reglas aplicables:** **RN-11**. La cancelación conserva el historial de esa inscripción. Una futura inscripción empieza con avance propio al aprobarse. Sin confirmación no se envía una mutación HTTP.
+7. El sistema cambia la inscripción a CANCELADA, retira el acceso activo y muestra la confirmación. **Reglas aplicables:** **RN-11**. La cancelación conserva el historial de esa inscripción. Una futura inscripción empieza con avance propio al aprobarse. Sin confirmación no se envía una mutación HTTP. Cancelar una inscripción aprobada libera una plaza para otra solicitud pendiente.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
 

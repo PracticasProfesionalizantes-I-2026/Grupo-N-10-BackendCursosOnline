@@ -70,7 +70,7 @@ public sealed class EnrollmentResolutionConcurrencyIntegrationTests
         var winningAdministrator = await AuthenticateAsync(administrator, "admin@lumen.local");
         var lateEmail = $"late-admin-{Guid.NewGuid():N}@lumen.local";
         var registration = await administrator.PostAsJsonAsync("/api/users/administrators", new AdministratorCreateDTO(
-            lateEmail, DbInitializer.DemoPassword, "Administrador", "Atrasado", "87654321", "123456", "Dirección", "1000"), JsonOptions);
+            lateEmail, DbInitializer.DemoPassword, "Administrador", "Atrasado", "87654321", "11-1234-5678", "Dirección", "1000"), JsonOptions);
         Assert.Equal(HttpStatusCode.Created, registration.StatusCode);
         using var lateAdministrator = factory.CreateClient();
         var lateUser = await AuthenticateAsync(lateAdministrator, lateEmail);

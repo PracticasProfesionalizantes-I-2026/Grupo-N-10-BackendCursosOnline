@@ -1,0 +1,22 @@
+meta {
+  name: Pausar
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/courses/{{policyCourseId}}/pause
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{teacherToken}}
+}
+
+tests {
+  test('HTTP 200 y contrato', function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().status).to.equal('Pausado');
+  });
+}

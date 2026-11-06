@@ -198,6 +198,9 @@ function AppSessionProvider({ children, initialState }: { children: ReactNode; i
         const ownsCourse = original?.teacherId === currentUser.id
         if (!original || !canEditWorkingCourse(original) ||
           !(currentUser.role === 'ADMINISTRADOR' || (currentUser.role === 'PROFESOR' && ownsCourse))) return undefined
+        const occupied = state.enrollments.filter((item) =>
+          item.courseId === courseId && item.status === 'APROBADA').length
+        if (draft.maxCapacity < original.maxCapacity && draft.maxCapacity < occupied) return undefined
         const date = now()
         const editBase = getWorkingEditBase(original)
         const updated: Course = {
@@ -278,6 +281,10 @@ function AppSessionProvider({ children, initialState }: { children: ReactNode; i
         if (!enrollment || !currentUser ||
           (currentUser.role !== 'ADMINISTRADOR' &&
             !(currentUser.role === 'ALUMNO' && status === 'CANCELADA' && enrollment.studentId === currentUser.id))) return
+        const course = state.courses.find((item) => item.id === enrollment.courseId)
+        if (status === 'APROBADA' && (!course || course.operationalStatus === 'FINALIZADO' ||
+          state.enrollments.filter((item) => item.courseId === enrollment.courseId && item.status === 'APROBADA').length >=
+            (getPublication(course)?.maxCapacity ?? course.maxCapacity))) return
         dispatch({ type: 'UPDATE_ENROLLMENT', enrollmentId, status, date: now() })
       },
       toggleModule: (courseId, moduleId) => {

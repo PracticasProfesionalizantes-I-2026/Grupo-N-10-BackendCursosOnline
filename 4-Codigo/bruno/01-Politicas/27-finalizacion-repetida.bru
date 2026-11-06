@@ -1,0 +1,21 @@
+meta {
+  name: Finalizacion repetida
+  type: http
+  seq: 27
+}
+
+post {
+  url: {{baseUrl}}/api/courses/{{policyCourseId}}/finish
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test('HTTP 409 y contrato', function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

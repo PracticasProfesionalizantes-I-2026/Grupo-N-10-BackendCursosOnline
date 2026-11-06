@@ -38,7 +38,7 @@ Permite que el Alumno consulte sus solicitudes, identifique sus cursos con inscr
 1. El Alumno accede a sus solicitudes e inscripciones.
 2. El sistema muestra sus solicitudes y los cursos asociados, con el estado de cada inscripción.
 3. El Alumno consulta el estado y selecciona un curso con inscripción APROBADA. **Reglas aplicables:** **RN-11**.
-4. El sistema verifica que la inscripción pertenezca al Alumno y permanezca APROBADA. **Reglas aplicables:** **RN-11**.
+4. El sistema verifica que la inscripción pertenezca al Alumno y permanezca APROBADA. **Reglas aplicables:** **RN-11**. La finalización conserva el acceso de inscripciones APROBADAS y su progreso.
 5. El sistema permite acceder al curso y a sus módulos o actividades. **Reglas aplicables:** **RN-11**. Los nombres, el contenido y los módulos del alumno provienen de la publicación. La API admite paginación de las inscripciones propias. La pausa o finalización no revoca el acceso de una inscripción aprobada.
 6. El Alumno puede consultar su progreso (CU-08), realizar módulos o actividades (CU-16) o solicitar cancelar la inscripción (CU-13).
 

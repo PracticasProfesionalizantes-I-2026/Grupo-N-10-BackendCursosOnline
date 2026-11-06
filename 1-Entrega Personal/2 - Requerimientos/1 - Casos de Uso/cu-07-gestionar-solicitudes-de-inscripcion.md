@@ -41,7 +41,7 @@ Permite que un Administrador revise solicitudes de inscripción pendientes y las
 3. El Administrador selecciona una solicitud.
 4. El sistema muestra el Alumno y el curso relacionado.
 5. El Administrador selecciona "Aprobar".
-6. El sistema cambia la inscripción a APROBADA. **Reglas aplicables:** **RN-10**. Pausar o finalizar conserva las solicitudes que ya estaban pendientes y la decisión administrativa sigue disponible. El efecto del cupo sobre la aprobación sigue pendiente. En la API se puede paginar el listado filtrado de pendientes. Si el cuerpo de la decisión supera el límite de transporte, la API devuelve HTTP 413 sin cambiar la inscripción.
+6. El sistema cambia la inscripción a APROBADA. **Reglas aplicables:** **RN-10**. Pausar conserva las pendientes y permite resolverlas. Finalizar las rechaza automáticamente con motivo. En la API se puede paginar el listado filtrado de pendientes. Si el cuerpo de la decisión supera el límite de transporte, la API devuelve HTTP 413 sin cambiar la inscripción. La aprobación ocupa una plaza solo si queda cupo, incluso ante decisiones simultáneas. El curso PAUSADO permite resolver pendientes; FINALIZADO rechaza sus pendientes con motivo y no permite aprobarlos. Cupo completo o decisión tardía dan HTTP 409 sin nueva aprobación.
 7. El sistema habilita el curso dentro de los cursos del Alumno. **Reglas aplicables:** **RN-11**.
 8. El sistema informa que la solicitud fue aprobada.
 

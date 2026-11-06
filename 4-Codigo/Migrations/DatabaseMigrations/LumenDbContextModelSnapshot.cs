@@ -268,6 +268,10 @@ namespace Lumen.Migrations.DatabaseMigrations
                     b.Property<DateTime?>("ResolvedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ResolutionReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid?>("ResolvedByUserId")
                         .HasColumnType("TEXT");
 

@@ -199,7 +199,7 @@ public sealed class DemoSeedingIntegrationTests
         using var client = factory.CreateClient();
         using var response = await client.PostAsJsonAsync("/api/auth/register", new UserCreateDTO(
             "first@example.test", DbInitializer.DemoPassword, UserRole.Alumno, "Primero", "Real",
-            "12345678", "123456", "Dirección", "1000"), Json);
+            "12345678", "11-1234-5678", "Dirección", "1000"), Json);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         await using var scope = factory.Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<LumenDbContext>();
@@ -237,7 +237,7 @@ public sealed class DemoSeedingIntegrationTests
     {
         Id = Guid.NewGuid(), Email = email, NormalizedEmail = email.ToUpperInvariant(),
         PasswordHash = "existing-test-hash-do-not-change", Role = role, FirstName = "Existente", LastName = "Usuario",
-        Dni = "87654321", Phone = "123456", Address = "Dirección previa", PostalCode = "1000",
+        Dni = "87654321", Phone = "11-1234-5678", Address = "Dirección previa", PostalCode = "1000",
         IsActive = isActive, CreatedAtUtc = new DateTime(2025, 1, 2, 3, 4, 5, DateTimeKind.Utc)
     };
 

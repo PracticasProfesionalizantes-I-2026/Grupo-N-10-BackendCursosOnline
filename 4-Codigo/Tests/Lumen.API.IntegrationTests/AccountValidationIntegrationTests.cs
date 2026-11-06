@@ -43,7 +43,7 @@ public sealed class AccountValidationIntegrationTests
         using var client = factory.CreateClient();
         var payload = Registration();
         payload["firstName"] = $" {new string('A', UserFieldLimits.Name)} ";
-        payload["dni"] = "AB-123";
+        payload["dni"] = "01234567";
         payload["phone"] = "+54 (11) 1234-5678";
         using var response = await client.PostAsJsonAsync("/api/auth/register", payload, Json);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -51,8 +51,66 @@ public sealed class AccountValidationIntegrationTests
         var result = await response.Content.ReadFromJsonAsync<UserResponseDTO>(Json);
         Assert.Equal(UserFieldLimits.Name, result!.FirstName.Length);
         Assert.Equal(UserRole.Profesor, result.Role);
-        Assert.Equal("AB-123", result.Dni);
+        Assert.Equal("01234567", result.Dni);
         Assert.Equal("+54 (11) 1234-5678", result.Phone);
+    }
+
+    [Theory]
+    [InlineData("dni", "123456")]
+    [InlineData("dni", "123456789")]
+    [InlineData("dni", "12.345.678")]
+    [InlineData("phone", "123456789")]
+    [InlineData("phone", "+55 11 1234-5678")]
+    [InlineData("postalCode", "C1000")]
+    [InlineData("postalCode", "12345")]
+    [InlineData("password", "1234567")]
+    public async Task ApprovedArgentinePolicy_RejectsInvalidNewAccountWithoutWriting(string field, string value)
+    {
+        using var factory = new LumenApiFactory();
+        using var client = factory.CreateClient();
+        var payload = Registration();
+        payload[field] = value;
+        var before = await CountUsersAsync(factory);
+        using var response = await client.PostAsJsonAsync("/api/auth/register", payload, Json);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(before, await CountUsersAsync(factory));
+    }
+
+    [Theory]
+    [InlineData("0123456", "11-1234-5678", "1000")]
+    [InlineData("01234567", "+54 (11) 1234-5678", "C1000ABC")]
+    [InlineData("12345678", "11 1234 5678", "c1000abc")]
+    public async Task ApprovedArgentinePolicy_AcceptsValidPersonalData(
+        string dni, string phone, string postalCode)
+    {
+        using var factory = new LumenApiFactory();
+        using var client = factory.CreateClient();
+        var payload = Registration();
+        payload["dni"] = dni;
+        payload["phone"] = phone;
+        payload["postalCode"] = postalCode;
+        payload["password"] = " clave segura ! ";
+        using var response = await client.PostAsJsonAsync("/api/auth/register", payload, Json);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var user = await response.Content.ReadFromJsonAsync<UserResponseDTO>(Json);
+        Assert.Equal(dni, user!.Dni);
+    }
+
+    [Theory]
+    [InlineData(8, true)]
+    [InlineData(128, true)]
+    [InlineData(129, false)]
+    public async Task ApprovedArgentinePolicy_EnforcesPasswordLengthForInternalAccounts(int length, bool accepted)
+    {
+        using var factory = new LumenApiFactory();
+        using var admin = factory.CreateClient();
+        await AuthenticateAsync(admin, DemoAccounts.AdministratorEmail);
+        var payload = Registration();
+        payload["password"] = new string('a', length);
+        var before = await CountUsersAsync(factory);
+        using var response = await admin.PostAsJsonAsync("/api/users/administrators", payload, Json);
+        Assert.Equal(accepted ? HttpStatusCode.Created : HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(before + (accepted ? 1 : 0), await CountUsersAsync(factory));
     }
 
     [Fact]
@@ -111,7 +169,7 @@ public sealed class AccountValidationIntegrationTests
     {
         ["email"] = "registration@example.test", ["password"] = "synthetic-test-password",
         ["role"] = "Profesor", ["firstName"] = "Nombre", ["lastName"] = "Apellido",
-        ["dni"] = "12345678", ["phone"] = "123456", ["address"] = "Dirección", ["postalCode"] = "1000"
+        ["dni"] = "12345678", ["phone"] = "11-1234-5678", ["address"] = "Dirección", ["postalCode"] = "1000"
     };
 
     private static async Task<int> CountUsersAsync(LumenApiFactory factory)

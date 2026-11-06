@@ -30,7 +30,7 @@ public sealed class LoggingIntegrationTests
             administratorEmail = "logging-regression@example.test";
             using var provisioned = await seedClient.PostAsJsonAsync("/api/users/administrators",
                 new AdministratorCreateDTO(administratorEmail, DbInitializer.DemoPassword,
-                    "Logging", "Regression", "12345678", "123456", "Dirección", "1000"), Json);
+                    "Logging", "Regression", "12345678", "11-1234-5678", "Dirección", "1000"), Json);
             Assert.Equal(HttpStatusCode.Created, provisioned.StatusCode);
         }
         using var factory = root.WithWebHostBuilder(builder =>

@@ -386,3 +386,10 @@ Transiciones principales: BORRADOR -> EN REVISIÓN -> PUBLICADO / CAMBIOS SOLICI
 - **RN-15:** Los módulos deben pertenecer a un curso existente.
 
 - **RN-16:** Los reportes administrativos básicos deben respetar el rango de fechas definido mediante Desde y Hasta.
+
+### 5.6 Decisiones funcionales complementarias aprobadas por el equipo (noviembre de 2026)
+
+- **VAL-002. Altas nuevas: DNI de 7 u 8 dígitos, teléfono argentino de 10 a 15 dígitos, código postal de cuatro dígitos o CPA y contraseña de 8 a 128 caracteres. El login histórico se conserva.
+- **VAL-004. Máximos nuevos: 100 módulos, 30 objetivos, 30 requisitos y 50 recursos por módulo; textos de 500 y 2.000 caracteres. Los excesos históricos pueden reducirse.
+- **DOC-004. Solo las aprobadas ocupan cupo y cancelar libera una plaza. En pausa se resuelven pendientes; finalizar las rechaza con motivo y conserva acceso y progreso aprobados.
+- **DOC-003. OpenAPI documenta, Scalar explora y Bruno prueba la API. La aceptación académica sigue pendiente.

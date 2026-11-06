@@ -118,6 +118,8 @@ El recorrido **`00-Exposicion` contiene 19 solicitudes ordenadas**: autenticar l
 
 La cuarta ronda aprobó **389 pruebas .NET** (102 unitarias y 287 de integración) sobre bases SQLite temporales. El prototipo aprobó diez pruebas, lint y build. La [verificación de CI](.github/workflows/verification.yml) incluye ambos proyectos.
 
+La quinta ronda incorpora las políticas aprobadas de datos argentinos, límites de cursos y cupo efectivo. La API registra el motivo al rechazar pendientes durante la finalización. Los resultados de las verificaciones de esta ronda constan en [la auditoría](AUDITORIA_Y_PLAN_DE_CORRECCIONES.md).
+
 El [seguimiento de auditoría](AUDITORIA_Y_PLAN_DE_CORRECCIONES.md) conserva los 33 hallazgos, la matriz de trazabilidad y la revisión de CU-01 a CU-16.
 
 ## Prototipo frontend

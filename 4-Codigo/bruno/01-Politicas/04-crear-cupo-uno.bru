@@ -1,0 +1,34 @@
+meta {
+  name: Crear cupo uno
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/courses
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{teacherToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {"title": "Cupo de prueba", "description": "Curso de política funcional", "category": "Prueba", "level": "Inicial", "modality": "Online", "maxCapacity": 1, "learningObjectives": ["Aprobar con cupo"], "suggestedPrerequisites": [], "modules": [{"name": "Módulo", "description": "Prueba", "durationMinutes": 30, "content": "Contenido", "resources": []}]}
+}
+
+script:post-response {
+  bru.setVar('policyCourseId', res.getBody().id);
+}
+
+tests {
+  test('HTTP 201 y contrato', function () {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().maxCapacity).to.equal(1);
+  });
+}

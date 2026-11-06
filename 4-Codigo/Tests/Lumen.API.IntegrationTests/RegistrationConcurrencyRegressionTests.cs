@@ -60,5 +60,5 @@ public sealed class RegistrationConcurrencyRegressionTests(ITestOutputHelper out
     }
 
     private static UserCreateDTO Registration(string email, UserRole role) => new(
-        email, DbInitializer.DemoPassword, role, "Cuenta", "Concurrente", "12345678", "123456", "Dirección", "1000");
+        email, DbInitializer.DemoPassword, role, "Cuenta", "Concurrente", "12345678", "11-1234-5678", "Dirección", "1000");
 }

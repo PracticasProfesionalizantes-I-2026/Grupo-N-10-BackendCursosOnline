@@ -29,7 +29,7 @@ erDiagram
 | `CourseModules` | PK `(RevisionId, Id)`; `(RevisionId, Order)` único. |
 | `CourseReviews` | PK `Id`; revisión y solicitante obligatorios, revisor opcional. |
 | `CourseReviewSnapshots` | PK y FK `ReviewId`; copia JSON independiente de la revisión editable. Los disparadores impiden actualizar, borrar o reemplazar la evidencia de un envío existente. |
-| `Enrollments` | PK `Id`; alumno y curso obligatorios. Índice único parcial sobre `(StudentId, CourseId)` para los estados `Pendiente` y `Aprobada`. |
+| `Enrollments` | PK `Id`; alumno y curso obligatorios. Índice único parcial sobre `(StudentId, CourseId)` para los estados `Pendiente` y `Aprobada`. `ResolutionReason` conserva el motivo del rechazo automático al finalizar. Solo las aprobadas ocupan cupo. |
 | `EnrollmentModuleCompletions` | PK `(EnrollmentId, ModuleId)`. Solo `EnrollmentId` es FK. El repositorio condiciona el alta del módulo a la publicación vigente. |
 
 La tercera migración valida la pertenencia de los punteros en escrituras y protege el curso de una revisión referenciada. Conserva las filas existentes. Esta consulta de solo lectura detecta inconsistencias históricas para revisión:
@@ -48,5 +48,7 @@ Los módulos se identifican por `(RevisionId, Id)`. Al preparar una edición, un
 La cuarta migración agrega evidencia únicamente para envíos nuevos y no deriva copias de revisiones mutables anteriores. La tabla conserva las copias de cada envío aunque se soliciten cambios y se edite la misma revisión de trabajo.
 
 La quinta migración impide la sustitución mediante `INSERT OR REPLACE`, que con disparadores recursivos desactivados puede omitir el disparador de borrado. Se aplica sin modificar las filas. [Resolución de conflictos en SQLite](https://www.sqlite.org/lang_conflict.html).
+
+La sexta migración agrega `ResolutionReason` sin modificar las inscripciones existentes. Los disparadores impiden reducir un cupo bajo la ocupación aprobada y publicar una revisión cuyo cupo no alcance. La aprobación de una solicitud comprueba el cupo en su sentencia de actualización. La finalización rechaza todas las pendientes y guarda el motivo en una sola transacción.
 
 Fuentes: [configuraciones de EF Core](DataAccess/Configurations), [migraciones](Migrations/DatabaseMigrations) y [snapshot del modelo](Migrations/DatabaseMigrations/LumenDbContextModelSnapshot.cs).

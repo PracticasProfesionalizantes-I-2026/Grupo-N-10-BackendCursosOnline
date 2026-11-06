@@ -254,6 +254,9 @@ public sealed class CourseConcurrencyIntegrationTests
         public Task<CourseRevision> AddRevisionAsync(Course course, CourseRevision revision, CancellationToken ct = default) => inner.AddRevisionAsync(course, revision, ct);
         public Task UpdateWorkingRevisionAsync(Course course, CourseRevision changes, CancellationToken ct = default) => inner.UpdateWorkingRevisionAsync(course, changes, ct);
         public Task SaveAsync(CancellationToken ct = default) => inner.SaveAsync(ct);
+        public Task<int> GetApprovedCountAsync(Guid id, CancellationToken ct = default) => inner.GetApprovedCountAsync(id, ct);
+        public Task FinishAndRejectPendingAsync(Course course, Guid administratorId, DateTime date, CancellationToken ct = default) =>
+            inner.FinishAndRejectPendingAsync(course, administratorId, date, ct);
         public Task<Course?> GetByIdAsync(Guid id, CancellationToken ct = default) => inner.GetByIdAsync(id, ct);
         public Task<Course?> GetPublishedByIdAsync(Guid id, CancellationToken ct = default) => inner.GetPublishedByIdAsync(id, ct);
         public Task<IReadOnlyList<Course>> GetPublishedAsync(CancellationToken ct = default, ListPage? page = null) => inner.GetPublishedAsync(ct, page);

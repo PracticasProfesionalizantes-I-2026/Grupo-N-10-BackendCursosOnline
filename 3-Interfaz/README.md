@@ -22,6 +22,8 @@ La edición administrativa y la del profesor usan el mismo formulario de versió
 
 En el prototipo se puede copiar una revisión rechazada a un borrador y consultar la copia local de cada envío nuevo desde Auditorías. Los completados solo se trasladan a módulos sin cambios al republicar. Las condiciones HTTP de edición y paginación corresponden a la API.
 
+El registro local aplica los formatos argentinos aprobados para DNI, teléfono y código postal, además de contraseñas nuevas de 8 a 128 caracteres. El formulario de cursos muestra los máximos de módulos, objetivos, requisitos y recursos. Una aprobación local ocupa plaza y una cancelación la libera. Pausar conserva las solicitudes anteriores. Finalizar rechaza las pendientes con motivo y conserva acceso y progreso de alumnos aprobados.
+
 ## Usuarios demo
 
 | Rol | Email | Contraseña |

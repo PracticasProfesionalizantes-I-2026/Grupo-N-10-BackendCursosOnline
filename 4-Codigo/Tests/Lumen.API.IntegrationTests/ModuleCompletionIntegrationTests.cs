@@ -185,7 +185,7 @@ public sealed class ModuleCompletionIntegrationTests
         var scenario = await PrepareEnrollmentAsync(factory, 3, 0);
         var registration = await client.PostAsJsonAsync("/api/auth/register",
             new UserCreateDTO("otro@lumen.local", DbInitializer.DemoPassword, UserRole.Alumno,
-                "Otro", "Alumno", "99999999", "123456789", "Dirección", "1000"), JsonOptions);
+                "Otro", "Alumno", "99999999", "11-1234-5678", "Dirección", "1000"), JsonOptions);
         Assert.Equal(HttpStatusCode.Created, registration.StatusCode);
         await AuthenticateAsync(client, "otro@lumen.local");
 
