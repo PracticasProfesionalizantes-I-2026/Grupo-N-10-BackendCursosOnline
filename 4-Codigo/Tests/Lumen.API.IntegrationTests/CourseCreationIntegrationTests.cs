@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text;
 using Lumen.DataAccess;
 using Lumen.Shared.DTOs;
 using Lumen.Shared.Enums;
@@ -15,6 +16,39 @@ public sealed class CourseCreationIntegrationTests
     {
         Converters = { new JsonStringEnumConverter() }
     };
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"decision\":null}")]
+    [InlineData("{\"decision\":99}")]
+    [InlineData("{\"decision\":\"CambiosSolicitados\"}")]
+    public async Task ReviewDecision_RejectsInvalidInputWithoutPublishing(string payload)
+    {
+        using var factory = new LumenApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateProfessorAsync(client);
+        var course = await CreateDraftAsync(client,
+            [new CourseModuleCreateDTO("Módulo", "Descripción", 60, "Contenido", [])]);
+        using var submitted = await client.PostAsync($"/api/courses/{course.Id}/submit-review", null);
+        submitted.EnsureSuccessStatusCode();
+        var review = (await submitted.Content.ReadFromJsonAsync<CourseReviewResponseDTO>(JsonOptions))!;
+
+        await AuthenticateAsync(client, "admin@lumen.local");
+        using var body = new StringContent(payload, Encoding.UTF8, "application/json");
+        using var invalid = await client.PostAsync($"/api/course-reviews/{review.Id}/decision", body);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        var saved = await client.GetFromJsonAsync<CourseResponseDTO>($"/api/courses/{course.Id}", JsonOptions);
+        Assert.Equal("EnRevision", saved!.Status);
+        Assert.Null(saved.PublishedVersion);
+        var pending = await client.GetFromJsonAsync<List<CourseReviewResponseDTO>>("/api/course-reviews", JsonOptions);
+        Assert.Null(Assert.Single(pending!, x => x.Id == review.Id).Decision);
+
+        using var explicitApproval = await client.PostAsJsonAsync(
+            $"/api/course-reviews/{review.Id}/decision", new { decision = "Aprobada" });
+        Assert.Equal(HttpStatusCode.OK, explicitApproval.StatusCode);
+        var published = await client.GetFromJsonAsync<PublishedCourseResponseDTO>($"/api/catalog/courses/{course.Id}", JsonOptions);
+        Assert.Equal(course.Id, published!.Id);
+    }
 
     [Fact]
     public async Task SubmitReview_RejectsModuleWithoutContentOrResources_AndKeepsDraft()
@@ -76,10 +110,13 @@ public sealed class CourseCreationIntegrationTests
         return (await response.Content.ReadFromJsonAsync<CourseResponseDTO>(JsonOptions))!;
     }
 
-    private static async Task AuthenticateProfessorAsync(HttpClient client)
+    private static Task AuthenticateProfessorAsync(HttpClient client) =>
+        AuthenticateAsync(client, "profesor@lumen.local");
+
+    private static async Task AuthenticateAsync(HttpClient client, string email)
     {
         var response = await client.PostAsJsonAsync("/api/auth/login",
-            new LoginRequestDTO("profesor@lumen.local", DbInitializer.DemoPassword), JsonOptions);
+            new LoginRequestDTO(email, DbInitializer.DemoPassword), JsonOptions);
         response.EnsureSuccessStatusCode();
         var login = await response.Content.ReadFromJsonAsync<LoginResponseDTO>(JsonOptions);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.AccessToken);

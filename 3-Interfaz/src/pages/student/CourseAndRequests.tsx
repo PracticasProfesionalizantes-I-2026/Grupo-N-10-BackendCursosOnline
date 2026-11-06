@@ -4,7 +4,7 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { EmptyState, EnrollmentStatusBadge, InfoPill, Modal, PageHeader } from '@/components/UI'
 import { useApp } from '@/hooks/useApp'
-import { courseService } from '@/services/courseService'
+import { courseService, getPublication } from '@/services/courseService'
 import { formatDate, formatDuration, fullName } from '@/utils/format'
 
 export function StudentCourseDetail() {
@@ -154,8 +154,8 @@ export function StudentRequests() {
   const items = state.enrollments
     .filter((item) => item.studentId === currentUser.id && (filter === 'TODAS' || item.status === filter))
     .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))
-  const selected = state.enrollments.find((item) => item.id === selectedId)
-  const selectedCourse = state.courses.find((item) => item.id === selected?.courseId)
+  const selected = items.find((item) => item.id === selectedId && item.status === 'APROBADA')
+  const selectedCourse = getPublication(state.courses.find((item) => item.id === selected?.courseId))
 
   const cancel = () => {
     if (!selected) return
@@ -166,7 +166,7 @@ export function StudentRequests() {
 
   return (
     <>
-      <PageHeader eyebrow="Inscripciones" title="Mis solicitudes" description="Consultá el estado de cada solicitud. Podés cancelar solicitudes pendientes o inscripciones aprobadas." />
+      <PageHeader eyebrow="Inscripciones" title="Mis solicitudes" description="Consultá el estado de cada solicitud. Podés cancelar inscripciones aprobadas." />
       <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label="Filtrar solicitudes">
         {['TODAS', 'PENDIENTE', 'APROBADA', 'RECHAZADA', 'CANCELADA'].map((status) => (
           <button key={status} onClick={() => setFilter(status)} className={filter === status ? 'btn-primary' : 'btn-secondary'}>
@@ -177,7 +177,7 @@ export function StudentRequests() {
       {items.length ? (
         <div className="grid gap-4">
           {items.map((enrollment) => {
-            const course = state.courses.find((item) => item.id === enrollment.courseId)
+            const course = getPublication(state.courses.find((item) => item.id === enrollment.courseId))
             const teacher = state.users.find((item) => item.id === course?.teacherId)
             return (
               <article key={enrollment.id} className="panel flex flex-col gap-4 md:flex-row md:items-center">
@@ -185,11 +185,11 @@ export function StudentRequests() {
                   {enrollment.status === 'APROBADA' ? <CheckCircle2 size={22} /> : enrollment.status === 'RECHAZADA' || enrollment.status === 'CANCELADA' ? <XCircle size={22} /> : <Clock3 size={22} />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <h2 className="truncate text-lg font-bold text-foreground">{course?.title}</h2>
+                  <h2 className="truncate text-lg font-bold text-foreground">{course?.title ?? 'Curso'}</h2>
                   <p className="mt-1 text-sm text-slate-500">Prof. {fullName(teacher)} · Solicitada el {formatDate(enrollment.requestedAt)}</p>
                 </div>
                 <EnrollmentStatusBadge status={enrollment.status} />
-                {(enrollment.status === 'PENDIENTE' || enrollment.status === 'APROBADA') && (
+                {enrollment.status === 'APROBADA' && (
                   <button className="btn-secondary text-red-400 hover:border-red-500/25 hover:bg-red-500/10 hover:text-red-300" onClick={() => setSelectedId(enrollment.id)}>Cancelar</button>
                 )}
               </article>
@@ -212,7 +212,7 @@ export function StudentRequests() {
           </>
         }
       >
-        <p className="text-sm leading-6 text-slate-600">Vas a cancelar tu inscripción a <strong className="text-slate-900">{selectedCourse?.title}</strong>.</p>
+        <p className="text-sm leading-6 text-slate-600">Vas a cancelar tu inscripción a <strong className="text-slate-900">{selectedCourse?.title ?? 'este curso'}</strong>.</p>
       </Modal>
     </>
   )

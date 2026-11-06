@@ -21,15 +21,19 @@ export function Login() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [submitting, setSubmitting] = useState(false)
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
+    if (submitting) return
     const nextErrors: Record<string, string> = {}
     if (!email.trim()) nextErrors.email = 'Ingresá tu email.'
     if (!password) nextErrors.password = 'Ingresá tu contraseña.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) return
-    const user = login(email, password)
+    setSubmitting(true)
+    const user = await login(email, password).catch(() => undefined)
+    setSubmitting(false)
     if (!user) {
       setErrors({ form: 'Las credenciales no son válidas o la cuenta está deshabilitada.' })
       return
@@ -129,7 +133,7 @@ export function Login() {
               </span>
               {errors.password && <span className="mt-1.5 block text-xs font-medium text-red-400">{errors.password}</span>}
             </label>
-            <button type="submit" className="btn-primary w-full">Iniciar sesión <ArrowRight size={17} /></button>
+            <button type="submit" className="btn-primary w-full" disabled={submitting}>Iniciar sesión <ArrowRight size={17} /></button>
           </form>
 
           <div className="my-7 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-dark">

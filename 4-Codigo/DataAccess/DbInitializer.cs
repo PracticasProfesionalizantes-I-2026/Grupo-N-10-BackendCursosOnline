@@ -19,20 +19,20 @@ public sealed class DbInitializer(
     {
         await context.Database.MigrateAsync(cancellationToken);
         // Missing, Production and custom environments migrate without creating demonstration data.
-        if (!string.Equals(environmentName, "Development", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(environmentName, "Testing", StringComparison.OrdinalIgnoreCase))
+        if (!DemoAccounts.IsAllowedIn(environmentName))
         {
             return;
         }
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         if (await context.Users.AsNoTracking().AnyAsync(cancellationToken))
         {
             return;
         }
 
         var now = DateTime.UtcNow;
-        var student = await CreateUserAsync("alumno@lumen.local", UserRole.Alumno, "María", "Pérez", "30111222", now, cancellationToken);
-        var teacher = await CreateUserAsync("profesor@lumen.local", UserRole.Profesor, "Daniel", "Torres", "20222333", now, cancellationToken);
-        var admin = await CreateUserAsync("admin@lumen.local", UserRole.Administrador, "Lucía", "Admin", "10111444", now, cancellationToken);
+        var student = await CreateUserAsync(DemoAccounts.StudentEmail, UserRole.Alumno, "María", "Pérez", "30111222", now, cancellationToken);
+        var teacher = await CreateUserAsync(DemoAccounts.TeacherEmail, UserRole.Profesor, "Daniel", "Torres", "20222333", now, cancellationToken);
+        var admin = await CreateUserAsync(DemoAccounts.AdministratorEmail, UserRole.Administrador, "Lucía", "Admin", "10111444", now, cancellationToken);
 
         var reactCourse = await CreatePublishedCourseAsync(
             teacher,
@@ -85,6 +85,7 @@ public sealed class DbInitializer(
             Status = EnrollmentStatus.Pendiente,
             RequestedAtUtc = now.AddDays(-1)
         }, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     private async Task<User> CreateUserAsync(

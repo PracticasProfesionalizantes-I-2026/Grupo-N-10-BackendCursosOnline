@@ -12,10 +12,10 @@ public sealed class CourseService(
     ICourseRepository courseRepository,
     ICurrentUser currentUser) : ICourseService
 {
-    public async Task<IReadOnlyList<PublishedCourseResponseDTO>> GetPublishedAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<PublishedCourseResponseDTO>> GetPublishedAsync(CancellationToken cancellationToken = default, CoursePage? page = null)
     {
         ServiceGuard.Authenticated(currentUser);
-        var courses = await courseRepository.GetPublishedAsync(cancellationToken);
+        var courses = await courseRepository.GetPublishedAsync(cancellationToken, page);
         return courses.Select(course => MapToPublishedResponseDTO(course, includeContent: false)).ToList();
     }
 
@@ -27,12 +27,12 @@ public sealed class CourseService(
         return MapToPublishedResponseDTO(course, includeContent: false);
     }
 
-    public async Task<IReadOnlyList<CourseResponseDTO>> GetManageableAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CourseResponseDTO>> GetManageableAsync(CancellationToken cancellationToken = default, CoursePage? page = null)
     {
         ServiceGuard.Role(currentUser, UserRole.Profesor, UserRole.Administrador);
         var courses = currentUser.Role == UserRole.Profesor
-            ? await courseRepository.GetByOwnerAsync(currentUser.UserId, cancellationToken)
-            : await courseRepository.GetAllAsync(cancellationToken);
+            ? await courseRepository.GetByOwnerAsync(currentUser.UserId, cancellationToken, page)
+            : await courseRepository.GetAllAsync(cancellationToken, page);
         return courses.Select(MapToResponseDTO).ToList();
     }
 
@@ -71,7 +71,8 @@ public sealed class CourseService(
         return MapToResponseDTO(course);
     }
 
-    public async Task<CourseResponseDTO> UpdateAsync(Guid id, CourseUpdateDTO dto, CancellationToken cancellationToken = default)
+    public async Task<CourseResponseDTO> UpdateAsync(Guid id, CourseUpdateDTO dto, CancellationToken cancellationToken = default,
+        IReadOnlyCollection<long>? expectedUpdates = null)
     {
         ServiceGuard.Role(currentUser, UserRole.Profesor, UserRole.Administrador);
         var course = await courseRepository.GetByIdForUpdateAsync(id, cancellationToken) ?? throw new CourseNotFoundException(id);
@@ -81,6 +82,10 @@ public sealed class CourseService(
         if (working.Status is not (CourseRevisionStatus.Publicado or CourseRevisionStatus.Borrador or CourseRevisionStatus.CambiosSolicitados))
         {
             throw new CourseStateConflictException("El estado actual del curso no permite editar su versión de trabajo.");
+        }
+        if (expectedUpdates is not null && !expectedUpdates.Contains(course.UpdatedAtUtc.Ticks))
+        {
+            throw new CourseVersionMismatchException();
         }
         // Validate and build a detached replacement before changing any tracked entity.
         var changes = BuildRevision(dto, working.Modules.Select(x => x.Id).ToHashSet());
@@ -197,10 +202,10 @@ public sealed class CourseService(
     }
 
     public Task<CourseResponseDTO> PauseAsync(Guid id, CancellationToken cancellationToken = default) =>
-        ChangeOperationalStatusAsync(id, CourseOperationalStatus.Activo, CourseOperationalStatus.Pausado, false, cancellationToken);
+        ChangeOperationalStatusAsync(id, CourseOperationalStatus.Activo, CourseOperationalStatus.Pausado, cancellationToken);
 
     public Task<CourseResponseDTO> ResumeAsync(Guid id, CancellationToken cancellationToken = default) =>
-        ChangeOperationalStatusAsync(id, CourseOperationalStatus.Pausado, CourseOperationalStatus.Activo, false, cancellationToken);
+        ChangeOperationalStatusAsync(id, CourseOperationalStatus.Pausado, CourseOperationalStatus.Activo, cancellationToken);
 
     public async Task<CourseResponseDTO> FinishAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -221,10 +226,9 @@ public sealed class CourseService(
         Guid id,
         CourseOperationalStatus expected,
         CourseOperationalStatus target,
-        bool adminOnly,
         CancellationToken cancellationToken)
     {
-        ServiceGuard.Role(currentUser, adminOnly ? [UserRole.Administrador] : [UserRole.Profesor, UserRole.Administrador]);
+        ServiceGuard.Role(currentUser, UserRole.Profesor, UserRole.Administrador);
         var course = await courseRepository.GetByIdForUpdateAsync(id, cancellationToken) ?? throw new CourseNotFoundException(id);
         EnsureCanManage(course);
         if (course.PublishedRevisionId is null || course.OperationalStatus != expected)

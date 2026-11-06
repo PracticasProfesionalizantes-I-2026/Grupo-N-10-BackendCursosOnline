@@ -17,7 +17,7 @@ const person = (
   firstName,
   lastName,
   email,
-  password: 'demo123',
+  demoAccount: true,
   dni: '30' + id.replace(/\D/g, '').padStart(6, '0'),
   phone: '+54 9 11 5555-' + id.replace(/\D/g, '').padStart(4, '0').slice(-4),
   address: 'Av. del Conocimiento ' + (100 + daysAgo),
@@ -46,6 +46,8 @@ export const demoUsers: User[] = [
   person('a1', 'ADMINISTRADOR', 'Renato', 'Molina', 'admin@lumen.demo', 365),
   person('a2', 'ADMINISTRADOR', 'Irene', 'Suárez', 'irene@lumen.demo', 340),
 ]
+
+export const matchesSeedPassword = (password: string) => password === 'demo123'
 
 const moduleNames = [
   ['Bienvenida y fundamentos', 'Conceptos esenciales y recorrido inicial.'],
@@ -157,6 +159,7 @@ const progress = (id: string, studentId: string, courseId: string, completed: nu
   const percentage = Math.round((completedModuleIds.length / courseItem.modules.length) * 100)
   return {
     id,
+    enrollmentId: demoEnrollments.find((item) => item.studentId === studentId && item.courseId === courseId)?.id,
     studentId,
     courseId,
     completedModuleIds,

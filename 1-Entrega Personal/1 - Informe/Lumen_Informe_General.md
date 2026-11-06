@@ -29,7 +29,7 @@ Actualmente, muchas academias pequeñas, profesores independientes y emprendimie
 
 - Las tareas manuales de control y seguimiento aumentan el riesgo de errores e inconsistencias.
 
-El propósito de Lumen es centralizar estos procesos en un Sistema de Gestión de Cursos Online (LMS), definiendo de forma clara qué puede hacer cada tipo de usuario y representando esos flujos mediante un prototipo frontend funcional y navegable. En la etapa actual no se considera implementado un backend productivo.
+El propósito de Lumen es centralizar estos procesos en un Sistema de Gestión de Cursos Online (LMS), con funciones diferenciadas por rol. El prototipo representa los flujos; el repositorio también incluye una API académica con persistencia SQLite, independiente del prototipo.
 
 ### 1.2 Oportunidad del negocio
 
@@ -146,9 +146,13 @@ El MVP documenta las capacidades esenciales de Lumen y las representa mediante u
 
 - Reportes administrativos básicos con filtros Desde y Hasta.
 
-La entrega práctica actual se centra en documentación y prototipado frontend. No se considera obligatoria la implementación de una API real, base de datos productiva, servidor backend, autenticación productiva ni mecanismos técnicos específicos.
+La etapa inicial se centró en documentación y prototipado frontend. La entrega posterior incorpora una API ejecutable, persistencia SQLite, autenticación y pruebas. El prototipo sigue usando datos locales; su integración con la API y un despliegue productivo quedan fuera de esta entrega.
+
+El catálogo y el alumno consultan la publicación vigente. Las modificaciones se guardan en una versión de trabajo hasta que se aprueban. La API admite edición condicional y reportes de fechas civiles con zona explícita. La autenticación aplica un límite temporal por IP. Los casos de uso detallan estas condiciones.
 
 ### 4.2 Limitaciones y exclusiones (Out of Scope)
+
+Las exclusiones técnicas de esta lista describen el alcance aprobado para la etapa inicial de prototipado; no son un inventario de la implementación posterior de la API.
 
 - Sistemas de pago, tarjetas o billeteras virtuales.
 

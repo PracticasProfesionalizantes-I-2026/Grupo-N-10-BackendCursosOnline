@@ -23,7 +23,7 @@ Actores y Casos de Uso
 
 El Desarrollador (equipo técnico) es un interesado del proyecto, pero no un actor funcional del sistema. Las funciones del creador o de otros administradores para gestionar cuentas internas se representan mediante el rol Administrador.
 
-Estos casos describen el comportamiento funcional del prototipo frontend académico. Las validaciones y el registro de resultados pueden representarse de forma simulada, conforme al alcance del Informe General.
+Estos casos describen el comportamiento funcional de LUMEN. El prototipo frontend simula los recorridos con datos locales. La API ejecuta las reglas y guarda los resultados en SQLite. Cada caso distingue las diferencias de transporte o de alcance que afectan su recorrido.
 
 ## 2. Casos de Uso por Actor
 
@@ -129,7 +129,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 1. El usuario selecciona la opción de registro.
 
-2. El sistema solicita seleccionar el tipo de cuenta: Alumno o Profesor.
+2. El sistema solicita seleccionar el tipo de cuenta: Alumno o Profesor. La API rechaza su omisión con HTTP 400 y no crea una cuenta.
 
 3. El usuario ingresa email y contraseña.
 
@@ -137,7 +137,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 5. El usuario completa Nombre, Apellido, DNI, Teléfono, Dirección y Código Postal.
 
-6. El sistema valida la información personal.
+6. El sistema valida la información personal. La API comprueba formato de email, campos obligatorios y longitudes definidas por el modelo. El alta exige los datos personales y el rol permitido. El correo mal formado, un campo obligatorio incompleto o una longitud superior al modelo dan HTTP 400. Si el correo ya existe, la API devuelve 409. El alta exitosa devuelve 201 con los datos de la cuenta. El prototipo conserva un derivado local de la contraseña para iniciar sesión.
 
 7. El sistema muestra una revisión de los datos ingresados.
 
@@ -203,7 +203,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 3. El usuario ingresa sus credenciales.
 
-4. El sistema valida las credenciales.
+4. El sistema valida las credenciales. La API verifica la contraseña antes de informar si la cuenta está deshabilitada. Una contraseña incorrecta recibe 401 y una válida en una cuenta inactiva recibe 403. Si una misma IP supera 20 intentos en una ventana de 60 segundos, la API responde 429 con Retry-After y el usuario debe esperar antes de reintentar. Las credenciales demo de la API solo se admiten en entornos de demostración.
 
 5. El sistema identifica el rol asociado a la cuenta.
 
@@ -289,7 +289,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 8. El sistema valida la información obligatoria y la existencia de al menos un módulo.
 
-9. El sistema cambia el curso a EN REVISIÓN y registra la solicitud de auditoría.
+9. El sistema cambia el curso a EN REVISIÓN y registra la solicitud de auditoría. En la API el guardado crea primero un BORRADOR con POST /api/courses y responde 201. El envío posterior mediante POST /api/courses/{id}/submit-review responde 200 y genera la auditoría. Si el envío falla, la creación ya confirmada se conserva como borrador. El prototipo representa el alta como Profesor. El alta administrativa está disponible en la API.
 
 10. El sistema informa que el curso fue enviado a revisión.
 
@@ -373,7 +373,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 6. El Administrador selecciona "Aprobar".
 
-7. El sistema registra la decisión y cambia el curso a PUBLICADO.
+7. El sistema registra la decisión y cambia el curso a PUBLICADO. La API exige una decisión explícita; si falta o es inválida, responde HTTP 400 y conserva el estado anterior. La observación es obligatoria al solicitar cambios. La aprobación reemplaza la publicación vigente. Si se rechaza la revisión o se solicitan cambios, se conserva la publicación anterior si existe. La revisión rechazada y su decisión quedan registradas. La recuperación tras un rechazo queda pendiente de definición.
 
 8. El sistema informa que la auditoría fue aprobada.
 
@@ -453,7 +453,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 3. El usuario selecciona el curso y solicita editarlo. El sistema verifica el rol y la propiedad cuando actúa un Profesor.
 
-4. El sistema muestra los datos actuales y los módulos del curso.
+4. El sistema muestra los datos actuales y los módulos del curso. En la API la consulta de gestión entrega ETag. El editor puede enviarlo en If-Match al guardar por PUT. Si la etiqueta quedó obsoleta, la API responde 412 sin escribir y el editor debe recargar. Una etiqueta mal formada devuelve 400. Si la versión de trabajo ya está EN REVISIÓN o RECHAZADA, la edición devuelve 409. El Administrador edita la versión de trabajo mediante el mismo flujo de auditoría.
 
 5. El usuario modifica los datos del curso o sus módulos, con nombre, descripción, duración y contenido o recursos.
 
@@ -547,7 +547,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 5. El Alumno selecciona "Inscribirse".
 
-6. El sistema verifica que no exista una inscripción duplicada y que el curso admita inscripciones.
+6. El sistema verifica que no exista una inscripción duplicada y que el curso admita inscripciones. Un borrador en revisión no cambia la disponibilidad de una publicación vigente. La pausa o finalización impide nuevas solicitudes. En la API, un conflicto de disponibilidad o una inscripción activa duplicada devuelve 409 sin registrar otra solicitud.
 
 7. El sistema registra la solicitud en estado PENDIENTE.
 
@@ -625,7 +625,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 5. El Administrador selecciona "Aprobar".
 
-6. El sistema cambia la inscripción a APROBADA.
+6. El sistema cambia la inscripción a APROBADA. En la implementación vigente, pausar o finalizar no resuelve las solicitudes pendientes. El efecto del cupo sobre una aprobación sigue pendiente de decisión.
 
 7. El sistema habilita el curso dentro de los cursos del Alumno.
 
@@ -695,7 +695,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 2. El usuario selecciona el curso o Alumno correspondiente. El sistema verifica que el Alumno consulte su propio progreso y que el Profesor consulte únicamente alumnos de cursos propios.
 
-3. El sistema consulta el avance registrado al realizar módulos o actividades del curso (CU-16); esta consulta no modifica el progreso.
+3. El sistema consulta el avance registrado al realizar módulos o actividades del curso (CU-16); esta consulta no modifica el progreso. El progreso se calcula para la inscripción aprobada a partir de los módulos de la publicación vigente. Una inscripción nueva tiene su propio avance y no reutiliza el de una cancelada. La consulta administrativa global está disponible en la API.
 
 4. El sistema muestra el porcentaje de avance.
 
@@ -787,7 +787,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 **A2. Datos incompletos o email ya registrado en la creación interna**
 
-3.1. Durante A1, el sistema identifica los datos faltantes o el email ya registrado.
+3.1. Durante A1, el sistema identifica los datos faltantes o el email ya registrado. La API valida el correo, los campos obligatorios y las longitudes. Responde 400 ante datos inválidos y 409 ante correo duplicado. En ambos casos conserva los usuarios existentes. El alta interna se ofrece en la API. El prototipo simula la consulta y el estado de cuentas.
 
 3.2. No crea la cuenta; el Administrador corrige los datos y vuelve a confirmar.
 
@@ -837,7 +837,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 4. El Administrador confirma el filtro.
 
-5. El sistema valida que el rango de fechas sea válido.
+5. El sistema valida que el rango de fechas sea válido. El prototipo toma fechas civiles en la zona del navegador. La API acepta una zona IANA mediante timeZone con fechas AAAA-MM-DD. Cuenta desde la medianoche de Desde hasta la siguiente a Hasta, excluida. Devuelve las medianoches de las fechas seleccionadas en UTC y la zona. Zona o límites inválidos devuelven 400. Las consultas sin zona conservan su contrato.
 
 6. El sistema muestra información básica de usuarios registrados, cursos creados e inscripciones realizadas dentro del rango seleccionado.
 
@@ -893,7 +893,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 1. El usuario accede a la consulta de cursos publicados.
 
-2. El sistema muestra el listado de cursos en estado PUBLICADO.
+2. El sistema muestra el listado de cursos en estado PUBLICADO. La API devuelve la publicación vigente mientras el curso esté operativo, incluso durante la revisión de cambios. La API exige JWT. El prototipo ofrece también un catálogo público de demostración. El listado admite limit de 1 a 100 y offset desde cero. Sin esos parámetros devuelve el arreglo completo. El detalle de un curso que ya no está disponible devuelve 404.
 
 3. El usuario selecciona un curso.
 
@@ -965,7 +965,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 4. El sistema verifica que la inscripción pertenezca al Alumno y permanezca APROBADA.
 
-5. El sistema permite acceder al curso y a sus módulos o actividades.
+5. El sistema permite acceder al curso y a sus módulos o actividades. Los nombres, el contenido y los módulos del alumno provienen de la publicación. La pausa o finalización no revoca el acceso de una inscripción aprobada.
 
 6. El Alumno puede consultar su progreso (CU-08), realizar módulos o actividades (CU-16) o solicitar cancelar la inscripción (CU-13).
 
@@ -1037,7 +1037,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 6. El actor confirma la cancelación.
 
-7. El sistema cambia la inscripción a CANCELADA, retira el acceso activo y muestra la confirmación.
+7. El sistema cambia la inscripción a CANCELADA, retira el acceso activo y muestra la confirmación. La cancelación conserva el historial de esa inscripción. Una futura inscripción empieza con avance propio al aprobarse. Sin confirmación no se envía una mutación HTTP.
 
 **Flujos Alternativos:**
 
@@ -1109,7 +1109,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 5. El actor confirma la pausa.
 
-6. El sistema cambia el curso a PAUSADO e informa que no admite nuevas solicitudes de inscripción.
+6. El sistema cambia el curso a PAUSADO e informa que no admite nuevas solicitudes de inscripción. La pausa conserva la publicación y las inscripciones ya registradas. Enviar o decidir una revisión no reanuda el curso. Para volver a admitir solicitudes debe ejecutarse la reanudación.
 
 **Flujos Alternativos:**
 
@@ -1185,7 +1185,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 5. El Administrador confirma la finalización.
 
-6. El sistema verifica el permiso y el estado, cambia el curso a FINALIZADO e informa el cierre del ciclo y que no admite nuevas solicitudes de inscripción.
+6. El sistema verifica el permiso y el estado, cambia el curso a FINALIZADO e informa el cierre del ciclo y que no admite nuevas solicitudes de inscripción. La operación cierra el curso para nuevas solicitudes, conserva el acceso aprobado y no altera el avance ni cambia por sí misma las solicitudes pendientes.
 
 **Flujos Alternativos:**
 
@@ -1251,7 +1251,7 @@ Estos casos describen el comportamiento funcional del prototipo frontend académ
 
 3. El Alumno selecciona un módulo o actividad del curso.
 
-4. El sistema verifica que la inscripción propia continúe APROBADA y que el módulo o actividad pertenezca a ese curso.
+4. El sistema verifica que la inscripción propia continúe APROBADA y que el módulo o actividad pertenezca a ese curso. La API registra únicamente módulos de la publicación vigente. Repetir la confirmación del mismo módulo conserva un solo registro y el mismo avance.
 
 5. El Alumno realiza el módulo o actividad. Al completarlo, el sistema refleja el avance correspondiente dentro de su progreso.
 

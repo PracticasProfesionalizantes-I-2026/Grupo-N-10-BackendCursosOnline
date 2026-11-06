@@ -2,7 +2,7 @@ import { Eye, GraduationCap, UserRound } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { EmptyState, Modal, PageHeader, ProgressBar, ProgressStatusBadge, SearchInput } from '@/components/UI'
 import { useApp } from '@/hooks/useApp'
-import { courseService } from '@/services/courseService'
+import { courseService, getEnrollmentProgress, getPublication } from '@/services/courseService'
 import { formatDate, fullName } from '@/utils/format'
 
 export function TeacherStudents() {
@@ -21,13 +21,13 @@ export function TeacherStudents() {
         .filter((item) => item.status === 'APROBADA' && ownIds.has(item.courseId) && (courseId === 'TODOS' || item.courseId === courseId))
         .map((enrollment) => {
           const student = state.users.find((item) => item.id === enrollment.studentId)
-          const course = state.courses.find((item) => item.id === enrollment.courseId)
-          const progress = state.progressRecords.find((item) => item.studentId === enrollment.studentId && item.courseId === enrollment.courseId)
+          const course = getPublication(state.courses.find((item) => item.id === enrollment.courseId))
+          const progress = getEnrollmentProgress(state, enrollment)
           return { enrollment, student, course, progress }
         })
         .filter((row) => (fullName(row.student) + ' ' + row.course?.title).toLowerCase().includes(query.toLowerCase()))
     },
-    [courseId, ownCourses, query, state.courses, state.enrollments, state.progressRecords, state.users],
+    [courseId, ownCourses, query, state],
   )
   if (!currentUser) return null
   const selected = rows.find((row) => row.progress?.id === selectedProgressId)

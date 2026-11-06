@@ -1,3 +1,4 @@
+using System.Globalization;
 using Lumen.BusinessLogic.Interfaces;
 using Lumen.Shared.DTOs;
 using Lumen.Shared.Exceptions;
@@ -14,34 +15,37 @@ public sealed class ReportsController(IReportService service) : ControllerBase
     [HttpGet("summary")]
     [ProducesResponseType<ReportSummaryResponseDTO>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
-    public Task<IActionResult> GetSummary([FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken cancellationToken) =>
-        ExecuteAsync(() =>
-        {
-            if (!from.HasValue || !to.HasValue)
-            {
-                var message = !from.HasValue && !to.HasValue
-                    ? "Faltan los parámetros obligatorios: from y to."
-                    : !from.HasValue
-                        ? "Falta el parámetro obligatorio: from."
-                        : "Falta el parámetro obligatorio: to.";
-                throw new LumenValidationException(message);
-            }
-
-            return service.GetSummaryAsync(from.Value, to.Value, cancellationToken);
-        }, Ok);
-
-    private async Task<IActionResult> ExecuteAsync<T>(Func<Task<T>> operation, Func<T, IActionResult> success)
+    public async Task<IActionResult> GetSummary([FromQuery] DateTime? from, [FromQuery] DateTime? to,
+        [FromQuery] string? timeZone, CancellationToken cancellationToken)
     {
-        try { return success(await operation()); }
-        catch (Exception ex) when (ex is LumenValidationException or PublicRegistrationRoleNotAllowedException or CourseRequiresModuleException or InvalidDateRangeException)
-        { return BadRequest(new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
-        catch (InvalidCredentialsException ex)
-        { return Unauthorized(new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
-        catch (Exception ex) when (ex is InactiveUserException or ForbiddenOperationException or CourseOwnershipException or EnrollmentOwnershipException)
-        { return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
-        catch (Exception ex) when (ex is UserNotFoundException or CourseNotFoundException or EnrollmentNotFoundException or ModuleNotFoundException or CourseReviewNotFoundException)
-        { return NotFound(new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
-        catch (Exception ex) when (ex is DuplicateEmailException or DuplicateEnrollmentException or CourseStateConflictException or EnrollmentStateConflictException or ModuleCourseMismatchException or DependencyConflictException)
-        { return Conflict(new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
+        if (!from.HasValue || !to.HasValue)
+        {
+            var message = !from.HasValue && !to.HasValue
+                ? "Faltan los parámetros obligatorios: from y to."
+                : !from.HasValue
+                    ? "Falta el parámetro obligatorio: from."
+                    : "Falta el parámetro obligatorio: to.";
+            throw new LumenValidationException(message);
+        }
+
+        if (timeZone is null)
+            return Ok(await service.GetSummaryAsync(from.Value, to.Value, cancellationToken));
+
+        if (!DateOnly.TryParseExact(Request.Query["from"].ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var start) ||
+            !DateOnly.TryParseExact(Request.Query["to"].ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var end))
+        {
+            throw new LumenValidationException("Con timeZone, from y to deben ser fechas civiles en formato AAAA-MM-DD.");
+        }
+
+        if ((!TimeZoneInfo.TryConvertIanaIdToWindowsId(timeZone, out _) && timeZone != "UTC") ||
+            !TimeZoneInfo.TryFindSystemTimeZoneById(timeZone, out var zone))
+        {
+            throw new LumenValidationException("timeZone debe ser una zona IANA disponible, por ejemplo America/Argentina/Buenos_Aires.");
+        }
+
+        return Ok(await service.GetSummaryAsync(start.ToDateTime(TimeOnly.MinValue),
+            end.ToDateTime(TimeOnly.MinValue), cancellationToken, zone));
     }
 }

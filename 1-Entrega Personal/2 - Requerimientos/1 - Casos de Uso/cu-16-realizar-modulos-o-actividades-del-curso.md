@@ -2,8 +2,8 @@
 
 > Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
 > según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
-> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
-> técnica; el documento fuente define actualmente un prototipo frontend académico.
+> Los códigos HTTP describen la API vigente. La sección de evidencia vincula las pruebas
+> ejecutables y distingue las diferencias del prototipo local.
 
 | Campo | Valor |
 | --- | --- |
@@ -38,14 +38,14 @@ Permite que el Alumno avance en un curso realizando sus módulos o actividades y
 1. El Alumno accede a un curso con inscripción APROBADA mediante CU-12. **Reglas aplicables:** **RN-11**.
 2. El sistema muestra los módulos o actividades y su contenido o recursos.
 3. El Alumno selecciona un módulo o actividad del curso. **Reglas aplicables:** **RN-15**.
-4. El sistema verifica que la inscripción propia continúe APROBADA y que el módulo o actividad pertenezca a ese curso. **Reglas aplicables:** **RN-11**, **RN-15**.
+4. El sistema verifica que la inscripción propia continúe APROBADA y que el módulo o actividad pertenezca a ese curso. **Reglas aplicables:** **RN-11**, **RN-15**. La API registra únicamente módulos de la publicación vigente. Repetir la confirmación del mismo módulo conserva un solo registro y el mismo avance.
 5. El Alumno realiza el módulo o actividad. Al completarlo, el sistema refleja el avance correspondiente dentro de su progreso.
 6. El sistema actualiza el porcentaje asociado a los módulos o actividades completadas y el estado definido en RN-13. **Reglas aplicables:** **RN-13**.
 7. El Alumno consulta el avance resultante y puede continuar con el curso.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
 
-* **5a. El Alumno todavía no completa el módulo o actividad — A1 (HTTP 200 OK):**
+* **5a. El Alumno todavía no completa el módulo o actividad — A1 (Sin escritura HTTP):**
   1. No se incorpora ese módulo o actividad como completado al porcentaje. **Reglas aplicables:** **RN-13**.
   2. Se mantiene el progreso correspondiente a lo completado; si no existe avance, se muestra 0 % y NO INICIADO.
 
@@ -77,7 +77,7 @@ Permite que el Alumno avance en un curso realizando sus módulos o actividades y
 
 | Código HTTP | Nombre Técnico | Contexto de Aplicación en el Caso de Uso |
 | --- | --- | --- |
-| `200` | OK | resultado satisfactorio de Realizar Módulos o Actividades del Curso; A1: El Alumno todavía no completa el módulo o actividad; A4: Se alcanza el total del progreso definido para el curso. |
+| `200` | OK | resultado satisfactorio de Realizar Módulos o Actividades del Curso; A4: Se alcanza el total del progreso definido para el curso. |
 | `409` | Conflict | A2: Inscripción sin acceso activo; A3: Módulo o actividad fuera del curso autorizado. |
 
 ### Nota: Validación vs. Verificación aplicada
@@ -85,21 +85,12 @@ Permite que el Alumno avance en un curso realizando sus módulos o actividades y
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
 - **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
-### Matriz de trazabilidad CU-16 → Test
+### Evidencia ejecutable de CU-16
 
-| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
-| --- | --- | --- | --- |
-| Paso 1. Flujo principal | `200 OK` | `CU16_Step01_WhenValidState_ContinuesUseCase` | `CU16_Step01_WhenValidRequest_Returns200OK` |
-| Paso 2. Flujo principal | `200 OK` | `CU16_Step02_WhenValidState_ContinuesUseCase` | `CU16_Step02_WhenValidRequest_Returns200OK` |
-| Paso 3. Flujo principal | `200 OK` | `CU16_Step03_WhenValidState_ContinuesUseCase` | `CU16_Step03_WhenValidRequest_Returns200OK` |
-| Paso 4. Flujo principal | `200 OK` | `CU16_Step04_WhenValidState_ContinuesUseCase` | `CU16_Step04_WhenValidRequest_Returns200OK` |
-| Paso 5. Flujo principal | `200 OK` | `CU16_Step05_WhenValidState_ContinuesUseCase` | `CU16_Step05_WhenValidRequest_Returns200OK` |
-| Paso 6. Flujo principal | `200 OK` | `CU16_Step06_WhenValidState_ContinuesUseCase` | `CU16_Step06_WhenValidRequest_Returns200OK` |
-| Paso 7. Flujo principal | `200 OK` | `CU16_Step07_WhenValidState_ContinuesUseCase` | `CU16_Step07_WhenValidRequest_Returns200OK` |
-| 5a. El Alumno todavía no completa el módulo o actividad (A1) | `200 OK` | `CU16_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU16_Alt01_WhenConditionOccurs_Returns200OK` |
-| 4a. Inscripción sin acceso activo (A2) | `409 Conflict` | `CU16_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU16_Alt02_WhenConditionOccurs_Returns409Conflict` |
-| 4b. Módulo o actividad fuera del curso autorizado (A3) | `409 Conflict` | `CU16_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU16_Alt03_WhenConditionOccurs_Returns409Conflict` |
-| 6a. Se alcanza el total del progreso definido para el curso (A4) | `200 OK` | `CU16_Alt04_WhenConditionOccurs_HandlesExpectedBranch` | `CU16_Alt04_WhenConditionOccurs_Returns200OK` |
+| Fuente | Recorrido o contrato |
+|---|---|
+| API | `PUT /api/enrollments/{id}/modules/{moduleId}/completion` |
+| Pruebas automatizadas | ModuleCompletionServiceTests; ModuleCompletionIntegrationTests; EnrollmentConcurrencyRegressionTests |
+| Bruno | Enrollments/09; Exposición/13,15–17 |
 
-> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
-> suite automatizada cuando exista una implementación backend.
+200 registra una vez; 403 por inscripción ajena y 409 por estado o módulo incorrecto. El prototipo representa avance local.

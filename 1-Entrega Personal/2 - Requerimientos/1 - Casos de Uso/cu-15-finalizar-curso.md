@@ -2,8 +2,8 @@
 
 > Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
 > según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
-> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
-> técnica; el documento fuente define actualmente un prototipo frontend académico.
+> Los códigos HTTP describen la API vigente. La sección de evidencia vincula las pruebas
+> ejecutables y distingue las diferencias del prototipo local.
 
 | Campo | Valor |
 | --- | --- |
@@ -40,11 +40,11 @@ Permite que el Administrador cierre el ciclo de un curso PUBLICADO o PAUSADO.
 3. Solicita finalizar el curso.
 4. El sistema muestra la operación y solicita confirmación.
 5. El Administrador confirma la finalización.
-6. El sistema verifica el permiso y el estado, cambia el curso a FINALIZADO e informa el cierre del ciclo y que no admite nuevas solicitudes de inscripción. **Reglas aplicables:** **RN-12**.
+6. El sistema verifica el permiso y el estado, cambia el curso a FINALIZADO e informa el cierre del ciclo y que no admite nuevas solicitudes de inscripción. **Reglas aplicables:** **RN-12**. La operación cierra el curso para nuevas solicitudes, conserva el acceso aprobado y no altera el avance ni cambia por sí misma las solicitudes pendientes.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
 
-* **5a. El Administrador decide no finalizar — A1 (HTTP 200 OK):**
+* **5a. El Administrador decide no finalizar — A1 (Sin solicitud HTTP):**
   1. Abandona la confirmación y el sistema conserva el estado del curso.
 
 * **6a. Estado incompatible — A2 (HTTP 409 Conflict):**
@@ -72,7 +72,7 @@ Permite que el Administrador cierre el ciclo de un curso PUBLICADO o PAUSADO.
 
 | Código HTTP | Nombre Técnico | Contexto de Aplicación en el Caso de Uso |
 | --- | --- | --- |
-| `200` | OK | resultado satisfactorio de Finalizar Curso; A1: El Administrador decide no finalizar. |
+| `200` | OK | resultado satisfactorio de Finalizar Curso. |
 | `409` | Conflict | A2: Estado incompatible. |
 | `403` | Forbidden | A3: Actor sin permiso. |
 
@@ -81,19 +81,12 @@ Permite que el Administrador cierre el ciclo de un curso PUBLICADO o PAUSADO.
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
 - **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
-### Matriz de trazabilidad CU-15 → Test
+### Evidencia ejecutable de CU-15
 
-| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
-| --- | --- | --- | --- |
-| Paso 1. Flujo principal | `200 OK` | `CU15_Step01_WhenValidState_ContinuesUseCase` | `CU15_Step01_WhenValidRequest_Returns200OK` |
-| Paso 2. Flujo principal | `200 OK` | `CU15_Step02_WhenValidState_ContinuesUseCase` | `CU15_Step02_WhenValidRequest_Returns200OK` |
-| Paso 3. Flujo principal | `200 OK` | `CU15_Step03_WhenValidState_ContinuesUseCase` | `CU15_Step03_WhenValidRequest_Returns200OK` |
-| Paso 4. Flujo principal | `200 OK` | `CU15_Step04_WhenValidState_ContinuesUseCase` | `CU15_Step04_WhenValidRequest_Returns200OK` |
-| Paso 5. Flujo principal | `200 OK` | `CU15_Step05_WhenValidState_ContinuesUseCase` | `CU15_Step05_WhenValidRequest_Returns200OK` |
-| Paso 6. Flujo principal | `200 OK` | `CU15_Step06_WhenValidState_ContinuesUseCase` | `CU15_Step06_WhenValidRequest_Returns200OK` |
-| 5a. El Administrador decide no finalizar (A1) | `200 OK` | `CU15_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU15_Alt01_WhenConditionOccurs_Returns200OK` |
-| 6a. Estado incompatible (A2) | `409 Conflict` | `CU15_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU15_Alt02_WhenConditionOccurs_Returns409Conflict` |
-| 3a. Actor sin permiso (A3) | `403 Forbidden` | `CU15_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU15_Alt03_WhenConditionOccurs_Returns403Forbidden` |
+| Fuente | Recorrido o contrato |
+|---|---|
+| API | `POST /api/courses/{id}/finish` |
+| Pruebas automatizadas | EnrollmentCreationIntegrationTests; OpenApiContractTests; demo.test.mjs |
+| Bruno | Courses/08 |
 
-> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
-> suite automatizada cuando exista una implementación backend.
+200 finaliza una publicación activa o pausada. No revoca inscripciones aprobadas ni cambia el progreso. 403/409 ante rechazo.

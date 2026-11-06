@@ -69,10 +69,20 @@ export function Register() {
     setStep((value) => Math.min(4, value + 1))
   }
 
-  const confirm = () => {
-    register({ ...form, email: form.email.trim().toLowerCase() })
-    setStep(5)
-    toast.success('Tu cuenta fue creada')
+  const [submitting, setSubmitting] = useState(false)
+  const confirm = async () => {
+    if (submitting) return
+    setSubmitting(true)
+    try {
+      await register({ ...form, email: form.email.trim().toLowerCase() })
+      setForm((current) => ({ ...current, password: '' }))
+      setStep(5)
+      toast.success('Tu cuenta fue creada')
+    } catch {
+      toast.error('No pudimos guardar la cuenta de demostración.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -215,7 +225,7 @@ export function Register() {
               {step < 4 ? (
                 <button className="btn-primary" onClick={next}>Continuar <ArrowRight size={16} /></button>
               ) : (
-                <button className="btn-primary" onClick={confirm}>Confirmar registro <Check size={16} /></button>
+                <button className="btn-primary" onClick={confirm} disabled={submitting}>Confirmar registro <Check size={16} /></button>
               )}
             </footer>
           )}

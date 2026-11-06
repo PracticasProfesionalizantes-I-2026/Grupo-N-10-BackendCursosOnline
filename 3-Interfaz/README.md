@@ -1,15 +1,24 @@
 # Lumen — Interfaz
 
-Prototipo frontend Hi-Fi del Sistema de Gestión de Cursos Online.
+Prototipo frontend Hi-Fi del Sistema de Gestión de Cursos Online, independiente de la API. Usar solo datos ficticios. El registro de demostración conserva un derivado local con salt, sin guardar la contraseña original. Usar HTTPS o localhost.
 
 ## Ejecutar
 
-    npm install
+    npm ci
     npm run dev
 
 Build de producción:
 
     npm run build
+
+Verificación con Node.js 24:
+
+    npm test
+    npm run lint
+
+El catálogo conserva la versión aprobada durante una auditoría y oculta cursos pausados o finalizados. El contenido y el progreso del alumno usan la publicación vigente. Cada inscripción aprobada tiene su propio avance; los registros locales históricos sin una asignación inequívoca se conservan sin atribuirlos a una inscripción activa.
+
+La edición administrativa y la del profesor usan el mismo formulario de versión de trabajo. Enviar una edición genera una auditoría y conserva la publicación anterior. Los reportes usan fechas civiles en la zona del navegador. La API ofrece por separado un parámetro de zona para obtener el mismo intervalo de fechas.
 
 ## Usuarios demo
 

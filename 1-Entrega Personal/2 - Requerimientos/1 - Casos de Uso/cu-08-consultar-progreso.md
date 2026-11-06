@@ -2,8 +2,8 @@
 
 > Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
 > según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
-> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
-> técnica; el documento fuente define actualmente un prototipo frontend académico.
+> Los códigos HTTP describen la API vigente. La sección de evidencia vincula las pruebas
+> ejecutables y distingue las diferencias del prototipo local.
 
 | Campo | Valor |
 | --- | --- |
@@ -38,7 +38,7 @@ Permite consultar el avance de un Alumno en un curso mediante porcentaje y estad
 
 1. El Alumno accede a sus cursos, el Profesor al seguimiento de alumnos de sus cursos y el Administrador a la consulta de progreso desde su gestión general.
 2. El usuario selecciona el curso o Alumno correspondiente. El sistema verifica que el Alumno consulte su propio progreso y que el Profesor consulte únicamente alumnos de cursos propios. **Reglas aplicables:** **RN-14**.
-3. El sistema consulta el avance registrado al realizar módulos o actividades del curso (CU-16); esta consulta no modifica el progreso.
+3. El sistema consulta el avance registrado al realizar módulos o actividades del curso (CU-16); esta consulta no modifica el progreso. El progreso se calcula para la inscripción aprobada a partir de los módulos de la publicación vigente. Una inscripción nueva tiene su propio avance y no reutiliza el de una cancelada. La consulta administrativa global está disponible en la API.
 4. El sistema muestra el porcentaje de avance.
 5. El sistema muestra el estado asociado: 0 % NO INICIADO, 1-99 % EN PROGRESO o 100 % COMPLETADO. **Reglas aplicables:** **RN-13**.
 
@@ -81,18 +81,12 @@ Permite consultar el avance de un Alumno en un curso mediante porcentaje y estad
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
 - **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
-### Matriz de trazabilidad CU-08 → Test
+### Evidencia ejecutable de CU-08
 
-| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
-| --- | --- | --- | --- |
-| Paso 1. Flujo principal | `200 OK` | `CU08_Step01_WhenValidState_ContinuesUseCase` | `CU08_Step01_WhenValidRequest_Returns200OK` |
-| Paso 2. Flujo principal | `200 OK` | `CU08_Step02_WhenValidState_ContinuesUseCase` | `CU08_Step02_WhenValidRequest_Returns200OK` |
-| Paso 3. Flujo principal | `200 OK` | `CU08_Step03_WhenValidState_ContinuesUseCase` | `CU08_Step03_WhenValidRequest_Returns200OK` |
-| Paso 4. Flujo principal | `200 OK` | `CU08_Step04_WhenValidState_ContinuesUseCase` | `CU08_Step04_WhenValidRequest_Returns200OK` |
-| Paso 5. Flujo principal | `200 OK` | `CU08_Step05_WhenValidState_ContinuesUseCase` | `CU08_Step05_WhenValidRequest_Returns200OK` |
-| 3a. Sin inscripción aprobada (A1) | `409 Conflict` | `CU08_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU08_Alt01_WhenConditionOccurs_Returns409Conflict` |
-| 3b. Profesor intenta consultar un curso ajeno (A2) | `403 Forbidden` | `CU08_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU08_Alt02_WhenConditionOccurs_Returns403Forbidden` |
-| 2a. Alumno intenta consultar progreso ajeno (A3) | `403 Forbidden` | `CU08_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU08_Alt03_WhenConditionOccurs_Returns403Forbidden` |
+| Fuente | Recorrido o contrato |
+|---|---|
+| API | `GET /api/enrollments/{id}/progress; GET /api/courses/{id}/students/progress` |
+| Pruebas automatizadas | ProgressServiceTests; ProgressIntegrationTests; demo.test.mjs |
+| Bruno | Enrollments/08,10; Exposición/12,14,18–19 |
 
-> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
-> suite automatizada cuando exista una implementación backend.
+200 calcula sin escribir; 403 por alcance y 409 por inscripción no aprobada. La vista global Admin está en la API.

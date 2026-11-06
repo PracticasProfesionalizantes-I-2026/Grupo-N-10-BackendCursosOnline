@@ -2,8 +2,8 @@
 
 > Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
 > según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
-> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
-> técnica; el documento fuente define actualmente un prototipo frontend académico.
+> Los códigos HTTP describen la API vigente. La sección de evidencia vincula las pruebas
+> ejecutables y distingue las diferencias del prototipo local.
 
 | Campo | Valor |
 | --- | --- |
@@ -33,7 +33,7 @@ Permite que un Profesor o Administrador prepare un curso, lo guarde como borrado
 
 - El Profesor o Administrador debe haber iniciado sesión.
 
-### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 201)
+### 3. FLUJO PRINCIPAL (Camino feliz - HTTP 201 para crear y 200 para enviar)
 
 1. El Profesor o Administrador selecciona "Crear Curso".
 2. El sistema muestra el formulario del curso.
@@ -43,7 +43,7 @@ Permite que un Profesor o Administrador prepare un curso, lo guarde como borrado
 6. El sistema calcula la duración total como suma de las duraciones de los módulos. **Reglas aplicables:** **RN-05**.
 7. El Profesor o Administrador selecciona "Enviar a revisión".
 8. El sistema valida la información obligatoria y la existencia de al menos un módulo. **Reglas aplicables:** **RN-04**.
-9. El sistema cambia el curso a EN REVISIÓN y registra la solicitud de auditoría. **Reglas aplicables:** **RN-06**.
+9. El sistema cambia el curso a EN REVISIÓN y registra la solicitud de auditoría. **Reglas aplicables:** **RN-06**. En la API el guardado crea primero un BORRADOR con POST /api/courses y responde 201. El envío posterior mediante POST /api/courses/{id}/submit-review responde 200 y genera la auditoría. Si el envío falla, la creación ya confirmada se conserva como borrador. El prototipo representa el alta como Profesor. El alta administrativa está disponible en la API.
 10. El sistema informa que el curso fue enviado a revisión.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
@@ -82,31 +82,21 @@ Permite que un Profesor o Administrador prepare un curso, lo guarde como borrado
 
 | Código HTTP | Nombre Técnico | Contexto de Aplicación en el Caso de Uso |
 | --- | --- | --- |
-| `201` | Created | resultado satisfactorio de Solicitar Creación de Curso; A1: Guardar curso como borrador. |
+| `201` | Created | Creación del borrador, incluido A1. |
 | `400` | Bad Request | A2: Curso sin módulos; A3: Información obligatoria incompleta. |
+| `200` | OK | Envío del borrador a revisión. |
 
 ### Nota: Validación vs. Verificación aplicada
 
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
 - **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
-### Matriz de trazabilidad CU-03 → Test
+### Evidencia ejecutable de CU-03
 
-| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
-| --- | --- | --- | --- |
-| Paso 1. Flujo principal | `201 Created` | `CU03_Step01_WhenValidState_ContinuesUseCase` | `CU03_Step01_WhenValidRequest_Returns201Created` |
-| Paso 2. Flujo principal | `201 Created` | `CU03_Step02_WhenValidState_ContinuesUseCase` | `CU03_Step02_WhenValidRequest_Returns201Created` |
-| Paso 3. Flujo principal | `201 Created` | `CU03_Step03_WhenValidState_ContinuesUseCase` | `CU03_Step03_WhenValidRequest_Returns201Created` |
-| Paso 4. Flujo principal | `201 Created` | `CU03_Step04_WhenValidState_ContinuesUseCase` | `CU03_Step04_WhenValidRequest_Returns201Created` |
-| Paso 5. Flujo principal | `201 Created` | `CU03_Step05_WhenValidState_ContinuesUseCase` | `CU03_Step05_WhenValidRequest_Returns201Created` |
-| Paso 6. Flujo principal | `201 Created` | `CU03_Step06_WhenValidState_ContinuesUseCase` | `CU03_Step06_WhenValidRequest_Returns201Created` |
-| Paso 7. Flujo principal | `201 Created` | `CU03_Step07_WhenValidState_ContinuesUseCase` | `CU03_Step07_WhenValidRequest_Returns201Created` |
-| Paso 8. Flujo principal | `201 Created` | `CU03_Step08_WhenValidState_ContinuesUseCase` | `CU03_Step08_WhenValidRequest_Returns201Created` |
-| Paso 9. Flujo principal | `201 Created` | `CU03_Step09_WhenValidState_ContinuesUseCase` | `CU03_Step09_WhenValidRequest_Returns201Created` |
-| Paso 10. Flujo principal | `201 Created` | `CU03_Step10_WhenValidState_ContinuesUseCase` | `CU03_Step10_WhenValidRequest_Returns201Created` |
-| 7a. Guardar curso como borrador (A1) | `201 Created` | `CU03_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU03_Alt01_WhenConditionOccurs_Returns201Created` |
-| 8a. Curso sin módulos (A2) | `400 Bad Request` | `CU03_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU03_Alt02_WhenConditionOccurs_Returns400BadRequest` |
-| 8b. Información obligatoria incompleta (A3) | `400 Bad Request` | `CU03_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU03_Alt03_WhenConditionOccurs_Returns400BadRequest` |
+| Fuente | Recorrido o contrato |
+|---|---|
+| API | `POST /api/courses; POST /api/courses/{id}/submit-review` |
+| Pruebas automatizadas | CourseCreationIntegrationTests; CourseServiceTests; OpenApiContractTests |
+| Bruno | Courses/03,05; Exposición/04–05 |
 
-> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
-> suite automatizada cuando exista una implementación backend.
+201 crea borrador; 200 crea solicitud. El alta administrativa está en la API; el prototipo crea por Profesor.

@@ -2,8 +2,8 @@
 
 > Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
 > según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
-> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
-> técnica; el documento fuente define actualmente un prototipo frontend académico.
+> Los códigos HTTP describen la API vigente. La sección de evidencia vincula las pruebas
+> ejecutables y distingue las diferencias del prototipo local.
 
 | Campo | Valor |
 | --- | --- |
@@ -42,7 +42,7 @@ Permite que un Administrador revise una solicitud de creación o modificación d
 4. El sistema muestra la información del curso, sus módulos y, si corresponde, los cambios realizados.
 5. El Administrador revisa la información.
 6. El Administrador selecciona "Aprobar".
-7. El sistema registra la decisión y cambia el curso a PUBLICADO. **Reglas aplicables:** **RN-06**.
+7. El sistema registra la decisión y cambia el curso a PUBLICADO. La API exige una decisión explícita; si falta o es inválida, responde HTTP 400 y conserva el estado anterior. La observación es obligatoria al solicitar cambios. **Reglas aplicables:** **RN-06**. La aprobación reemplaza la publicación vigente. Si se rechaza la revisión o se solicitan cambios, se conserva la publicación anterior si existe. La revisión rechazada y su decisión quedan registradas. La recuperación tras un rechazo queda pendiente de definición.
 8. El sistema informa que la auditoría fue aprobada.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
@@ -81,6 +81,7 @@ Permite que un Administrador revise una solicitud de creación o modificación d
 | Código HTTP | Nombre Técnico | Contexto de Aplicación en el Caso de Uso |
 | --- | --- | --- |
 | `200` | OK | resultado satisfactorio de Auditar Solicitud de Curso; A1: Rechazar solicitud; A2: Solicitar cambios. |
+| `400` | Bad Request | Decisión ausente o inválida, u observación ausente al solicitar cambios. |
 | `409` | Conflict | A3: La solicitud ya no corresponde a un curso EN REVISIÓN. |
 
 ### Nota: Validación vs. Verificación aplicada
@@ -88,21 +89,12 @@ Permite que un Administrador revise una solicitud de creación o modificación d
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
 - **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
-### Matriz de trazabilidad CU-04 → Test
+### Evidencia ejecutable de CU-04
 
-| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
-| --- | --- | --- | --- |
-| Paso 1. Flujo principal | `200 OK` | `CU04_Step01_WhenValidState_ContinuesUseCase` | `CU04_Step01_WhenValidRequest_Returns200OK` |
-| Paso 2. Flujo principal | `200 OK` | `CU04_Step02_WhenValidState_ContinuesUseCase` | `CU04_Step02_WhenValidRequest_Returns200OK` |
-| Paso 3. Flujo principal | `200 OK` | `CU04_Step03_WhenValidState_ContinuesUseCase` | `CU04_Step03_WhenValidRequest_Returns200OK` |
-| Paso 4. Flujo principal | `200 OK` | `CU04_Step04_WhenValidState_ContinuesUseCase` | `CU04_Step04_WhenValidRequest_Returns200OK` |
-| Paso 5. Flujo principal | `200 OK` | `CU04_Step05_WhenValidState_ContinuesUseCase` | `CU04_Step05_WhenValidRequest_Returns200OK` |
-| Paso 6. Flujo principal | `200 OK` | `CU04_Step06_WhenValidState_ContinuesUseCase` | `CU04_Step06_WhenValidRequest_Returns200OK` |
-| Paso 7. Flujo principal | `200 OK` | `CU04_Step07_WhenValidState_ContinuesUseCase` | `CU04_Step07_WhenValidRequest_Returns200OK` |
-| Paso 8. Flujo principal | `200 OK` | `CU04_Step08_WhenValidState_ContinuesUseCase` | `CU04_Step08_WhenValidRequest_Returns200OK` |
-| 6a. Rechazar solicitud (A1) | `200 OK` | `CU04_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU04_Alt01_WhenConditionOccurs_Returns200OK` |
-| 6b. Solicitar cambios (A2) | `200 OK` | `CU04_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU04_Alt02_WhenConditionOccurs_Returns200OK` |
-| 6c. La solicitud ya no corresponde a un curso EN REVISIÓN (A3) | `409 Conflict` | `CU04_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU04_Alt03_WhenConditionOccurs_Returns409Conflict` |
+| Fuente | Recorrido o contrato |
+|---|---|
+| API | `GET /api/course-reviews; POST /api/course-reviews/{id}/decision` |
+| Pruebas automatizadas | CourseCreationIntegrationTests; CourseConcurrencyIntegrationTests; demo.test.mjs |
+| Bruno | Courses/09–11; Exposición/06–07 |
 
-> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
-> suite automatizada cuando exista una implementación backend.
+200 aplica decisión; 400/409 preservan estado. El rechazo conserva la publicación. Recuperación e instantáneas pendientes.

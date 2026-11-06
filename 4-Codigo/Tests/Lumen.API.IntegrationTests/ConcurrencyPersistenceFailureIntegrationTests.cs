@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
 using Lumen.DataAccess;
 using Lumen.DataAccess.Entities;
 using Lumen.DataAccess.Repositories;
@@ -12,7 +15,7 @@ namespace Lumen.API.IntegrationTests;
 public sealed class ConcurrencyPersistenceFailureIntegrationTests
 {
     [Fact]
-    public async Task CU16_UnrelatedInsertFailure_PropagatesWithoutRecordingCompletion()
+    public async Task CU16_UnrelatedInsertFailure_ReturnsSafe500WithoutRecordingCompletion()
     {
         using var factory = new LumenApiFactory();
         using var student = factory.CreateClient();
@@ -31,12 +34,15 @@ public sealed class ConcurrencyPersistenceFailureIntegrationTests
                 """);
         }
 
-        using var outcome = await CaptureAsync(() => student.PutAsync(CompletionUrl(scenario, scenario.ModuleIds[0]), null));
+        using var response = await student.PutAsync(CompletionUrl(scenario, scenario.ModuleIds[0]), null);
         var saved = await ReadAsync(factory, scenario);
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(string.IsNullOrWhiteSpace(problem.GetProperty("traceId").GetString()));
+        Assert.DoesNotContain("test-only completion failure", problem.GetRawText());
 
         Assert.Multiple(
-            () => Assert.Null(outcome.Response),
-            () => Assert.Equal(1811, Assert.IsType<SqliteException>(outcome.Error).SqliteExtendedErrorCode),
             () => Assert.Equal(EnrollmentStatus.Aprobada, saved.Status),
             () => Assert.Equal(scenario.PublicationId, saved.PublicationId),
             () => Assert.Empty(saved.Completions));

@@ -2,8 +2,8 @@
 
 > Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
 > según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
-> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
-> técnica; el documento fuente define actualmente un prototipo frontend académico.
+> Los códigos HTTP describen la API vigente. La sección de evidencia vincula las pruebas
+> ejecutables y distingue las diferencias del prototipo local.
 
 | Campo | Valor |
 | --- | --- |
@@ -39,7 +39,7 @@ Permite que el Alumno consulte sus solicitudes, identifique sus cursos con inscr
 2. El sistema muestra sus solicitudes y los cursos asociados, con el estado de cada inscripción.
 3. El Alumno consulta el estado y selecciona un curso con inscripción APROBADA. **Reglas aplicables:** **RN-11**.
 4. El sistema verifica que la inscripción pertenezca al Alumno y permanezca APROBADA. **Reglas aplicables:** **RN-11**.
-5. El sistema permite acceder al curso y a sus módulos o actividades. **Reglas aplicables:** **RN-11**.
+5. El sistema permite acceder al curso y a sus módulos o actividades. **Reglas aplicables:** **RN-11**. Los nombres, el contenido y los módulos del alumno provienen de la publicación. La pausa o finalización no revoca el acceso de una inscripción aprobada.
 6. El Alumno puede consultar su progreso (CU-08), realizar módulos o actividades (CU-16) o solicitar cancelar la inscripción (CU-13).
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
@@ -81,19 +81,12 @@ Permite que el Alumno consulte sus solicitudes, identifique sus cursos con inscr
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
 - **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
-### Matriz de trazabilidad CU-12 → Test
+### Evidencia ejecutable de CU-12
 
-| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
-| --- | --- | --- | --- |
-| Paso 1. Flujo principal | `200 OK` | `CU12_Step01_WhenValidState_ContinuesUseCase` | `CU12_Step01_WhenValidRequest_Returns200OK` |
-| Paso 2. Flujo principal | `200 OK` | `CU12_Step02_WhenValidState_ContinuesUseCase` | `CU12_Step02_WhenValidRequest_Returns200OK` |
-| Paso 3. Flujo principal | `200 OK` | `CU12_Step03_WhenValidState_ContinuesUseCase` | `CU12_Step03_WhenValidRequest_Returns200OK` |
-| Paso 4. Flujo principal | `200 OK` | `CU12_Step04_WhenValidState_ContinuesUseCase` | `CU12_Step04_WhenValidRequest_Returns200OK` |
-| Paso 5. Flujo principal | `200 OK` | `CU12_Step05_WhenValidState_ContinuesUseCase` | `CU12_Step05_WhenValidRequest_Returns200OK` |
-| Paso 6. Flujo principal | `200 OK` | `CU12_Step06_WhenValidState_ContinuesUseCase` | `CU12_Step06_WhenValidRequest_Returns200OK` |
-| 2a. No existen solicitudes o inscripciones propias (A1) | `200 OK` | `CU12_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU12_Alt01_WhenConditionOccurs_Returns200OK` |
-| 4a. Inscripción PENDIENTE, RECHAZADA o CANCELADA (A2) | `409 Conflict` | `CU12_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU12_Alt02_WhenConditionOccurs_Returns409Conflict` |
-| 4b. La inscripción pertenece a otro Alumno (A3) | `403 Forbidden` | `CU12_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU12_Alt03_WhenConditionOccurs_Returns403Forbidden` |
+| Fuente | Recorrido o contrato |
+|---|---|
+| API | `GET /api/enrollments/mine; GET /api/enrollments/{id}/course-content` |
+| Pruebas automatizadas | EnrollmentCreationIntegrationTests; ProgressIntegrationTests; demo.test.mjs |
+| Bruno | Enrollments/02,04–05; Exposición/11 |
 
-> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
-> suite automatizada cuando exista una implementación backend.
+200 consulta o acceso a publicación, 403 ajena y 409 si no está aprobada. Cerrar el catálogo no revoca acceso.

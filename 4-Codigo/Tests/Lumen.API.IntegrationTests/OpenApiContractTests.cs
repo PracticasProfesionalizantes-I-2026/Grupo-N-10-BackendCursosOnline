@@ -12,19 +12,29 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
 {
     private JsonElement Document => fixture.Document.RootElement;
 
+    [Fact]
+    public void CourseReviewRequest_RequiresDecisionButNotObservation()
+    {
+        var required = Document.GetProperty("components").GetProperty("schemas")
+            .GetProperty(nameof(CourseReviewDecisionDTO)).GetProperty("required")
+            .EnumerateArray().Select(x => x.GetString()).ToArray();
+        Assert.Contains("decision", required);
+        Assert.DoesNotContain("observation", required);
+    }
+
     public static TheoryData<string, string, string, string, bool, string> Operations => new()
     {
         { "/api/auth/register", "post", "201", "UserResponseDTO", false, "400,409" },
-        { "/api/auth/login", "post", "200", "LoginResponseDTO", false, "400,401,403" },
+        { "/api/auth/login", "post", "200", "LoginResponseDTO", false, "400,401,403,429" },
         { "/api/users", "get", "200", "UserResponseDTO", true, "401,403" },
         { "/api/users/{id}", "get", "200", "UserResponseDTO", false, "401,403,404" },
         { "/api/users/administrators", "post", "201", "UserResponseDTO", false, "400,401,403,409" },
-        { "/api/catalog/courses", "get", "200", "PublishedCourseResponseDTO", true, "401" },
+        { "/api/catalog/courses", "get", "200", "PublishedCourseResponseDTO", true, "400,401" },
         { "/api/catalog/courses/{id}", "get", "200", "PublishedCourseResponseDTO", false, "401,404" },
-        { "/api/courses", "get", "200", "CourseResponseDTO", true, "401,403" },
+        { "/api/courses", "get", "200", "CourseResponseDTO", true, "400,401,403" },
         { "/api/courses/{id}", "get", "200", "CourseResponseDTO", false, "401,403,404" },
         { "/api/courses", "post", "201", "CourseResponseDTO", false, "400,401,403" },
-        { "/api/courses/{id}", "put", "200", "CourseResponseDTO", false, "400,401,403,404,409" },
+        { "/api/courses/{id}", "put", "200", "CourseResponseDTO", false, "400,401,403,404,409,412" },
         { "/api/courses/{id}/submit-review", "post", "200", "CourseReviewResponseDTO", false, "400,401,403,404,409" },
         { "/api/courses/{id}/pause", "post", "200", "CourseResponseDTO", false, "401,403,404,409" },
         { "/api/courses/{id}/resume", "post", "200", "CourseResponseDTO", false, "401,403,404,409" },
@@ -51,7 +61,7 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
         string dto, bool collection, string errors)
     {
         var responses = Operation(path, method).GetProperty("responses");
-        Assert.Equal(errors.Split(',').Append(successCode).Order(), responses.EnumerateObject().Select(x => x.Name).Order());
+        Assert.Equal(errors.Split(',').Append(successCode).Append("500").Order(), responses.EnumerateObject().Select(x => x.Name).Order());
         var schema = responses.GetProperty(successCode).GetProperty("content").GetProperty("application/json").GetProperty("schema");
         if (collection)
         {
@@ -70,7 +80,7 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
             {
                 var responseSchema = Resolve(media.Value.GetProperty("schema"));
                 Assert.NotEqual(JsonValueKind.Undefined, responseSchema.ValueKind);
-                if (response.Name is "404" or "409" ||
+                if (response.Name is "404" or "409" or "412" or "429" ||
                     (response.Name is "400" or "401" or "403" && media.Name == "application/json"))
                 {
                     AssertBusinessErrorSchema(responseSchema);
@@ -133,8 +143,10 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
     public void ReportDates_AreRequiredDateTimeQueries_WithoutChangingOtherOptionalQueries()
     {
         var parameters = Operation("/api/reports/summary", "get").GetProperty("parameters").EnumerateArray().ToArray();
-        Assert.Equal(new[] { "from", "to" }, parameters.Select(x => x.GetProperty("name").GetString()).Order());
-        foreach (var parameter in parameters)
+        Assert.Equal(new[] { "from", "timeZone", "to" }, parameters.Select(x => x.GetProperty("name").GetString()).Order());
+        var zone = Assert.Single(parameters, x => x.GetProperty("name").GetString() == "timeZone");
+        Assert.False(zone.TryGetProperty("required", out var zoneRequired) && zoneRequired.GetBoolean());
+        foreach (var parameter in parameters.Where(x => x.GetProperty("name").GetString() != "timeZone"))
         {
             Assert.Equal("query", parameter.GetProperty("in").GetString());
             Assert.True(parameter.GetProperty("required").GetBoolean());
@@ -143,6 +155,21 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
         var status = Assert.Single(Operation("/api/enrollments", "get").GetProperty("parameters").EnumerateArray());
         Assert.Equal("status", status.GetProperty("name").GetString());
         Assert.False(status.TryGetProperty("required", out var required) && required.GetBoolean());
+    }
+
+    [Fact]
+    public void EditAndLogin_AdvertiseConditionalHeadersAndRetryDelay()
+    {
+        var course = "/api/courses/{id}";
+        var get = Operation(course, "get").GetProperty("responses").GetProperty("200");
+        Assert.True(get.GetProperty("headers").TryGetProperty("ETag", out _));
+        var put = Operation(course, "put");
+        var header = Assert.Single(put.GetProperty("parameters").EnumerateArray(),
+            x => x.GetProperty("name").GetString() == "If-Match");
+        Assert.Equal("header", header.GetProperty("in").GetString());
+        Assert.False(header.TryGetProperty("required", out var required) && required.GetBoolean());
+        var login429 = Operation("/api/auth/login", "post").GetProperty("responses").GetProperty("429");
+        Assert.True(login429.GetProperty("headers").TryGetProperty("Retry-After", out _));
     }
 
     [Theory]

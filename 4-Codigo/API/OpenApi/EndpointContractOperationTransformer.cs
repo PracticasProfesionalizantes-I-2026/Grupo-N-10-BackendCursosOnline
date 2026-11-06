@@ -74,10 +74,59 @@ internal sealed class EndpointContractOperationTransformer : IOpenApiOperationTr
                 : "Parámetros inválidos (application/problem+json).";
         }
 
+        operation.Responses ??= new OpenApiResponses();
+        operation.Responses["500"] = new OpenApiResponse
+        {
+            Description = "Error interno con identificador de seguimiento, sin detalles de la excepción.",
+            Content = new Dictionary<string, OpenApiMediaType>
+            {
+                ["application/problem+json"] = new()
+                {
+                    Schema = await context.GetOrCreateSchemaAsync(typeof(ProblemDetails), cancellationToken: cancellationToken)
+                }
+            }
+        };
+
+        if (context.Description.ActionDescriptor is not ControllerActionDescriptor action) return;
+        var controller = action.ControllerTypeInfo.AsType();
+        var method = action.MethodInfo.Name;
+        if (controller == typeof(CoursesController) &&
+            method is nameof(CoursesController.GetById) or nameof(CoursesController.Update))
+        {
+            if (operation.Responses["200"] is OpenApiResponse success)
+            {
+                success.Headers ??= new Dictionary<string, IOpenApiHeader>();
+                success.Headers["ETag"] = new OpenApiHeader
+                {
+                    Description = "Etiqueta de la versión de trabajo para una edición condicional.",
+                    Schema = new OpenApiSchema { Type = JsonSchemaType.String }
+                };
+            }
+            if (method == nameof(CoursesController.Update))
+            {
+                operation.Parameters ??= [];
+                operation.Parameters.Add(new OpenApiParameter
+                {
+                    Name = "If-Match",
+                    In = ParameterLocation.Header,
+                    Description = "Etiqueta obtenida al consultar el curso. Si quedó obsoleta, responde 412.",
+                    Schema = new OpenApiSchema { Type = JsonSchemaType.String }
+                });
+            }
+        }
+        if (controller == typeof(AuthController) && method == nameof(AuthController.Login) &&
+            operation.Responses["429"] is OpenApiResponse rejectedLogin)
+        {
+            rejectedLogin.Headers ??= new Dictionary<string, IOpenApiHeader>();
+            rejectedLogin.Headers["Retry-After"] = new OpenApiHeader
+            {
+                Description = "Segundos de espera antes de reintentar.",
+                Schema = new OpenApiSchema { Type = JsonSchemaType.Integer }
+            };
+        }
+
         // Keep nullable arguments and their existing error response; only the document becomes required.
-        if (context.Description.ActionDescriptor is ControllerActionDescriptor action &&
-            action.ControllerTypeInfo.AsType() == typeof(ReportsController) &&
-            action.MethodInfo.Name == nameof(ReportsController.GetSummary))
+        if (controller == typeof(ReportsController) && method == nameof(ReportsController.GetSummary))
         {
             foreach (var parameter in (operation.Parameters ?? []).OfType<OpenApiParameter>())
             {
@@ -85,6 +134,8 @@ internal sealed class EndpointContractOperationTransformer : IOpenApiOperationTr
                 {
                     parameter.Required = true;
                 }
+                if (parameter.In == ParameterLocation.Query && parameter.Name == "timeZone")
+                    parameter.Description = "Zona IANA opcional. Con zona, from y to son fechas civiles AAAA-MM-DD.";
             }
         }
     }

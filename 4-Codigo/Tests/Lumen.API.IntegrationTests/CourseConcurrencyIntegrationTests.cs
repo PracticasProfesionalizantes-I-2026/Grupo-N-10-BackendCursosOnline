@@ -254,9 +254,9 @@ public sealed class CourseConcurrencyIntegrationTests
         public Task SaveAsync(CancellationToken ct = default) => inner.SaveAsync(ct);
         public Task<Course?> GetByIdAsync(Guid id, CancellationToken ct = default) => inner.GetByIdAsync(id, ct);
         public Task<Course?> GetPublishedByIdAsync(Guid id, CancellationToken ct = default) => inner.GetPublishedByIdAsync(id, ct);
-        public Task<IReadOnlyList<Course>> GetPublishedAsync(CancellationToken ct = default) => inner.GetPublishedAsync(ct);
-        public Task<IReadOnlyList<Course>> GetByOwnerAsync(Guid id, CancellationToken ct = default) => inner.GetByOwnerAsync(id, ct);
-        public Task<IReadOnlyList<Course>> GetAllAsync(CancellationToken ct = default) => inner.GetAllAsync(ct);
+        public Task<IReadOnlyList<Course>> GetPublishedAsync(CancellationToken ct = default, CoursePage? page = null) => inner.GetPublishedAsync(ct, page);
+        public Task<IReadOnlyList<Course>> GetByOwnerAsync(Guid id, CancellationToken ct = default, CoursePage? page = null) => inner.GetByOwnerAsync(id, ct, page);
+        public Task<IReadOnlyList<Course>> GetAllAsync(CancellationToken ct = default, CoursePage? page = null) => inner.GetAllAsync(ct, page);
         public Task<CourseReview> CreateReviewAsync(CourseReview review, CancellationToken ct = default) => inner.CreateReviewAsync(review, ct);
         public Task<IReadOnlyList<CourseReview>> GetPendingReviewsAsync(CancellationToken ct = default) => inner.GetPendingReviewsAsync(ct);
         public Task<IReadOnlyList<CourseReview>> GetReviewsByRequesterAsync(Guid id, CancellationToken ct = default) => inner.GetReviewsByRequesterAsync(id, ct);

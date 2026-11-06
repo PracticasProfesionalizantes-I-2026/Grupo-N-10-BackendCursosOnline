@@ -3,17 +3,23 @@ using System.Security.Claims;
 using System.Text;
 using Lumen.BusinessLogic.Abstractions;
 using Lumen.DataAccess.Entities;
+using Lumen.DataAccess;
+using Lumen.Shared.Exceptions;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Options;
 
 namespace Lumen.API.Security;
 
-public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenService
+public sealed class JwtTokenService(IOptions<JwtOptions> options, IHostEnvironment environment) : ITokenService
 {
     private readonly JwtOptions jwt = options.Value;
 
     public TokenData Generate(User user)
     {
+        if (!DemoAccounts.IsAllowedIn(environment.EnvironmentName) && DemoAccounts.IsReserved(user.Email))
+        {
+            throw new InvalidCredentialsException();
+        }
         var expires = DateTime.UtcNow.AddMinutes(jwt.ExpirationMinutes);
         var claims = new[]
         {

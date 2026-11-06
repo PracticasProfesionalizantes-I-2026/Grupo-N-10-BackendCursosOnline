@@ -69,6 +69,7 @@ export default function App() {
               <Route path="/admin/enrollments" element={<AdminEnrollments />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/courses" element={<AdminCourses />} />
+              <Route path="/admin/courses/:courseId/edit" element={<TeacherEditCourse />} />
               <Route path="/admin/reports" element={<AdminReports />} />
             </Route>
           </Route>

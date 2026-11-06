@@ -1,6 +1,5 @@
 using Lumen.BusinessLogic.Interfaces;
 using Lumen.Shared.DTOs;
-using Lumen.Shared.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,36 +12,22 @@ public sealed class UsersController(IUserService service) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<UserResponseDTO>>(StatusCodes.Status200OK)]
-    public Task<IActionResult> GetAll(CancellationToken cancellationToken) =>
-        ExecuteAsync(() => service.GetAllAsync(cancellationToken), Ok);
+    public async Task<IActionResult> GetAll(CancellationToken cancellationToken) =>
+        Ok(await service.GetAllAsync(cancellationToken));
 
     [HttpGet("{id:guid}")]
     [ProducesResponseType<UserResponseDTO>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
-    public Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken) =>
-        ExecuteAsync(() => service.GetByIdAsync(id, cancellationToken), Ok);
+    public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken) =>
+        Ok(await service.GetByIdAsync(id, cancellationToken));
 
     [HttpPost("administrators")]
     [ProducesResponseType<UserResponseDTO>(StatusCodes.Status201Created)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
-    public Task<IActionResult> CreateAdministrator(AdministratorCreateDTO dto, CancellationToken cancellationToken) =>
-        ExecuteAsync(() => service.CreateAdministratorAsync(dto, cancellationToken),
-            value => CreatedAtAction(nameof(GetById), new { id = value.Id }, value));
-
-    private async Task<IActionResult> ExecuteAsync<T>(Func<Task<T>> operation, Func<T, IActionResult> success)
+    public async Task<IActionResult> CreateAdministrator(AdministratorCreateDTO dto, CancellationToken cancellationToken)
     {
-        try { return success(await operation()); }
-        catch (Exception ex) when (ex is LumenValidationException or PublicRegistrationRoleNotAllowedException or CourseRequiresModuleException or InvalidDateRangeException)
-        { return BadRequest(new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
-        catch (InvalidCredentialsException ex)
-        { return Unauthorized(new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
-        catch (Exception ex) when (ex is InactiveUserException or ForbiddenOperationException or CourseOwnershipException or EnrollmentOwnershipException)
-        { return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
-        catch (Exception ex) when (ex is UserNotFoundException or CourseNotFoundException or EnrollmentNotFoundException or ModuleNotFoundException or CourseReviewNotFoundException)
-        { return NotFound(new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
-        catch (Exception ex) when (ex is DuplicateEmailException or DuplicateEnrollmentException or CourseStateConflictException or EnrollmentStateConflictException or ModuleCourseMismatchException or DependencyConflictException)
-        { return Conflict(new ApiErrorResponseDTO(ex.GetType().Name, ex.Message)); }
+        var value = await service.CreateAdministratorAsync(dto, cancellationToken);
+        return CreatedAtAction(nameof(GetById), new { id = value.Id }, value);
     }
 }
-

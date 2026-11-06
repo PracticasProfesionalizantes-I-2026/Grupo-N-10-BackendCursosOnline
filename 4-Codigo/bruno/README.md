@@ -1,10 +1,10 @@
 # Bruno — ejecución y exposición de LUMEN
 
-La colección contiene 50 requests: los 31 originales y los 19 de `00-Exposicion`. Los dos environments son `local` (API habitual, puerto 5080) y `demo-temporal` (API aislada, puerto 5081). Para este recorrido usar exclusivamente `demo-temporal`.
+La colección contiene 54 requests. Incluye 19 de `00-Exposicion`, tres comprobaciones adicionales de reportes y una edición con ETag obsoleto. Los dos environments son `local` (API habitual, puerto 5080) y `demo-temporal` (API aislada, puerto 5081). Para este recorrido usar exclusivamente `demo-temporal`.
 
 ## 1. Iniciar una API con SQLite temporal
 
-Requisitos: SDK **.NET 10.0.400** (roll-forward `latestPatch` dentro de 10.0.4xx), Windows PowerShell **5.1** o PowerShell **7**, y Bruno instalado. Ver también la [guía del backend](../README.md). Desde la raíz del repositorio, abrir una terminal PowerShell dedicada y ejecutar el bloque completo. El puerto 5081 debe estar libre; si está ocupado, detener únicamente la instancia temporal propia o elegir otro puerto y adaptar `baseUrl` antes de continuar.
+Requisitos: SDK **.NET 10.0.403** (roll-forward `latestPatch` dentro de 10.0.4xx), Windows PowerShell **5.1** o PowerShell **7**, y Bruno instalado. Ver también la [guía del backend](../README.md). Desde la raíz del repositorio, abrir una terminal PowerShell dedicada y ejecutar el bloque completo. El puerto 5081 debe estar libre; si está ocupado, detener únicamente la instancia temporal propia o elegir otro puerto y adaptar `baseUrl` antes de continuar.
 
 ```powershell
 Set-Location -LiteralPath '4-Codigo'
@@ -49,7 +49,9 @@ La clave aleatoria es efímera, no es una clave personal ni se guarda en archivo
 
 Esperar a que la API escuche en 5081. La inicialización incorpora las cuentas demo existentes del proyecto: `alumno@lumen.local`, `profesor@lumen.local` y `admin@lumen.local`. Los logins ya contienen la contraseña pública de esos fixtures; no introducir credenciales personales. Mantener abierta esta terminal durante la demostración.
 
-El seeding automático solo se permite en Development o Testing y cuando no existen usuarios. Production aplica migraciones y puede iniciar vacía, pero no crea demos. El ejecutor de migraciones respeta la misma política; no elimina ni modifica cuentas existentes.
+La siembra automática es atómica y solo se permite en Development o Testing cuando no existen usuarios. Production aplica migraciones sin crear datos demo. También rechaza el login y los tokens de las cuentas reservadas demo si se reutiliza su base; no elimina ni modifica esas filas. Preparar una base separada para cada entorno.
+
+Después del login de administrador, ejecutar `Reports` para comprobar el período pedido, un período vacío en la base demo y el rechazo de un período invertido.
 
 ## 2. Ejecutar desde Bruno
 
@@ -110,7 +112,7 @@ Las 31 solicitudes de `Auth`, `Users`, `Courses`, `Catalog`, `Enrollments` y `Re
 | `Auth/04-register`, `Users/03-create-admin` | Emails de sus bodies todavía libres; el segundo requiere Administrador |
 | `Users/01-list`, `Users/02-detail` | Administrador autenticado; detalle usa `userId` del login de Administrador |
 | `Courses/01-list-manageable`, `03-create` | Profesor autenticado |
-| `Courses/02-detail`, `04-update`, `05-submit-review` | Curso propio creado en la misma base; editar solo con estado editable, luego enviar a revisión |
+| `Courses/02-detail`, `04-update`, `12-stale-edit`, `05-submit-review` | Curso propio editable. El detalle guarda ETag, la edición lo usa y la prueba obsoleta vuelve a enviarlo antes de iniciar la auditoría |
 | `Courses/09-pending-reviews`, `10-my-reviews`, `11-resolve-review` | Administrador para pendientes/decisión; Profesor para auditorías propias; decidir usa `reviewId` de submit-review |
 | `Catalog/01-list`, `02-detail` | Alumno autenticado en estos requests; detalle requiere `courseId` publicado y disponible |
 | `Enrollments/01-create`, `02-mine` | Alumno autenticado; crear exige curso disponible y sin otra inscripción pendiente/aprobada del mismo alumno |
@@ -118,12 +120,14 @@ Las 31 solicitudes de `Auth`, `Users`, `Courses`, `Catalog`, `Enrollments` y `Re
 | `Enrollments/04-detail` | Alumno titular autenticado; requiere `enrollmentId` de su inscripción |
 | `Enrollments/05-course-content`, `08-progress`, `09-complete-module` | Alumno titular con inscripción aprobada; obtener contenido antes de completar un módulo |
 | `Enrollments/10-course-progress` | Profesor propietario; `courseId` del curso publicado |
-| `Reports/01-summary` | Administrador; intervalo de fechas válido del request original |
+| `Reports/01-summary` | Administrador y semilla demo; intervalo 2000–2099 con datos conocidos |
+| `Reports/02-empty-period`, `03-inverted-period` | Administrador; período vacío en 1900 y rango invertido, respectivamente |
+| `Reports/04-civil-zone` | Administrador; día civil de Nueva York durante el cambio de horario |
 | `Courses/06-pause`, `07-resume` | Profesor propietario; publicado → pausado → reanudado |
 | `Courses/08-finish` | Administrador autenticado; finalizar al terminar las comprobaciones |
 | `Enrollments/07-cancel` | Alumno titular; cancelar después de consultar/completar módulos |
 
-Para reproducir la ejecución completa de los 31 originales sobre una base temporal nueva: Auth 01–04 → Users 01–03 → Courses 01, 03, 02, 04, 05, 09, 10, 11 → Catalog 01–02 → Enrollments 01, 02, 03, 04, 06, 05, 08, 09, 10 → Reports 01 → Courses 06, 07 → Enrollments 07 → Courses 08. Esos números se refieren a los prefijos de archivo de cada carpeta, no a los pasos de exposición.
+Para reproducir los 35 requests generales y de reportes sobre una base temporal nueva, seguir este orden. Auth 01–04 → Users 01–03 → Courses 01, 03, 02, 04, 12, 05, 09, 10, 11 → Catalog 01–02 → Enrollments 01, 02, 03, 04, 06, 05, 08, 09, 10 → Reports 01–04 → Courses 06, 07 → Enrollments 07 → Courses 08. Los números corresponden a los prefijos de archivo de cada carpeta.
 
 Repetir registro/alta de Administrador en la misma base produce 409 por email existente; esto es una precondición del contrato, no se disimula aceptando errores como éxitos. Esas altas no forman parte de `00-Exposicion`, que sí puede repetirse íntegramente en la misma base temporal creando otro curso.
 
@@ -145,7 +149,7 @@ foreach ($file in @('lumen.db', 'lumen.db-wal', 'lumen.db-shm', 'lumen.db-journa
 Remove-Item -LiteralPath $demoResolved
 ```
 
-## 7. Validación realizada
+## 7. Validación histórica con NodeVM
 
 Bruno instalado: **4.2.1**. Parser incluido `@usebruno/lang`: **0.40.0**. Parseo satisfactorio de **50 requests y 2 environments**, usando los parsers respectivos. Comparación contra los contratos anteriores: los 31 requests originales conservan método, URL, body JSON y autenticación.
 
@@ -153,4 +157,8 @@ Se ejecutaron **69 llamadas HTTP reales correspondientes a los 50 requests disti
 
 La ejecución se automatizó con un harness que leyó los `.bru` mediante el parser instalado, envió HTTP real a la API y ejecutó scripts/tests con **ScriptRuntime/TestRuntime NodeVM y Chai del Bruno instalado**. No fueron respuestas simuladas. Los resultados corresponden al motor NodeVM: no se ejecutaron la interfaz gráfica, un CLI nativo de Bruno ni QuickJS.
 
-La auditoría posterior del backend aprobó **350 pruebas .NET** (101 unitarias y 249 de integración), incluidas las correcciones de concurrencia, EventLog, OpenAPI y seeding por entorno. Los comandos para reproducirlas están en la [guía del backend](../README.md).
+## 8. Verificación del 05/11/2026 con Bruno CLI
+
+Bruno CLI 4.3.0 aprobó 19 requests y 54 tests de exposición, y 33 requests y 65 tests generales y de reportes en una segunda instancia SQLite temporal. Después de precisar las aserciones del resumen con datos de la semilla, una ejecución independiente del login y los tres reportes aprobó 4 requests y 6 tests. La verificación final de backend aprobó 367 pruebas .NET (101 unitarias y 266 de integración). Los comandos y requisitos están en su [guía](../README.md).
+
+En la segunda etapa, el mismo CLI aprobó 19 requests y 54 tests de exposición, y 35 requests y 69 tests generales en una segunda instancia temporal. La corrida incluye HTTP 412 con una etiqueta obsoleta y la conversión UTC de un reporte por fecha civil.

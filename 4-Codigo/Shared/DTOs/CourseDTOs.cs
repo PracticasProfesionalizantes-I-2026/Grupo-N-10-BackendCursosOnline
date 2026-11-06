@@ -1,4 +1,5 @@
 using Lumen.Shared.Enums;
+using System.Text.Json.Serialization;
 
 namespace Lumen.Shared.DTOs;
 
@@ -97,6 +98,6 @@ public sealed record CourseReviewResponseDTO(
     DateTime? ReviewedAtUtc);
 
 public sealed record CourseReviewDecisionDTO(
-    CourseReviewDecision Decision,
-    string? Observation);
+    [property: JsonRequired] CourseReviewDecision Decision,
+    string? Observation = null);
 

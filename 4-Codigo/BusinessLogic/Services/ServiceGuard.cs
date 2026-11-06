@@ -1,6 +1,8 @@
+using System.Net.Mail;
 using Lumen.BusinessLogic.Abstractions;
 using Lumen.Shared.Enums;
 using Lumen.Shared.Exceptions;
+using Lumen.Shared.Validation;
 
 namespace Lumen.BusinessLogic.Services;
 
@@ -23,23 +25,52 @@ internal static class ServiceGuard
         }
     }
 
-    public static string Required(string? value, string field)
+    public static string Required(string? value, string field, int? maximumLength = null)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
             throw new LumenValidationException($"El campo {field} es obligatorio.");
         }
-        return value.Trim();
+        var trimmed = value.Trim();
+        if (maximumLength is int maximum && trimmed.Length > maximum)
+        {
+            throw new LumenValidationException($"El campo {field} admite hasta {maximum} caracteres.");
+        }
+        return trimmed;
     }
 
     public static string NormalizeEmail(string? email)
     {
-        var value = Required(email, "email");
-        if (!value.Contains('@') || value.Length > 254)
+        var value = Required(email, "email", UserFieldLimits.Email);
+        if (!value.Contains('@'))
         {
             throw new LumenValidationException("El email no posee un formato válido.");
         }
         return value.ToUpperInvariant();
+    }
+
+    public static string NormalizeNewEmail(string? email)
+    {
+        var value = Required(email, "email", UserFieldLimits.Email);
+        if (!MailAddress.TryCreate(value, out var address) ||
+            !string.Equals(address.Address, value, StringComparison.Ordinal))
+        {
+            throw new LumenValidationException("El email no posee un formato válido.");
+        }
+        return value.ToUpperInvariant();
+    }
+
+    public static void ValidatePersonalData(
+        string? firstName, string? lastName, string? dni, string? phone,
+        string? address, string? postalCode, string? password)
+    {
+        Required(firstName, "nombre", UserFieldLimits.Name);
+        Required(lastName, "apellido", UserFieldLimits.Name);
+        Required(dni, "DNI", UserFieldLimits.Dni);
+        Required(phone, "teléfono", UserFieldLimits.Phone);
+        Required(address, "dirección", UserFieldLimits.Address);
+        Required(postalCode, "código postal", UserFieldLimits.PostalCode);
+        Required(password, "contraseña");
     }
 }
 

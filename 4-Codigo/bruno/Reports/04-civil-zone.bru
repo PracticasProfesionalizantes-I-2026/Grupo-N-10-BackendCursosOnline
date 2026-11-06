@@ -1,0 +1,25 @@
+meta {
+  name: Día civil en una zona explícita
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/reports/summary?from=2024-03-10&to=2024-03-10&timeZone=America%2FNew_York
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test("HTTP 200 con la medianoche civil convertida a UTC", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.timeZone).to.equal("America/New_York");
+    expect(new Date(body.from).toISOString()).to.equal("2024-03-10T05:00:00.000Z");
+    expect(new Date(body.to).toISOString()).to.equal("2024-03-10T05:00:00.000Z");
+  });
+}

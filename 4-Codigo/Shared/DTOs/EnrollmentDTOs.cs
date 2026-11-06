@@ -3,7 +3,6 @@ using Lumen.Shared.Enums;
 namespace Lumen.Shared.DTOs;
 
 public sealed record EnrollmentCreateDTO(Guid CourseId);
-public sealed record EnrollmentUpdateDTO(EnrollmentStatus Status);
 public sealed record EnrollmentDecisionDTO(EnrollmentStatus Decision);
 
 public sealed record EnrollmentResponseDTO(

@@ -121,14 +121,14 @@ public sealed class EnrollmentRepository(LumenDbContext context) : IEnrollmentRe
         TrackedGraph().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
     public async Task<IReadOnlyList<Enrollment>> GetByStudentAsync(Guid studentId, CancellationToken cancellationToken = default) =>
-        await ReadGraph().Where(x => x.StudentId == studentId).OrderByDescending(x => x.RequestedAtUtc).ToListAsync(cancellationToken);
+        await SummaryGraph().Where(x => x.StudentId == studentId).OrderByDescending(x => x.RequestedAtUtc).ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Enrollment>> GetByCourseAsync(Guid courseId, CancellationToken cancellationToken = default) =>
         await ReadGraph().Where(x => x.CourseId == courseId).OrderBy(x => x.Student.LastName).ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Enrollment>> GetAllAsync(EnrollmentStatus? status, CancellationToken cancellationToken = default)
     {
-        var query = ReadGraph();
+        var query = SummaryGraph();
         if (status.HasValue)
         {
             query = query.Where(x => x.Status == status);
@@ -147,6 +147,10 @@ public sealed class EnrollmentRepository(LumenDbContext context) : IEnrollmentRe
             .Include(x => x.Student)
             .Include(x => x.ModuleCompletions)
             .Include(x => x.Course).ThenInclude(x => x.PublishedRevision).ThenInclude(x => x!.Modules);
+
+    private IQueryable<Enrollment> SummaryGraph() =>
+        context.Enrollments.AsNoTracking()
+            .Include(x => x.Course).ThenInclude(x => x.PublishedRevision);
 
     private IQueryable<Enrollment> TrackedGraph() =>
         context.Enrollments

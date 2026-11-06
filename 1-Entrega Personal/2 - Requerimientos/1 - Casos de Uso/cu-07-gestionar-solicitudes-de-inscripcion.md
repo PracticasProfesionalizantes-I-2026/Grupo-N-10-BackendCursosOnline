@@ -2,8 +2,8 @@
 
 > Especificación derivada de `Lumen_Actores_CasosDeUso.docx` y estructurada
 > según la sección 3 de `GUIA-Especificacion-Casos-de-Uso.md`.
-> Los códigos HTTP y los nombres de tests constituyen una propuesta de trazabilidad
-> técnica; el documento fuente define actualmente un prototipo frontend académico.
+> Los códigos HTTP describen la API vigente. La sección de evidencia vincula las pruebas
+> ejecutables y distingue las diferencias del prototipo local.
 
 | Campo | Valor |
 | --- | --- |
@@ -41,7 +41,7 @@ Permite que un Administrador revise solicitudes de inscripción pendientes y las
 3. El Administrador selecciona una solicitud.
 4. El sistema muestra el Alumno y el curso relacionado.
 5. El Administrador selecciona "Aprobar".
-6. El sistema cambia la inscripción a APROBADA. **Reglas aplicables:** **RN-10**.
+6. El sistema cambia la inscripción a APROBADA. **Reglas aplicables:** **RN-10**. En la implementación vigente, pausar o finalizar no resuelve las solicitudes pendientes. El efecto del cupo sobre una aprobación sigue pendiente de decisión.
 7. El sistema habilita el curso dentro de los cursos del Alumno. **Reglas aplicables:** **RN-11**.
 8. El sistema informa que la solicitud fue aprobada.
 
@@ -86,21 +86,12 @@ Permite que un Administrador revise solicitudes de inscripción pendientes y las
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
 - **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
-### Matriz de trazabilidad CU-07 → Test
+### Evidencia ejecutable de CU-07
 
-| Paso del CU | Excepción / Código | Test unitario propuesto (Negocio) | Test de integración propuesto (HTTP) |
-| --- | --- | --- | --- |
-| Paso 1. Flujo principal | `200 OK` | `CU07_Step01_WhenValidState_ContinuesUseCase` | `CU07_Step01_WhenValidRequest_Returns200OK` |
-| Paso 2. Flujo principal | `200 OK` | `CU07_Step02_WhenValidState_ContinuesUseCase` | `CU07_Step02_WhenValidRequest_Returns200OK` |
-| Paso 3. Flujo principal | `200 OK` | `CU07_Step03_WhenValidState_ContinuesUseCase` | `CU07_Step03_WhenValidRequest_Returns200OK` |
-| Paso 4. Flujo principal | `200 OK` | `CU07_Step04_WhenValidState_ContinuesUseCase` | `CU07_Step04_WhenValidRequest_Returns200OK` |
-| Paso 5. Flujo principal | `200 OK` | `CU07_Step05_WhenValidState_ContinuesUseCase` | `CU07_Step05_WhenValidRequest_Returns200OK` |
-| Paso 6. Flujo principal | `200 OK` | `CU07_Step06_WhenValidState_ContinuesUseCase` | `CU07_Step06_WhenValidRequest_Returns200OK` |
-| Paso 7. Flujo principal | `200 OK` | `CU07_Step07_WhenValidState_ContinuesUseCase` | `CU07_Step07_WhenValidRequest_Returns200OK` |
-| Paso 8. Flujo principal | `200 OK` | `CU07_Step08_WhenValidState_ContinuesUseCase` | `CU07_Step08_WhenValidRequest_Returns200OK` |
-| 5a. Rechazar inscripción (A1) | `200 OK` | `CU07_Alt01_WhenConditionOccurs_HandlesExpectedBranch` | `CU07_Alt01_WhenConditionOccurs_Returns200OK` |
-| 2a. No hay solicitudes PENDIENTES (A2) | `200 OK` | `CU07_Alt02_WhenConditionOccurs_HandlesExpectedBranch` | `CU07_Alt02_WhenConditionOccurs_Returns200OK` |
-| 5b. La solicitud ya fue resuelta (A3) | `409 Conflict` | `CU07_Alt03_WhenConditionOccurs_HandlesExpectedBranch` | `CU07_Alt03_WhenConditionOccurs_Returns409Conflict` |
+| Fuente | Recorrido o contrato |
+|---|---|
+| API | `GET /api/enrollments?status=Pendiente; POST /api/enrollments/{id}/decision` |
+| Pruebas automatizadas | EnrollmentResolutionServiceTests; EnrollmentResolutionConcurrencyIntegrationTests |
+| Bruno | Enrollments/03,06; Exposición/09–10 |
 
-> Los nombres de tests documentan el contrato esperado y deberán vincularse con la
-> suite automatizada cuando exista una implementación backend.
+200 resuelve; 409 si dejó de estar pendiente. Cupo y tratamiento de pendientes siguen en DOC-004.

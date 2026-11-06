@@ -35,7 +35,10 @@ internal sealed class EnumContractSchemaTransformer : IOpenApiSchemaTransformer,
         var schemas = document.Components!.Schemas!;
         schemas[nameof(UserCreateDTO)].Properties!["role"] = InputEnum(UserRole.Alumno, UserRole.Profesor);
         schemas[nameof(EnrollmentDecisionDTO)].Properties!["decision"] = InputEnum(EnrollmentStatus.Aprobada, EnrollmentStatus.Rechazada);
-        schemas[nameof(CourseReviewDecisionDTO)].Properties!["decision"] = InputEnum(Enum.GetValues<CourseReviewDecision>());
+        var reviewDecision = schemas[nameof(CourseReviewDecisionDTO)];
+        reviewDecision.Properties!["decision"] = InputEnum(Enum.GetValues<CourseReviewDecision>());
+        reviewDecision.Required!.Add("decision");
+        reviewDecision.Required.Remove("observation");
         foreach (var operation in document.Paths["/api/enrollments"].Operations!.Values)
         {
             foreach (var parameter in (operation.Parameters ?? []).OfType<OpenApiParameter>())

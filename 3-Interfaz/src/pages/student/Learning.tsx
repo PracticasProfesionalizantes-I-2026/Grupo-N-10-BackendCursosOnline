@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { CourseCard } from '@/components/CourseCard'
 import { EmptyState, MetricCard, PageHeader, ProgressBar, ProgressStatusBadge } from '@/components/UI'
 import { useApp } from '@/hooks/useApp'
-import { courseService } from '@/services/courseService'
+import { courseService, getApprovedEnrollment, getEnrollmentProgress, getPublication } from '@/services/courseService'
 import { formatDate, formatDuration, fullName } from '@/utils/format'
 
 export function StudentMyCourses() {
@@ -18,7 +18,7 @@ export function StudentMyCourses() {
       {courses.length ? (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {courses.map((course) => {
-            const progress = state.progressRecords.find((item) => item.studentId === currentUser.id && item.courseId === course.id)
+            const progress = getEnrollmentProgress(state, getApprovedEnrollment(state, currentUser.id, course.id))
             return <CourseCard key={course.id} course={course} href={'/student/learn/' + course.id} progress={progress?.percentage ?? 0} actionLabel="Continuar" />
           })}
         </div>
@@ -32,12 +32,10 @@ export function StudentMyCourses() {
 export function StudentProgress() {
   const { state, currentUser } = useApp()
   if (!currentUser) return null
-  const approvedIds = new Set(
-    state.enrollments
-      .filter((item) => item.studentId === currentUser.id && item.status === 'APROBADA')
-      .map((item) => item.courseId),
-  )
-  const records = state.progressRecords.filter((item) => item.studentId === currentUser.id && approvedIds.has(item.courseId))
+  const records = state.enrollments.filter((item) => item.studentId === currentUser.id).flatMap((item) => {
+    const progress = getEnrollmentProgress(state, item)
+    return progress ? [progress] : []
+  })
   const average = records.length ? Math.round(records.reduce((sum, item) => sum + item.percentage, 0) / records.length) : 0
   const completed = records.filter((item) => item.status === 'COMPLETADO').length
 
@@ -51,7 +49,7 @@ export function StudentProgress() {
       </div>
       <section className="mt-7 space-y-4">
         {records.map((record) => {
-          const course = state.courses.find((item) => item.id === record.courseId)
+          const course = getPublication(state.courses.find((item) => item.id === record.courseId))
           const teacher = state.users.find((item) => item.id === course?.teacherId)
           if (!course) return null
           return (
@@ -85,13 +83,9 @@ export function StudentCoursePlayer() {
   const { state, currentUser, toggleModule } = useApp()
   const { courseId } = useParams()
   const [selectedModuleId, setSelectedModuleId] = useState<string | undefined>()
-  const course = state.courses.find((item) => item.id === courseId)
-  const approved = state.enrollments.some(
-    (item) => item.studentId === currentUser?.id && item.courseId === courseId && item.status === 'APROBADA',
-  )
-  const progress = state.progressRecords.find(
-    (item) => item.studentId === currentUser?.id && item.courseId === courseId,
-  )
+  const course = getPublication(state.courses.find((item) => item.id === courseId))
+  const approved = getApprovedEnrollment(state, currentUser?.id, courseId)
+  const progress = getEnrollmentProgress(state, approved)
   const selected = useMemo(
     () => course?.modules.find((item) => item.id === selectedModuleId) ?? course?.modules[0],
     [course, selectedModuleId],

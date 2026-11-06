@@ -21,8 +21,8 @@ public sealed class AuthService(
             throw new PublicRegistrationRoleNotAllowedException();
         }
 
-        var normalizedEmail = ServiceGuard.NormalizeEmail(dto.Email);
-        ValidatePersonalData(dto.FirstName, dto.LastName, dto.Dni, dto.Phone, dto.Address, dto.PostalCode, dto.Password);
+        var normalizedEmail = ServiceGuard.NormalizeNewEmail(dto.Email);
+        ServiceGuard.ValidatePersonalData(dto.FirstName, dto.LastName, dto.Dni, dto.Phone, dto.Address, dto.PostalCode, dto.Password);
         if (await userRepository.EmailExistsAsync(normalizedEmail, cancellationToken))
         {
             throw new DuplicateEmailException(dto.Email);
@@ -53,29 +53,17 @@ public sealed class AuthService(
         ServiceGuard.Required(dto.Password, "contraseña");
         var user = await userRepository.GetByEmailAsync(normalizedEmail, cancellationToken)
             ?? throw new InvalidCredentialsException();
-        if (!user.IsActive)
-        {
-            throw new InactiveUserException();
-        }
         var verification = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, dto.Password);
         if (verification == PasswordVerificationResult.Failed)
         {
             throw new InvalidCredentialsException();
         }
+        if (!user.IsActive)
+        {
+            throw new InactiveUserException();
+        }
         var token = tokenService.Generate(user);
         return new LoginResponseDTO(token.AccessToken, token.ExpiresAtUtc, MapToResponseDTO(user));
-    }
-
-    private static void ValidatePersonalData(
-        string firstName, string lastName, string dni, string phone, string address, string postalCode, string password)
-    {
-        ServiceGuard.Required(firstName, "nombre");
-        ServiceGuard.Required(lastName, "apellido");
-        ServiceGuard.Required(dni, "DNI");
-        ServiceGuard.Required(phone, "teléfono");
-        ServiceGuard.Required(address, "dirección");
-        ServiceGuard.Required(postalCode, "código postal");
-        ServiceGuard.Required(password, "contraseña");
     }
 
     private static UserResponseDTO MapToResponseDTO(User user) =>
