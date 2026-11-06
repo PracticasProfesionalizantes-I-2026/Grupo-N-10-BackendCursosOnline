@@ -55,6 +55,16 @@ La verificación ejecutada comprende build .NET, **102 pruebas unitarias y 314 d
 
 La revisión para `main` está preparada en el árbol de trabajo y requiere el control habitual del equipo sobre el diff y la ejecución de CI remota. No se hizo commit, push ni merge, y la migración no se aplicó a una base productiva.
 
+## Validación focalizada de migraciones y preparación de PR
+
+En `fix/auditoria-lumen`, el commit publicado `9e0a3a0` incluye la quinta ronda. Se comprobaron **seis migraciones** en orden. Una base SQLite nueva recibió las seis; una base de la quinta migración con cuatro usuarios, curso, revisión, módulo, auditoría e instantánea, dos inscripciones y progreso recibió la sexta. Las ocho tablas de negocio conservaron íntegramente sus filas y valores anteriores. `PRAGMA integrity_check` y `foreign_key_check` fueron correctos; el esquema final incluye `ResolutionReason`. Ambas bases informaron las seis migraciones aplicadas y ninguna pendiente. EF Core no detectó cambios de modelo sin migración.
+
+Después de actualizar los datos históricos, SQLite rechazó una reducción de cupo bajo ocupación y un `INSERT OR REPLACE` de instantánea de auditoría sin alterar los datos. Pasaron 63 pruebas de integración focalizadas, 12 pruebas del prototipo y 27 solicitudes/27 tests Bruno del recorrido de políticas, incluido cupo completo, cancelación que libera plaza, aprobación posterior y rechazo automático al finalizar. Los archivos de prueba y las bases creadas para esta comprobación se retiraron; `4-Codigo/API/bin/LumenRound4/` contiene auxiliares locales ignorados por Git y ningún archivo suyo está versionado.
+
+**Datos históricos inconsistentes:** la migración de unicidad rechaza pares Alumno–Curso con dos inscripciones activas y conserva sus filas al fallar. Antes de aplicarla en un entorno con datos reales, identificar esos pares en una copia y acordar individualmente cuál inscripción permanece activa, sin borrado automático. Si existen más aprobadas que el cupo publicado, la sexta migración conserva todas; bloquea nuevas aprobaciones hasta recuperar capacidad. Se debe revisar cada curso y acordar si corresponde aumentar el cupo o esperar cancelaciones, sin modificar historial ni progreso automáticamente.
+
+La comprobación documental conservó los 65 enunciados originales y cotejó los 217 pasos de los 16 casos entre Word y Markdown. Los 16 casos individuales están presentes y las 13 decisiones pertinentes de la quinta ronda coinciden con el consolidado. Se corrigió únicamente el cierre de negrita de cuatro etiquetas en la sección 5.6 del Informe General Markdown. DOC-003 sigue pendiente de confirmación académica. La rama está **apta para abrir un PR con observaciones**: ejecutar CI remota, planificar la migración del entorno destino y obtener el criterio académico antes de declarar ese punto cumplido.
+
 ## Cierre de la segunda etapa del 05/11/2026
 
 Se retomaron los 33 hallazgos sobre `main` en `050a17e` y se preservaron los cambios de la etapa anterior. El cierre anterior figura en el historial.
