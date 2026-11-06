@@ -1,4 +1,5 @@
 using Lumen.DataAccess.Entities;
+using Lumen.Shared.DTOs;
 using Lumen.Shared.Exceptions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -34,7 +35,8 @@ public sealed class UserRepository(LumenDbContext context) : IUserRepository
     public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken = default) =>
         context.Users.AsNoTracking().AnyAsync(x => x.NormalizedEmail == normalizedEmail, cancellationToken);
 
-    public async Task<IReadOnlyList<User>> GetAllAsync(CancellationToken cancellationToken = default) =>
-        await context.Users.AsNoTracking().OrderBy(x => x.LastName).ThenBy(x => x.FirstName).ToListAsync(cancellationToken);
+    public async Task<IReadOnlyList<User>> GetAllAsync(CancellationToken cancellationToken = default, ListPage? page = null) =>
+        await context.Users.AsNoTracking().OrderBy(x => x.LastName).ThenBy(x => x.FirstName)
+            .ThenBy(x => x.Id).WithPage(page).ToListAsync(cancellationToken);
 }
 

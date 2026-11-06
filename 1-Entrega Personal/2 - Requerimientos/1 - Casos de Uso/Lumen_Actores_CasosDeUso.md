@@ -137,7 +137,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 5. El usuario completa Nombre, Apellido, DNI, Teléfono, Dirección y Código Postal.
 
-6. El sistema valida la información personal. La API comprueba formato de email, campos obligatorios y longitudes definidas por el modelo. El alta exige los datos personales y el rol permitido. El correo mal formado, un campo obligatorio incompleto o una longitud superior al modelo dan HTTP 400. Si el correo ya existe, la API devuelve 409. El alta exitosa devuelve 201 con los datos de la cuenta. El prototipo conserva un derivado local de la contraseña para iniciar sesión.
+6. El sistema valida la información personal. La API comprueba formato de email, campos obligatorios y longitudes definidas por el modelo. El alta exige los datos personales y el rol permitido. DNI y teléfono con caracteres de control internos reciben HTTP 400. Se admiten letras, signos y formatos internacionales. El correo mal formado, un campo obligatorio incompleto o una longitud superior al modelo dan HTTP 400. Si el correo ya existe, la API devuelve 409. El alta exitosa devuelve 201 con los datos de la cuenta. El prototipo conserva un derivado local de la contraseña para iniciar sesión. Si el cuerpo del alta supera el límite de transporte, la API responde HTTP 413 y no crea la cuenta.
 
 7. El sistema muestra una revisión de los datos ingresados.
 
@@ -203,7 +203,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 3. El usuario ingresa sus credenciales.
 
-4. El sistema valida las credenciales. La API verifica la contraseña antes de informar si la cuenta está deshabilitada. Una contraseña incorrecta recibe 401 y una válida en una cuenta inactiva recibe 403. Si una misma IP supera 20 intentos en una ventana de 60 segundos, la API responde 429 con Retry-After y el usuario debe esperar antes de reintentar. Las credenciales demo de la API solo se admiten en entornos de demostración.
+4. El sistema valida las credenciales. La API verifica la contraseña antes de informar si la cuenta está deshabilitada. Una contraseña incorrecta recibe 401 y una válida en una cuenta inactiva recibe 403. Si una misma IP supera 20 intentos en una ventana de 60 segundos, la API responde 429 con Retry-After y el usuario debe esperar antes de reintentar. Las credenciales demo de la API solo se admiten en entornos de demostración. Un correo inexistente también pasa por una verificación de contraseña de costo comparable y recibe HTTP 401. Si el cuerpo supera el límite de transporte, la API devuelve HTTP 413 sin iniciar sesión.
 
 5. El sistema identifica el rol asociado a la cuenta.
 
@@ -287,7 +287,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 7. El Profesor o Administrador selecciona "Enviar a revisión".
 
-8. El sistema valida la información obligatoria y la existencia de al menos un módulo.
+8. El sistema valida la información obligatoria y la existencia de al menos un módulo. Si el cuerpo de creación supera el límite de transporte, la API responde HTTP 413 y no crea el borrador.
 
 9. El sistema cambia el curso a EN REVISIÓN y registra la solicitud de auditoría. En la API el guardado crea primero un BORRADOR con POST /api/courses y responde 201. El envío posterior mediante POST /api/courses/{id}/submit-review responde 200 y genera la auditoría. Si el envío falla, la creación ya confirmada se conserva como borrador. El prototipo representa el alta como Profesor. El alta administrativa está disponible en la API.
 
@@ -367,13 +367,13 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 3. El Administrador selecciona una solicitud.
 
-4. El sistema muestra la información del curso, sus módulos y, si corresponde, los cambios realizados.
+4. El sistema muestra el contenido guardado al enviar la solicitud, incluidos los módulos. En la API el Administrador o Profesor solicitante puede consultar ese envío por su identificador. Las auditorías antiguas sin copia muestran su decisión sin atribuirles contenido. Las listas de auditorías admiten paginación optativa.
 
 5. El Administrador revisa la información.
 
 6. El Administrador selecciona "Aprobar".
 
-7. El sistema registra la decisión y cambia el curso a PUBLICADO. La API exige una decisión explícita; si falta o es inválida, responde HTTP 400 y conserva el estado anterior. La observación es obligatoria al solicitar cambios. La aprobación reemplaza la publicación vigente. Si se rechaza la revisión o se solicitan cambios, se conserva la publicación anterior si existe. La revisión rechazada y su decisión quedan registradas. La recuperación tras un rechazo queda pendiente de definición.
+7. El sistema registra la decisión y cambia el curso a PUBLICADO. La API exige una decisión explícita; si falta o es inválida, responde HTTP 400 y conserva el estado anterior. La observación es obligatoria al solicitar cambios. La aprobación reemplaza la publicación vigente. Si se rechaza la revisión o se solicitan cambios, se conserva la publicación anterior si existe. La revisión rechazada y su decisión quedan registradas. El autor puede recuperar el contenido como un nuevo borrador mediante CU-05. La revisión rechazada y su decisión se conservan. Si el cuerpo de la decisión supera el límite de transporte, la API responde HTTP 413 sin resolver la auditoría.
 
 8. El sistema informa que la auditoría fue aprobada.
 
@@ -385,7 +385,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 6.2. El sistema registra la decisión.
 
-6.3. El curso queda RECHAZADO y no se publica.
+6.3. La revisión queda RECHAZADA. Si ya había una publicación, sigue disponible según el estado operativo. El solicitante puede iniciar la recuperación de CU-05.
 
 **A2. Solicitar cambios**
 
@@ -453,11 +453,11 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 3. El usuario selecciona el curso y solicita editarlo. El sistema verifica el rol y la propiedad cuando actúa un Profesor.
 
-4. El sistema muestra los datos actuales y los módulos del curso. En la API la consulta de gestión entrega ETag. El editor puede enviarlo en If-Match al guardar por PUT. Si la etiqueta quedó obsoleta, la API responde 412 sin escribir y el editor debe recargar. Una etiqueta mal formada devuelve 400. Si la versión de trabajo ya está EN REVISIÓN o RECHAZADA, la edición devuelve 409. El Administrador edita la versión de trabajo mediante el mismo flujo de auditoría.
+4. El sistema muestra los datos actuales y los módulos del curso. En la API la consulta de gestión entrega ETag. Guardar o recuperar requiere el ETag específico en If-Match. Una etiqueta ausente o el comodín devuelven 428. Una etiqueta obsoleta devuelve 412 sin escribir, incluso si otra edición ganó durante la persistencia. Una cabecera mal formada devuelve 400. Editar una revisión en EN REVISIÓN o RECHAZADA devuelve 409 con una etiqueta vigente. El Administrador edita la versión de trabajo mediante el mismo flujo de auditoría.
 
 5. El usuario modifica los datos del curso o sus módulos, con nombre, descripción, duración y contenido o recursos.
 
-6. El sistema valida los datos obligatorios y la existencia de al menos un módulo, y recalcula la duración total como suma de sus duraciones.
+6. El sistema valida los datos obligatorios y la existencia de al menos un módulo, y recalcula la duración total como suma de sus duraciones. Si el cuerpo del guardado supera el límite de transporte, la API responde HTTP 413 y conserva la revisión vigente.
 
 7. El usuario confirma el envío de los cambios a revisión.
 
@@ -492,6 +492,14 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 3.1. El sistema detecta que el curso no pertenece al Profesor.
 
 3.2. Restringe la edición y conserva la información y el estado del curso.
+
+**A5. Precondición de edición ausente u obsoleta**
+
+- El editor recarga la revisión. La API devuelve 428 sin etiqueta específica y 412 si la etiqueta quedó obsoleta. El guardado no se aplica.
+
+**A6. Recuperar una revisión rechazada**
+
+- El Profesor propietario o Administrador confirma la recuperación. La API crea un BORRADOR nuevo a partir de la revisión rechazada y devuelve 200 con otro ETag. Conserva la decisión y, si existía, la publicación. Un estado que no sea RECHAZADO devuelve 409 con una etiqueta vigente.
 
 ### CU-06 – Solicitar Inscripción a un Curso:
 
@@ -547,7 +555,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 5. El Alumno selecciona "Inscribirse".
 
-6. El sistema verifica que no exista una inscripción duplicada y que el curso admita inscripciones. Un borrador en revisión no cambia la disponibilidad de una publicación vigente. La pausa o finalización impide nuevas solicitudes. En la API, un conflicto de disponibilidad o una inscripción activa duplicada devuelve 409 sin registrar otra solicitud.
+6. El sistema verifica que no exista una inscripción duplicada y que el curso admita inscripciones. Un borrador en revisión no cambia la disponibilidad de una publicación vigente. La pausa o finalización impide nuevas solicitudes. En la API, un conflicto de disponibilidad o una inscripción activa duplicada devuelve 409 sin registrar otra solicitud. Si el cuerpo supera el límite de transporte, la API responde HTTP 413 sin registrar la solicitud.
 
 7. El sistema registra la solicitud en estado PENDIENTE.
 
@@ -625,7 +633,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 5. El Administrador selecciona "Aprobar".
 
-6. El sistema cambia la inscripción a APROBADA. En la implementación vigente, pausar o finalizar no resuelve las solicitudes pendientes. El efecto del cupo sobre una aprobación sigue pendiente de decisión.
+6. El sistema cambia la inscripción a APROBADA. Pausar o finalizar conserva las solicitudes que ya estaban pendientes y la decisión administrativa sigue disponible. El efecto del cupo sobre la aprobación sigue pendiente. En la API se puede paginar el listado filtrado de pendientes. Si el cuerpo de la decisión supera el límite de transporte, la API devuelve HTTP 413 sin cambiar la inscripción.
 
 7. El sistema habilita el curso dentro de los cursos del Alumno.
 
@@ -695,7 +703,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 2. El usuario selecciona el curso o Alumno correspondiente. El sistema verifica que el Alumno consulte su propio progreso y que el Profesor consulte únicamente alumnos de cursos propios.
 
-3. El sistema consulta el avance registrado al realizar módulos o actividades del curso (CU-16); esta consulta no modifica el progreso. El progreso se calcula para la inscripción aprobada a partir de los módulos de la publicación vigente. Una inscripción nueva tiene su propio avance y no reutiliza el de una cancelada. La consulta administrativa global está disponible en la API.
+3. El sistema consulta el avance registrado al realizar módulos o actividades del curso (CU-16); esta consulta no modifica el progreso. El progreso se calcula para la inscripción aprobada a partir de los módulos de la publicación vigente. Una inscripción nueva tiene su propio avance y no reutiliza el de una cancelada. Al republicar, solo los módulos sin cambios conservan sus completados. Cambiar el orden no reinicia el avance. Un módulo nuevo o modificado empieza pendiente y los completados de módulos retirados quedan en el historial. La API permite paginar el listado de avance de inscripciones aprobadas.
 
 4. El sistema muestra el porcentaje de avance.
 
@@ -781,13 +789,13 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 3.3. El Administrador completa los datos y confirma la creación.
 
-3.4. El sistema verifica los datos obligatorios y que el email no esté registrado.
+3.4. El sistema verifica los datos obligatorios y que el email no esté registrado. Si el cuerpo del alta interna supera el límite de transporte, la API responde HTTP 413 sin crear la cuenta.
 
 3.5. El sistema registra la cuenta con rol Administrador y muestra una confirmación.
 
 **A2. Datos incompletos o email ya registrado en la creación interna**
 
-3.1. Durante A1, el sistema identifica los datos faltantes o el email ya registrado. La API valida el correo, los campos obligatorios y las longitudes. Responde 400 ante datos inválidos y 409 ante correo duplicado. En ambos casos conserva los usuarios existentes. El alta interna se ofrece en la API. El prototipo simula la consulta y el estado de cuentas.
+3.1. Durante A1, el sistema identifica los datos faltantes o el email ya registrado. La API valida el correo, los campos obligatorios y las longitudes. También rechaza caracteres de control internos en DNI o teléfono. El listado de usuarios admite paginación optativa. Responde 400 ante datos inválidos y 409 ante correo duplicado. En ambos casos conserva los usuarios existentes. El alta interna se ofrece en la API. El prototipo simula la consulta y el estado de cuentas.
 
 3.2. No crea la cuenta; el Administrador corrige los datos y vuelve a confirmar.
 
@@ -965,7 +973,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 4. El sistema verifica que la inscripción pertenezca al Alumno y permanezca APROBADA.
 
-5. El sistema permite acceder al curso y a sus módulos o actividades. Los nombres, el contenido y los módulos del alumno provienen de la publicación. La pausa o finalización no revoca el acceso de una inscripción aprobada.
+5. El sistema permite acceder al curso y a sus módulos o actividades. Los nombres, el contenido y los módulos del alumno provienen de la publicación. La API admite paginación de las inscripciones propias. La pausa o finalización no revoca el acceso de una inscripción aprobada.
 
 6. El Alumno puede consultar su progreso (CU-08), realizar módulos o actividades (CU-16) o solicitar cancelar la inscripción (CU-13).
 
@@ -1251,9 +1259,9 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 3. El Alumno selecciona un módulo o actividad del curso.
 
-4. El sistema verifica que la inscripción propia continúe APROBADA y que el módulo o actividad pertenezca a ese curso. La API registra únicamente módulos de la publicación vigente. Repetir la confirmación del mismo módulo conserva un solo registro y el mismo avance.
+4. El sistema verifica que la inscripción propia continúe APROBADA y que el módulo o actividad pertenezca a ese curso. La API registra únicamente módulos de la publicación vigente. Repetir la confirmación del mismo módulo conserva un solo registro y el mismo avance. Si se republica, se conserva el avance de módulos idénticos, aunque se reordenen. Los cambios de contenido, nombre, descripción, duración o recursos generan otro identificador. Los completados anteriores se preservan en el historial.
 
-5. El Alumno realiza el módulo o actividad. Al completarlo, el sistema refleja el avance correspondiente dentro de su progreso.
+5. El Alumno realiza el módulo o actividad. Al completarlo, el sistema refleja el avance correspondiente dentro de su progreso. En el prototipo, el alumno puede volver a marcar el módulo como pendiente en sus datos locales. La API ofrece la finalización idempotente.
 
 6. El sistema actualiza el porcentaje asociado a los módulos o actividades completadas y el estado definido en RN-13.
 

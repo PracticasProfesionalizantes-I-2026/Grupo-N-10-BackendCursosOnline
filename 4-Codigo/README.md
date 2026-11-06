@@ -203,9 +203,13 @@ El repositorio guarda la retirada explícita, la modificación y el agregado de 
 
 EF usa como tokens de concurrencia los campos existentes UpdatedAtUtc y WorkingRevisionId de Course, UpdatedAtUtc y Status de CourseRevision, y Decision de CourseReview. El servicio hace avanzar estrictamente la fecha de actualización, aun si el reloj devuelve un valor igual o anterior. Las escrituras comprueban los valores originales; un conflicto se traduce a CourseStateConflictException (409). Esta protección cubre envíos duplicados, ediciones concurrentes con el envío, primeras actualizaciones simultáneas y decisiones administrativas tardías. No agrega columnas ni requiere una migración. La creación de una revisión y el cambio del puntero de trabajo son atómicos; el envío guarda la solicitud y la transición juntos. Una decisión solo se aplica a una solicitud pendiente de la revisión de trabajo vigente.
 
-`GET /api/courses/{id}` y `PUT /api/courses/{id}` devuelven `ETag`. Enviar la etiqueta fuerte en `If-Match` permite detectar una edición posterior a la consulta. Una etiqueta obsoleta devuelve `412` sin escritura y una sintácticamente inválida devuelve `400`. Recargar antes de reintentar. El `409` sigue cubriendo estados incompatibles y conflictos de persistencia. La cabecera es optativa para conservar los clientes anteriores.
+`GET /api/courses/{id}` y `PUT /api/courses/{id}` devuelven `ETag`. La edición requiere la etiqueta fuerte y específica de la lectura en `If-Match`. La falta de etiqueta o el comodín devuelven `428`; un valor obsoleto devuelve `412` sin escritura y uno sintácticamente inválido devuelve `400`. Ante `412`, volver a consultar, revisar las diferencias y reintentar sobre la nueva etiqueta. `409` identifica un estado incompatible con una etiqueta vigente. [RFC 6585](https://www.rfc-editor.org/rfc/rfc6585.html#section-3).
 
-`GET /api/courses` y `GET /api/catalog/courses` aceptan `limit` de 1 a 100 y `offset` desde cero. El valor por defecto de `offset` es cero. Los parámetros inválidos devuelven 400 y sin parámetros se conserva el arreglo completo. La paginación desempata por ID, con el mismo formato de cada elemento. Aplicar `offset` sobre una colección cambiante puede desplazar elementos.
+`POST /api/courses/{id}/recover-draft` exige la misma precondición. El Profesor propietario o Administrador obtiene un borrador con una versión nueva a partir del contenido rechazado. Se conservan la decisión, la revisión rechazada y la publicación anterior. `workingStatus` identifica el estado de la revisión incluso si `status` refleja pausa o finalización.
+
+`GET /api/course-reviews/{id}` entrega al Administrador o Profesor solicitante la decisión, observaciones, fechas y copia exacta de lo enviado. `submission.publishedVersion` indica qué versión estaba publicada al enviar. Un envío aprobado se identifica por `review.version` y la decisión `Aprobada`. Los envíos previos a la migración devuelven `submission: null`.
+
+Los listados de cursos, catálogo, auditorías, usuarios, inscripciones y progreso por curso aceptan `limit` de 1 a 100 y `offset` desde cero. El valor por defecto de `offset` es cero. Los parámetros inválidos devuelven 400 y sin parámetros se conserva el arreglo completo. Los filtros y permisos se aplican antes de paginar en SQLite. El orden existente desempata por ID. Aplicar `offset` sobre una colección cambiante puede desplazar elementos.
 
 Los siguientes aspectos funcionales siguen abiertos en las fuentes oficiales. CU-05 conserva el comportamiento previo, sin establecer reglas nuevas: la edición depende del estado de la revisión aunque el curso esté Pausado o Finalizado; guardar correcciones de CambiosSolicitados pasa a Borrador; objetivos y requisitos sugeridos pueden estar vacíos; alumnos y progreso usan la publicación vigente, conservando finalizaciones por ID de módulo. Las solicitudes conservan decisiones y observaciones, pero no una fotografía inmutable del contenido corregido posteriormente.
 
@@ -377,10 +381,16 @@ Un middleware traduce las excepciones de negocio tipadas a respuestas HTTP.
 | 404 | Recurso inexistente |
 | 409 | Duplicados o transición incompatible |
 | 412 | Etiqueta de edición de curso obsoleta |
+| 413 | El cuerpo excede el límite de transporte del servidor |
+| 428 | Se requiere un ETag específico en `If-Match` |
 | 429 | Límite temporal de intentos de login, con `Retry-After` en segundos |
 | 500 | Error inesperado, con identificador de trazabilidad |
 
 El login admite 20 solicitudes por ventana de 60 segundos por IP de conexión e instancia. El contador no confía en `X-Forwarded-For` recibido del cliente. En despliegues con proxy o múltiples instancias, el límite local puede agrupar usuarios o multiplicarse entre instancias. El límite agregado requiere una política en el borde.
+
+Un correo inexistente pasa por una verificación con un hash señuelo antes de devolver `401`. Se usa el algoritmo del hasher de Identity instalado. Si cambia su configuración, revisar también el costo del señuelo. Esta defensa reduce la señal temporal de existencia de cuentas. Los hashes históricos o diferencias del despliegue aún pueden alterar los tiempos.
+
+Los endpoints JSON devuelven `413` si el servidor rechaza el tamaño del cuerpo. Si la excepción llega a la aplicación, la respuesta usa `application/problem+json` y omite los detalles internos. El límite efectivo depende del servidor y del proxy. Esta comprobación no fija cantidades máximas de módulos ni recursos.
 
 En `GET /api/reports/summary`, `timeZone` habilita el modo de fechas civiles. Con esa opción, `from` y `to` usan `AAAA-MM-DD` y la zona usa un identificador IANA. Se cuenta desde la medianoche de `from` hasta la siguiente a `to`, excluida. Se devuelve `timeZone` y las medianoches de ambas fechas seleccionadas convertidas a UTC. Una medianoche inexistente devuelve 400 y, si es ambigua, se usa su primera ocurrencia. Sin `timeZone` se conserva el contrato histórico.
 
@@ -389,6 +399,10 @@ En `GET /api/reports/summary`, `timeZone` habilita el modo de fechas civiles. Co
 La migración incremental EnforceSingleActiveEnrollment agrega el índice único parcial sin cambiar la migración inicial ni el historial de inscripciones. Si ya existen duplicados Pendiente/Aprobada, su aplicación falla y no los elimina ni cambia sus estados automáticamente.
 
 `EnforceCourseRevisionOwnership` incorpora disparadores SQLite que impiden asignar al curso una revisión de otro curso o mover de dueño una revisión referenciada. No reescribe filas existentes. Antes de reparar cualquier inconsistencia histórica, aplicar el diagnóstico de solo lectura del [modelo de datos](MODELO_DE_DATOS.md).
+
+`PreserveReviewSnapshots` agrega una tabla de evidencia por envío. Los disparadores impiden modificarla o borrarla. El esquema es aditivo y la migración impide una reversión que eliminaría evidencia. Una versión anterior del binario puede ignorar la tabla, pero los envíos realizados con ese binario carecerían de copia.
+
+`PreventReviewSnapshotReplacement` agrega un control de inserción sobre una auditoría que ya tiene copia. Cubre `INSERT OR REPLACE` incluso con disparadores recursivos desactivados. La migración conserva las copias existentes.
 
 Antes de aplicar esta migración a una base existente, verificar la ruta absoluta de destino, conservar un respaldo y ejecutar sobre ese destino esta consulta de diagnóstico:
 
@@ -431,14 +445,16 @@ dotnet test Lumen.slnx -c Release --no-build --no-restore
 
 Las pruebas unitarias usan xUnit y Moq sin base de datos. Las pruebas de integración usan WebApplicationFactory y bases SQLite únicas en el directorio temporal, con pooling deshabilitado y limpieza al finalizar. Las pruebas de migración de CU-06 usan SQLite en memoria. No utilizan las bases lumen.db de desarrollo.
 
-La verificación de la segunda etapa aprobó **374 pruebas** (101 unitarias y 273 de integración), con SDK 10.0.403 y runtime 10.0.14. Incluye regresiones de edición condicional, pertenencia de revisiones, login, paginación y reportes por zona. Las fábricas de integración generan sus claves en memoria.
+La cuarta ronda aprobó **389 pruebas** (102 unitarias y 287 de integración), con SDK 10.0.403 y runtime 10.0.14. Incluye concurrencia, recuperación, historial de auditoría, republicación, paginación, seguridad, el límite de transporte en Kestrel y cinco migraciones en SQLite temporal. Las fábricas de integración generan sus claves en memoria.
 
 Las suites EnrollmentCreationServiceTests, EnrollmentCreationIntegrationTests y EnrollmentPersistenceIntegrationTests verifican CU-06, incluyendo HTTP, identidad JWT, persistencia sin alterar cursos/revisiones/módulos, concurrencia, carreras con pausa/finalización, nueva solicitud tras rechazo/cancelación, progreso separado y migración de datos existentes.
 
 ## Bruno
 
-La colección contiene **54 requests** y dos environments: `local` para el puerto 5080 y `demo-temporal` para el 5081. El [README de Bruno](bruno/README.md) documenta preparación, arranque aislado, precondiciones, orden y limpieza.
+La colección contiene **58 requests** y dos environments: `local` para el puerto 5080 y `demo-temporal` para el 5081. El [README de Bruno](bruno/README.md) documenta preparación, arranque aislado, precondiciones, orden y limpieza.
 
-`00-Exposicion` contiene **19 requests**: autentica los tres roles, crea un curso de tres módulos, lo publica mediante auditoría, solicita y aprueba una inscripción y registra progreso hasta 100 %, incluida una repetición idempotente. Ejecutar esa carpeta completa en orden, una iteración y concurrencia 1. Los 35 requests restantes tienen precondiciones propias y requieren el orden de la guía.
+`00-Exposicion` contiene **19 requests**: autentica los tres roles, crea un curso de tres módulos, lo publica mediante auditoría, solicita y aprueba una inscripción y registra progreso hasta 100 %, incluida una repetición idempotente. Ejecutar esa carpeta completa en orden, una iteración y concurrencia 1. La guía separa el recorrido general del recorrido de rechazo y recuperación.
 
 En la segunda etapa Bruno CLI 4.3.0 aprobó los 54 requests y 123 tests en dos instancias SQLite temporales. Los tokens e IDs se mantienen en variables runtime durante el recorrido.
+
+En la cuarta ronda se volvieron a verificar los **58 requests distintos** en 64 ejecuciones y con 139 tests aprobados en tres instancias temporales.

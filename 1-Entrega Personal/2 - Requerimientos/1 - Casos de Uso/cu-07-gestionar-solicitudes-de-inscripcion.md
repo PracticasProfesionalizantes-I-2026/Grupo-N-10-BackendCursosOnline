@@ -41,7 +41,7 @@ Permite que un Administrador revise solicitudes de inscripción pendientes y las
 3. El Administrador selecciona una solicitud.
 4. El sistema muestra el Alumno y el curso relacionado.
 5. El Administrador selecciona "Aprobar".
-6. El sistema cambia la inscripción a APROBADA. **Reglas aplicables:** **RN-10**. En la implementación vigente, pausar o finalizar no resuelve las solicitudes pendientes. El efecto del cupo sobre una aprobación sigue pendiente de decisión.
+6. El sistema cambia la inscripción a APROBADA. **Reglas aplicables:** **RN-10**. Pausar o finalizar conserva las solicitudes que ya estaban pendientes y la decisión administrativa sigue disponible. El efecto del cupo sobre la aprobación sigue pendiente. En la API se puede paginar el listado filtrado de pendientes. Si el cuerpo de la decisión supera el límite de transporte, la API devuelve HTTP 413 sin cambiar la inscripción.
 7. El sistema habilita el curso dentro de los cursos del Alumno. **Reglas aplicables:** **RN-11**.
 8. El sistema informa que la solicitud fue aprobada.
 
@@ -80,18 +80,22 @@ Permite que un Administrador revise solicitudes de inscripción pendientes y las
 | --- | --- | --- |
 | `200` | OK | resultado satisfactorio de Gestionar Solicitudes de Inscripción; A1: Rechazar inscripción; A2: No hay solicitudes PENDIENTES. |
 | `409` | Conflict | A3: La solicitud ya fue resuelta. |
+| `400` | Bad Request | Parámetros de paginación inválidos. |
+| `413` | Content Too Large | Cuerpo mayor que el límite de transporte de la API. |
 
 ### Nota: Validación vs. Verificación aplicada
 
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
 - **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
+La paginación de la API es optativa. Acepta limit de 1 a 100 y offset desde cero con limit. Sin parámetros mantiene el arreglo completo.
+
 ### Evidencia ejecutable de CU-07
 
 | Fuente | Recorrido o contrato |
 |---|---|
 | API | `GET /api/enrollments?status=Pendiente; POST /api/enrollments/{id}/decision` |
-| Pruebas automatizadas | EnrollmentResolutionServiceTests; EnrollmentResolutionConcurrencyIntegrationTests |
+| Pruebas automatizadas | PagingIntegrationTests; EnrollmentResolutionServiceTests; EnrollmentResolutionConcurrencyIntegrationTests |
 | Bruno | Enrollments/03,06; Exposición/09–10 |
 
 200 resuelve; 409 si dejó de estar pendiente. Cupo y tratamiento de pendientes siguen en DOC-004.

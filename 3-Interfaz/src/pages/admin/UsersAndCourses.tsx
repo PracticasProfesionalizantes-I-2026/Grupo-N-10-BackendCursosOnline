@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import type { CourseStatus, Role } from '@/types'
 import { CourseStatusBadge, EmptyState, Modal, PageHeader, SearchInput } from '@/components/UI'
 import { useApp } from '@/hooks/useApp'
-import { canEditWorkingCourse, getCourseDisplayStatus } from '@/services/courseService'
+import { canEditWorkingCourse, canRecoverWorkingDraft, getCourseDisplayStatus } from '@/services/courseService'
 import { formatDate, formatDuration, fullName } from '@/utils/format'
 
 const roleLabel: Record<Role, string> = {
@@ -139,6 +139,7 @@ export function AdminCourses() {
                       <div className="flex flex-wrap gap-1">
                         <button className="btn-ghost min-h-9 px-2.5 text-xs" onClick={() => setSelectedId(course.id)}><Eye size={15} /> Consultar</button>
                         {canEditWorkingCourse(course) && <Link className="btn-ghost min-h-9 px-2.5 text-xs" to={course.id + '/edit'}><Edit3 size={15} /> Editar</Link>}
+                        {canRecoverWorkingDraft(course) && <Link className="btn-ghost min-h-9 px-2.5 text-xs" to={course.id + '/edit'}>Recuperar borrador</Link>}
                         {displayStatus === 'PUBLICADO' && <button className="btn-ghost min-h-9 px-2.5 text-xs text-amber-300" onClick={() => changeStatus(course.id, 'PAUSADO')}><PauseCircle size={15} /> Pausar</button>}
                         {displayStatus === 'PAUSADO' && <button className="btn-ghost min-h-9 px-2.5 text-xs text-emerald-300" onClick={() => changeStatus(course.id, 'PUBLICADO')}><PlayCircle size={15} /> Reactivar</button>}
                         {(displayStatus === 'PUBLICADO' || displayStatus === 'PAUSADO') && <button className="btn-ghost min-h-9 px-2.5 text-xs text-red-400" onClick={() => changeStatus(course.id, 'FINALIZADO')}><StopCircle size={15} /> Finalizar</button>}

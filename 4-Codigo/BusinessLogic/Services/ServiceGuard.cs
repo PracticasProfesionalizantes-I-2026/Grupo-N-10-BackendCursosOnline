@@ -66,11 +66,17 @@ internal static class ServiceGuard
     {
         Required(firstName, "nombre", UserFieldLimits.Name);
         Required(lastName, "apellido", UserFieldLimits.Name);
-        Required(dni, "DNI", UserFieldLimits.Dni);
-        Required(phone, "teléfono", UserFieldLimits.Phone);
+        ValidateSingleLine(dni, "DNI", UserFieldLimits.Dni);
+        ValidateSingleLine(phone, "teléfono", UserFieldLimits.Phone);
         Required(address, "dirección", UserFieldLimits.Address);
         Required(postalCode, "código postal", UserFieldLimits.PostalCode);
         Required(password, "contraseña");
+    }
+
+    private static void ValidateSingleLine(string? value, string field, int maximumLength)
+    {
+        if (Required(value, field, maximumLength).Any(char.IsControl))
+            throw new LumenValidationException($"El campo {field} contiene caracteres de control.");
     }
 }
 

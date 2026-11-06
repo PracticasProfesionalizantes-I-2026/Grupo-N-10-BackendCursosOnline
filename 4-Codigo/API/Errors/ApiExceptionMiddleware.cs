@@ -16,6 +16,7 @@ internal sealed class ApiExceptionMiddleware(RequestDelegate next, ILogger<ApiEx
             context.Response.Clear();
             var status = exception switch
             {
+                BadHttpRequestException { StatusCode: StatusCodes.Status413PayloadTooLarge } => StatusCodes.Status413PayloadTooLarge,
                 LumenValidationException or PublicRegistrationRoleNotAllowedException or
                     CourseRequiresModuleException or InvalidDateRangeException => StatusCodes.Status400BadRequest,
                 InvalidCredentialsException => StatusCodes.Status401Unauthorized,
@@ -27,8 +28,16 @@ internal sealed class ApiExceptionMiddleware(RequestDelegate next, ILogger<ApiEx
                     EnrollmentStateConflictException or ModuleCourseMismatchException or
                     DependencyConflictException => StatusCodes.Status409Conflict,
                 CourseVersionMismatchException => StatusCodes.Status412PreconditionFailed,
+                CourseEditPreconditionRequiredException => StatusCodes.Status428PreconditionRequired,
                 _ => StatusCodes.Status500InternalServerError
             };
+
+            if (status == StatusCodes.Status413PayloadTooLarge)
+            {
+                await Results.Problem(statusCode: status, title: "La solicitud supera el límite de tamaño del servidor.")
+                    .ExecuteAsync(context);
+                return;
+            }
 
             if (status == StatusCodes.Status500InternalServerError)
             {
@@ -42,6 +51,8 @@ internal sealed class ApiExceptionMiddleware(RequestDelegate next, ILogger<ApiEx
             }
 
             context.Response.StatusCode = status;
+            if (status == StatusCodes.Status428PreconditionRequired)
+                context.Response.Headers.CacheControl = "no-store";
             await context.Response.WriteAsJsonAsync(
                 new ApiErrorResponseDTO(exception.GetType().Name, exception.Message), context.RequestAborted);
         }

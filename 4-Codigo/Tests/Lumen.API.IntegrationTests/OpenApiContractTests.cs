@@ -26,7 +26,7 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
     {
         { "/api/auth/register", "post", "201", "UserResponseDTO", false, "400,409" },
         { "/api/auth/login", "post", "200", "LoginResponseDTO", false, "400,401,403,429" },
-        { "/api/users", "get", "200", "UserResponseDTO", true, "401,403" },
+        { "/api/users", "get", "200", "UserResponseDTO", true, "400,401,403" },
         { "/api/users/{id}", "get", "200", "UserResponseDTO", false, "401,403,404" },
         { "/api/users/administrators", "post", "201", "UserResponseDTO", false, "400,401,403,409" },
         { "/api/catalog/courses", "get", "200", "PublishedCourseResponseDTO", true, "400,401" },
@@ -34,16 +34,18 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
         { "/api/courses", "get", "200", "CourseResponseDTO", true, "400,401,403" },
         { "/api/courses/{id}", "get", "200", "CourseResponseDTO", false, "401,403,404" },
         { "/api/courses", "post", "201", "CourseResponseDTO", false, "400,401,403" },
-        { "/api/courses/{id}", "put", "200", "CourseResponseDTO", false, "400,401,403,404,409,412" },
+        { "/api/courses/{id}", "put", "200", "CourseResponseDTO", false, "400,401,403,404,409,412,428" },
+        { "/api/courses/{id}/recover-draft", "post", "200", "CourseResponseDTO", false, "400,401,403,404,409,412,428" },
         { "/api/courses/{id}/submit-review", "post", "200", "CourseReviewResponseDTO", false, "400,401,403,404,409" },
         { "/api/courses/{id}/pause", "post", "200", "CourseResponseDTO", false, "401,403,404,409" },
         { "/api/courses/{id}/resume", "post", "200", "CourseResponseDTO", false, "401,403,404,409" },
         { "/api/courses/{id}/finish", "post", "200", "CourseResponseDTO", false, "401,403,404,409" },
-        { "/api/course-reviews", "get", "200", "CourseReviewResponseDTO", true, "401,403" },
-        { "/api/course-reviews/mine", "get", "200", "CourseReviewResponseDTO", true, "401,403" },
+        { "/api/course-reviews", "get", "200", "CourseReviewResponseDTO", true, "400,401,403" },
+        { "/api/course-reviews/mine", "get", "200", "CourseReviewResponseDTO", true, "400,401,403" },
+        { "/api/course-reviews/{id}", "get", "200", "CourseReviewSnapshotResponseDTO", false, "401,403,404" },
         { "/api/course-reviews/{id}/decision", "post", "200", "CourseReviewResponseDTO", false, "400,401,403,404,409" },
         { "/api/enrollments", "post", "201", "EnrollmentResponseDTO", false, "400,401,403,404,409" },
-        { "/api/enrollments/mine", "get", "200", "EnrollmentResponseDTO", true, "401,403" },
+        { "/api/enrollments/mine", "get", "200", "EnrollmentResponseDTO", true, "400,401,403" },
         { "/api/enrollments", "get", "200", "EnrollmentResponseDTO", true, "400,401,403" },
         { "/api/enrollments/{id}", "get", "200", "EnrollmentResponseDTO", false, "401,403,404" },
         { "/api/enrollments/{id}/course-content", "get", "200", "PublishedCourseResponseDTO", false, "401,403,404,409" },
@@ -51,7 +53,7 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
         { "/api/enrollments/{id}/cancel", "post", "200", "EnrollmentResponseDTO", false, "401,403,404,409" },
         { "/api/enrollments/{id}/progress", "get", "200", "ProgressResponseDTO", false, "401,403,404,409" },
         { "/api/enrollments/{id}/modules/{moduleId}/completion", "put", "200", "ProgressResponseDTO", false, "401,403,404,409" },
-        { "/api/courses/{courseId}/students/progress", "get", "200", "StudentProgressResponseDTO", true, "401,403,404,409" },
+        { "/api/courses/{courseId}/students/progress", "get", "200", "StudentProgressResponseDTO", true, "400,401,403,404,409" },
         { "/api/reports/summary", "get", "200", "ReportSummaryResponseDTO", false, "400,401,403" }
     };
 
@@ -60,8 +62,11 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
     public void Operation_HasItsActualResponseContract(string path, string method, string successCode,
         string dto, bool collection, string errors)
     {
-        var responses = Operation(path, method).GetProperty("responses");
-        Assert.Equal(errors.Split(',').Append(successCode).Append("500").Order(), responses.EnumerateObject().Select(x => x.Name).Order());
+        var operation = Operation(path, method);
+        var responses = operation.GetProperty("responses");
+        var expected = errors.Split(',').Append(successCode).Append("500");
+        if (operation.TryGetProperty("requestBody", out _)) expected = expected.Append("413");
+        Assert.Equal(expected.Order(), responses.EnumerateObject().Select(x => x.Name).Order());
         var schema = responses.GetProperty(successCode).GetProperty("content").GetProperty("application/json").GetProperty("schema");
         if (collection)
         {
@@ -80,7 +85,7 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
             {
                 var responseSchema = Resolve(media.Value.GetProperty("schema"));
                 Assert.NotEqual(JsonValueKind.Undefined, responseSchema.ValueKind);
-                if (response.Name is "404" or "409" or "412" or "429" ||
+                if (response.Name is "404" or "409" or "412" or "428" or "429" ||
                     (response.Name is "400" or "401" or "403" && media.Name == "application/json"))
                 {
                     AssertBusinessErrorSchema(responseSchema);
@@ -90,14 +95,14 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
     }
 
     [Fact]
-    public void Document_ContainsExactlyThe29ExistingOperations_AndResolvesAllLocalReferences()
+    public void Document_ContainsEveryExpectedOperation_AndResolvesAllLocalReferences()
     {
         var paths = Document.GetProperty("paths");
         Assert.StartsWith("3.1.", Document.GetProperty("openapi").GetString());
-        Assert.Equal(26, paths.EnumerateObject().Count());
+        Assert.Equal(28, paths.EnumerateObject().Count());
         var actual = paths.EnumerateObject().SelectMany(path => path.Value.EnumerateObject()
             .Select(operation => $"{operation.Name} {path.Name}")).Order().ToArray();
-        Assert.Equal(29, actual.Length);
+        Assert.Equal(31, actual.Length);
         var descriptions = fixture.Factory.Services.GetRequiredService<IApiDescriptionGroupCollectionProvider>()
             .ApiDescriptionGroups.Items.SelectMany(x => x.Items).Where(x => x.RelativePath?.StartsWith("api/") == true);
         Assert.Equal(descriptions.Select(x => $"{x.HttpMethod!.ToLowerInvariant()} /{x.RelativePath}").Order(), actual);
@@ -136,7 +141,7 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
                 Assert.True(operation.GetProperty("responses").TryGetProperty("403", out _));
             }
         }
-        Assert.Equal(27, protectedCount);
+        Assert.Equal(29, protectedCount);
     }
 
     [Fact]
@@ -152,7 +157,8 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
             Assert.True(parameter.GetProperty("required").GetBoolean());
             Assert.Equal("date-time", Resolve(parameter.GetProperty("schema")).GetProperty("format").GetString());
         }
-        var status = Assert.Single(Operation("/api/enrollments", "get").GetProperty("parameters").EnumerateArray());
+        var status = Assert.Single(Operation("/api/enrollments", "get").GetProperty("parameters").EnumerateArray(),
+            x => x.GetProperty("name").GetString() == "status");
         Assert.Equal("status", status.GetProperty("name").GetString());
         Assert.False(status.TryGetProperty("required", out var required) && required.GetBoolean());
     }
@@ -167,7 +173,7 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
         var header = Assert.Single(put.GetProperty("parameters").EnumerateArray(),
             x => x.GetProperty("name").GetString() == "If-Match");
         Assert.Equal("header", header.GetProperty("in").GetString());
-        Assert.False(header.TryGetProperty("required", out var required) && required.GetBoolean());
+        Assert.True(header.GetProperty("required").GetBoolean());
         var login429 = Operation("/api/auth/login", "post").GetProperty("responses").GetProperty("429");
         Assert.True(login429.GetProperty("headers").TryGetProperty("Retry-After", out _));
     }
@@ -219,7 +225,8 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
     [Fact]
     public async Task EnrollmentStatusFilter_PreservesNamedAndNumericQueryValues()
     {
-        var parameter = Assert.Single(Operation("/api/enrollments", "get").GetProperty("parameters").EnumerateArray());
+        var parameter = Assert.Single(Operation("/api/enrollments", "get").GetProperty("parameters").EnumerateArray(),
+            x => x.GetProperty("name").GetString() == "status");
         var variants = parameter.GetProperty("schema").GetProperty("anyOf").EnumerateArray().ToArray();
         Assert.Equal(new[] { "Pendiente", "Aprobada", "Rechazada", "Cancelada" },
             variants[0].GetProperty("enum").EnumerateArray().Select(x => x.GetString()));

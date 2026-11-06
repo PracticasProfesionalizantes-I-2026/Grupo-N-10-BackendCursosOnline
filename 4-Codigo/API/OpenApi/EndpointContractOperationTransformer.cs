@@ -75,6 +75,20 @@ internal sealed class EndpointContractOperationTransformer : IOpenApiOperationTr
         }
 
         operation.Responses ??= new OpenApiResponses();
+        if (context.Description.ParameterDescriptions.Any(x => x.Source == BindingSource.Body))
+        {
+            operation.Responses["413"] = new OpenApiResponse
+            {
+                Description = "El cuerpo supera el límite de transporte. Si la aplicación procesa el error, devuelve ProblemDetails.",
+                Content = new Dictionary<string, OpenApiMediaType>
+                {
+                    ["application/problem+json"] = new()
+                    {
+                        Schema = await context.GetOrCreateSchemaAsync(typeof(ProblemDetails), cancellationToken: cancellationToken)
+                    }
+                }
+            };
+        }
         operation.Responses["500"] = new OpenApiResponse
         {
             Description = "Error interno con identificador de seguimiento, sin detalles de la excepción.",
@@ -90,8 +104,14 @@ internal sealed class EndpointContractOperationTransformer : IOpenApiOperationTr
         if (context.Description.ActionDescriptor is not ControllerActionDescriptor action) return;
         var controller = action.ControllerTypeInfo.AsType();
         var method = action.MethodInfo.Name;
+        foreach (var parameter in (operation.Parameters ?? []).OfType<OpenApiParameter>())
+        {
+            if (parameter.In != ParameterLocation.Query) continue;
+            if (parameter.Name == "limit") parameter.Description = "Cantidad entre 1 y 100. Si se omite, el arreglo se devuelve completo.";
+            if (parameter.Name == "offset") parameter.Description = "Desplazamiento desde cero. Requiere limit.";
+        }
         if (controller == typeof(CoursesController) &&
-            method is nameof(CoursesController.GetById) or nameof(CoursesController.Update))
+            method is nameof(CoursesController.GetById) or nameof(CoursesController.Update) or nameof(CoursesController.RecoverDraft))
         {
             if (operation.Responses["200"] is OpenApiResponse success)
             {
@@ -102,14 +122,15 @@ internal sealed class EndpointContractOperationTransformer : IOpenApiOperationTr
                     Schema = new OpenApiSchema { Type = JsonSchemaType.String }
                 };
             }
-            if (method == nameof(CoursesController.Update))
+            if (method != nameof(CoursesController.GetById))
             {
                 operation.Parameters ??= [];
                 operation.Parameters.Add(new OpenApiParameter
                 {
                     Name = "If-Match",
                     In = ParameterLocation.Header,
-                    Description = "Etiqueta obtenida al consultar el curso. Si quedó obsoleta, responde 412.",
+                    Required = true,
+                    Description = "ETag específico obtenido al consultar el curso. Ausente o comodín: 428. Obsoleto: 412.",
                     Schema = new OpenApiSchema { Type = JsonSchemaType.String }
                 });
             }

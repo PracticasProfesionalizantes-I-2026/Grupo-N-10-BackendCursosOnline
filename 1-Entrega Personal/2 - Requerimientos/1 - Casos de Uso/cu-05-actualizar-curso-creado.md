@@ -40,9 +40,9 @@ Permite retomar un BORRADOR o modificar un curso PUBLICADO o con CAMBIOS SOLICIT
 1. El Profesor accede a sus cursos o a sus solicitudes de auditoría; el Administrador accede a la gestión de cursos.
 2. El sistema muestra los cursos accesibles según el rol y, cuando corresponda, el estado de la auditoría y las observaciones recibidas.
 3. El usuario selecciona el curso y solicita editarlo. El sistema verifica el rol y la propiedad cuando actúa un Profesor. **Reglas aplicables:** **RN-03**.
-4. El sistema muestra los datos actuales y los módulos del curso. En la API la consulta de gestión entrega ETag. El editor puede enviarlo en If-Match al guardar por PUT. Si la etiqueta quedó obsoleta, la API responde 412 sin escribir y el editor debe recargar. Una etiqueta mal formada devuelve 400. Si la versión de trabajo ya está EN REVISIÓN o RECHAZADA, la edición devuelve 409. El Administrador edita la versión de trabajo mediante el mismo flujo de auditoría.
+4. El sistema muestra los datos actuales y los módulos del curso. En la API la consulta de gestión entrega ETag. Guardar o recuperar requiere el ETag específico en If-Match. Una etiqueta ausente o el comodín devuelven 428. Una etiqueta obsoleta devuelve 412 sin escribir, incluso si otra edición ganó durante la persistencia. Una cabecera mal formada devuelve 400. Editar una revisión en EN REVISIÓN o RECHAZADA devuelve 409 con una etiqueta vigente. El Administrador edita la versión de trabajo mediante el mismo flujo de auditoría.
 5. El usuario modifica los datos del curso o sus módulos, con nombre, descripción, duración y contenido o recursos. **Reglas aplicables:** **RN-15**.
-6. El sistema valida los datos obligatorios y la existencia de al menos un módulo, y recalcula la duración total como suma de sus duraciones. **Reglas aplicables:** **RN-04**, **RN-05**.
+6. El sistema valida los datos obligatorios y la existencia de al menos un módulo, y recalcula la duración total como suma de sus duraciones. **Reglas aplicables:** **RN-04**, **RN-05**. Si el cuerpo del guardado supera el límite de transporte, la API responde HTTP 413 y conserva la revisión vigente.
 7. El usuario confirma el envío de los cambios a revisión.
 8. El sistema registra las modificaciones, cambia el curso a EN REVISIÓN y genera la solicitud de auditoría del CU-04. **Reglas aplicables:** **RN-06**, **RN-07**.
 9. El sistema informa el resultado y lo muestra en las solicitudes de auditoría del usuario.
@@ -66,7 +66,9 @@ Permite retomar un BORRADOR o modificar un curso PUBLICADO o con CAMBIOS SOLICIT
   1. El sistema detecta que el curso no pertenece al Profesor. **Reglas aplicables:** **RN-03**.
   2. Restringe la edición y conserva la información y el estado del curso.
 
-* **4b. Otro editor guardó antes — A5 (HTTP 412 Precondition Failed):** Si el cliente envió la etiqueta anterior, la API conserva la edición vigente y exige recargar antes de volver a intentar. Si una escritura concurrente se detecta durante la persistencia o el estado no admite edición, puede responder 409.
+* **A5. Precondición de edición ausente u obsoleta:** El editor recarga la revisión. La API devuelve 428 sin etiqueta específica y 412 si la etiqueta quedó obsoleta. El guardado no se aplica.
+
+* **A6. Recuperar una revisión rechazada:** El Profesor propietario o Administrador confirma la recuperación. La API crea un BORRADOR nuevo a partir de la revisión rechazada y devuelve 200 con otro ETag. Conserva la decisión y, si existía, la publicación. Un estado que no sea RECHAZADO devuelve 409 con una etiqueta vigente.
 
 ### 5. SUB-VARIACIONES (opcional)
 
@@ -90,7 +92,9 @@ Permite retomar un BORRADOR o modificar un curso PUBLICADO o con CAMBIOS SOLICIT
 | `400` | Bad Request | A1: Datos obligatorios incompletos o curso sin módulos. |
 | `403` | Forbidden | A4: Profesor intenta editar un curso ajeno. |
 | `412` | Precondition Failed | A5: etiqueta de edición obsoleta. |
+| `428` | Precondition Required | A5: falta una etiqueta específica. |
 | `409` | Conflict | Estado incompatible o conflicto durante la escritura. |
+| `413` | Content Too Large | Cuerpo mayor que el límite de transporte de la API. |
 
 ### Nota: Validación vs. Verificación aplicada
 
@@ -101,8 +105,8 @@ Permite retomar un BORRADOR o modificar un curso PUBLICADO o con CAMBIOS SOLICIT
 
 | Fuente | Recorrido o contrato |
 |---|---|
-| API | `GET y PUT /api/courses/{id}; POST /api/courses/{id}/submit-review` |
-| Pruebas automatizadas | CourseUpdateIntegrationTests; TraceabilityContractIntegrationTests; demo.test.mjs |
-| Bruno | Courses/02,04,12,05 |
+| API | `GET y PUT /api/courses/{id}; POST /api/courses/{id}/recover-draft y /submit-review` |
+| Pruebas automatizadas | CourseUpdateIntegrationTests; TraceabilityContractIntegrationTests; CourseReviewHistoryIntegrationTests; demo.test.mjs |
+| Bruno | Courses/02,04,12,13,15,16,05 |
 
-Guardado y envío separados. 403 por curso ajeno, 409 por estado, 412 por etiqueta obsoleta. La publicación anterior sigue vigente.
+Guardado y envío separados. 403 por curso ajeno, 409 por estado, 412 por etiqueta obsoleta y 428 por etiqueta ausente o comodín. La publicación anterior sigue vigente.

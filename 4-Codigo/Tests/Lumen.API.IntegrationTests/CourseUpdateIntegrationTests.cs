@@ -72,7 +72,8 @@ public sealed class CourseUpdateIntegrationTests
         using var teacher = await CourseTestClient.LoginAsync(factory);
         var course = await CourseTestClient.DraftAsync(teacher);
         using var client = email == "" ? factory.CreateClient() : await CourseTestClient.LoginAsync(factory, email);
-        var result = await client.PutAsJsonAsync($"/api/courses/{course.Id}", CourseTestClient.Update(course), CourseTestClient.Json);
+        using var result = await CourseTestClient.SendEditAsync(client, course.Id, CourseTestClient.Update(course),
+            await CourseTestClient.ReadTagAsync(teacher, course.Id));
         Assert.Equal(status, result.StatusCode);
         var submit = await client.PostAsync($"/api/courses/{course.Id}/submit-review", null);
         Assert.Equal(status, submit.StatusCode);
@@ -86,11 +87,13 @@ public sealed class CourseUpdateIntegrationTests
         using var admin = await CourseTestClient.LoginAsync(factory, "admin@lumen.local");
         var course = await CourseTestClient.DraftAsync(admin);
         var before = JsonSerializer.Serialize(await CourseTestClient.GetAsync(admin, course.Id));
-        var response = await teacher.PutAsJsonAsync($"/api/courses/{course.Id}", CourseTestClient.Update(course), CourseTestClient.Json);
+        var tag = await CourseTestClient.ReadTagAsync(admin, course.Id);
+        using var response = await CourseTestClient.SendEditAsync(teacher, course.Id, CourseTestClient.Update(course), tag);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await teacher.PostAsync($"/api/courses/{course.Id}/submit-review", null)).StatusCode);
         Assert.Equal(before, JsonSerializer.Serialize(await CourseTestClient.GetAsync(admin, course.Id)));
-        Assert.Equal(HttpStatusCode.NotFound, (await teacher.PutAsJsonAsync($"/api/courses/{Guid.NewGuid()}", CourseTestClient.Update(course), CourseTestClient.Json)).StatusCode);
+        using var missing = await CourseTestClient.SendEditAsync(teacher, Guid.NewGuid(), CourseTestClient.Update(course), tag);
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
     }
 
     [Theory]
@@ -124,7 +127,12 @@ public sealed class CourseUpdateIntegrationTests
             _ => dto
         };
         var json = invalid == "nullBody" ? "null" : JsonSerializer.Serialize(dto, CourseTestClient.Json);
-        var response = await teacher.PutAsync($"/api/courses/{course.Id}", new StringContent(json, Encoding.UTF8, "application/json"));
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/courses/{course.Id}")
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", await CourseTestClient.ReadTagAsync(teacher, course.Id));
+        using var response = await teacher.SendAsync(request);
         Assert.Equal(status, response.StatusCode);
         Assert.Equal(before, JsonSerializer.Serialize(await CourseTestClient.GetAsync(teacher, course.Id)));
         await using var scope = factory.Services.CreateAsyncScope();
@@ -149,9 +157,11 @@ public sealed class CourseUpdateIntegrationTests
             .Single(x => x.CourseId == course.Id);
         var contentBefore = await student.GetFromJsonAsync<PublishedCourseResponseDTO>($"/api/enrollments/{enrollment.Id}/course-content", CourseTestClient.Json);
         var progressBefore = await student.GetFromJsonAsync<ProgressResponseDTO>($"/api/enrollments/{enrollment.Id}/progress", CourseTestClient.Json);
-        // Keep module identities; change approved content only after CU-04.
+        // Change unfinished modules. Completed, unchanged modules keep their identity.
+        var modules = course.Modules.Select(x => progressBefore!.CompletedModuleIds.Contains(x.Id)
+            ? CourseTestClient.Module(x) : CourseTestClient.Module(x) with { Content = "Otro contenido" }).ToList();
         var updated = await CourseTestClient.PutAsync(teacher, course.Id, CourseTestClient.Update(course) with
-            { Title = "Versión nueva", Modules = course.Modules.Select(x => CourseTestClient.Module(x) with { Content = "Otro contenido" }).ToList() });
+            { Title = "Versión nueva", Modules = modules });
         var review = await CourseTestClient.SubmitAsync(teacher, course.Id);
         Assert.Equal(CourseReviewType.Modificacion, review.Type);
         Assert.Equal("EnRevision", (await CourseTestClient.GetAsync(teacher, course.Id)).Status);
@@ -194,8 +204,9 @@ public sealed class CourseUpdateIntegrationTests
         Assert.Equal(first.RevisionId, second.RevisionId);
         var pending = await admin.GetFromJsonAsync<List<CourseReviewResponseDTO>>("/api/course-reviews", CourseTestClient.Json);
         Assert.Single(pending!, x => x.CourseId == draft.Id && x.Id == second.Id);
-        Assert.Equal(HttpStatusCode.Conflict, (await teacher.PutAsJsonAsync($"/api/courses/{draft.Id}",
-            CourseTestClient.Update(saved), CourseTestClient.Json)).StatusCode);
+        using var conflict = await CourseTestClient.SendEditAsync(teacher, draft.Id, CourseTestClient.Update(saved),
+            await CourseTestClient.ReadTagAsync(teacher, draft.Id));
+        Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await teacher.PostAsync($"/api/courses/{draft.Id}/submit-review", null)).StatusCode);
     }
 
@@ -382,9 +393,26 @@ internal static class CourseTestClient
 
     internal static async Task<CourseResponseDTO> PutAsync(HttpClient client, Guid id, CourseUpdateDTO update)
     {
-        var response = await client.PutAsJsonAsync($"/api/courses/{id}", update, Json);
+        using var response = await SendEditAsync(client, id, update, await ReadTagAsync(client, id));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<CourseResponseDTO>(Json))!;
+    }
+
+    internal static async Task<string> ReadTagAsync(HttpClient client, Guid id)
+    {
+        using var response = await client.GetAsync($"/api/courses/{id}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return Assert.IsType<EntityTagHeaderValue>(response.Headers.ETag).ToString();
+    }
+
+    internal static async Task<HttpResponseMessage> SendEditAsync(HttpClient client, Guid id, CourseUpdateDTO update, string tag)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/courses/{id}")
+        {
+            Content = JsonContent.Create(update, options: Json)
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", tag);
+        return await client.SendAsync(request);
     }
 
     internal static async Task<CourseReviewResponseDTO> SubmitAsync(HttpClient client, Guid id)

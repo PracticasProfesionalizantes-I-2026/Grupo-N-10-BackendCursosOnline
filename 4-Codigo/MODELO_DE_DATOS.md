@@ -11,6 +11,7 @@ erDiagram
     COURSE_REVISIONS o|--o{ COURSES : revision_publicada
     COURSE_REVISIONS ||--o{ COURSE_MODULES : agrupa
     COURSE_REVISIONS ||--o{ COURSE_REVIEWS : recibe
+    COURSE_REVIEWS ||--o| COURSE_REVIEW_SNAPSHOTS : conserva_envio
     USERS ||--o{ COURSE_REVIEWS : solicita
     USERS o|--o{ COURSE_REVIEWS : resuelve
     USERS ||--o{ ENROLLMENTS : alumno
@@ -27,6 +28,7 @@ erDiagram
 | `CourseRevisions` | PK `Id`; `(CourseId, Version)` único. |
 | `CourseModules` | PK `(RevisionId, Id)`; `(RevisionId, Order)` único. |
 | `CourseReviews` | PK `Id`; revisión y solicitante obligatorios, revisor opcional. |
+| `CourseReviewSnapshots` | PK y FK `ReviewId`; copia JSON independiente de la revisión editable. Los disparadores impiden actualizar, borrar o reemplazar la evidencia de un envío existente. |
 | `Enrollments` | PK `Id`; alumno y curso obligatorios. Índice único parcial sobre `(StudentId, CourseId)` para los estados `Pendiente` y `Aprobada`. |
 | `EnrollmentModuleCompletions` | PK `(EnrollmentId, ModuleId)`. Solo `EnrollmentId` es FK. El repositorio condiciona el alta del módulo a la publicación vigente. |
 
@@ -41,6 +43,10 @@ WHERE (c.WorkingRevisionId IS NOT NULL AND (w.Id IS NULL OR w.CourseId <> c.Id))
    OR (c.PublishedRevisionId IS NOT NULL AND (p.Id IS NULL OR p.CourseId <> c.Id));
 ```
 
-Los módulos se identifican dentro de una revisión. El avance se calcula sobre los IDs presentes en la publicación vigente. Los completados históricos pueden seguir almacenados después de una republicación. Una referencia relacional adicional para completados requiere acordar qué identidad se conserva entre versiones.
+Los módulos se identifican por `(RevisionId, Id)`. Al preparar una edición, un módulo que coincide con la publicación conserva su ID si mantiene nombre, descripción, duración, contenido y recursos. Reordenarlo conserva el avance. Cambiar esos datos da lugar a otro ID. Los módulos nuevos reciben otro ID y los retirados dejan de participar en el cálculo. Los completados históricos quedan en su inscripción y no se reasignan al republicar. Los datos anteriores que ya compartían IDs se conservan sin inferir equivalencias retroactivas.
+
+La cuarta migración agrega evidencia únicamente para envíos nuevos y no deriva copias de revisiones mutables anteriores. La tabla conserva las copias de cada envío aunque se soliciten cambios y se edite la misma revisión de trabajo.
+
+La quinta migración impide la sustitución mediante `INSERT OR REPLACE`, que con disparadores recursivos desactivados puede omitir el disparador de borrado. Se aplica sin modificar las filas. [Resolución de conflictos en SQLite](https://www.sqlite.org/lang_conflict.html).
 
 Fuentes: [configuraciones de EF Core](DataAccess/Configurations), [migraciones](Migrations/DatabaseMigrations) y [snapshot del modelo](Migrations/DatabaseMigrations/LumenDbContextModelSnapshot.cs).

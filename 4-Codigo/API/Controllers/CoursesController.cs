@@ -1,7 +1,6 @@
 using Lumen.API.Http;
 using Lumen.BusinessLogic.Interfaces;
 using Lumen.Shared.DTOs;
-using Lumen.Shared.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,7 +15,7 @@ public sealed class CoursesController(ICourseService service) : ControllerBase
     [ProducesResponseType<IReadOnlyList<PublishedCourseResponseDTO>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetCatalog(int? limit, int? offset, CancellationToken cancellationToken) =>
-        Ok(await service.GetPublishedAsync(cancellationToken, ReadPage(limit, offset)));
+        Ok(await service.GetPublishedAsync(cancellationToken, ListPaging.Read(limit, offset)));
 
     [HttpGet("catalog/courses/{id:guid}")]
     [ProducesResponseType<PublishedCourseResponseDTO>(StatusCodes.Status200OK)]
@@ -29,7 +28,7 @@ public sealed class CoursesController(ICourseService service) : ControllerBase
     [ProducesResponseType<IReadOnlyList<CourseResponseDTO>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetManageable(int? limit, int? offset, CancellationToken cancellationToken) =>
-        Ok(await service.GetManageableAsync(cancellationToken, ReadPage(limit, offset)));
+        Ok(await service.GetManageableAsync(cancellationToken, ListPaging.Read(limit, offset)));
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpGet("courses/{id:guid}")]
@@ -57,9 +56,21 @@ public sealed class CoursesController(ICourseService service) : ControllerBase
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status412PreconditionFailed)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status428PreconditionRequired)]
     public async Task<IActionResult> Update(Guid id, CourseUpdateDTO dto, CancellationToken cancellationToken) =>
-        WithEditTag(await service.UpdateAsync(id, dto, cancellationToken,
-            CourseEditTag.Read(id, Request.Headers.IfMatch.Select(value => value ?? string.Empty).ToArray())));
+        WithEditTag(await service.UpdateAsync(id, dto, cancellationToken, ReadEditTag(id)));
+
+    [Authorize(Roles = "Profesor,Administrador")]
+    [HttpPost("courses/{id:guid}/recover-draft")]
+    [ProducesResponseType<CourseResponseDTO>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status412PreconditionFailed)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status428PreconditionRequired)]
+    public async Task<IActionResult> RecoverDraft(Guid id, CancellationToken cancellationToken) =>
+        WithEditTag(await service.RecoverRejectedDraftAsync(id, ReadEditTag(id), cancellationToken));
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpPost("courses/{id:guid}/submit-review")]
@@ -100,14 +111,28 @@ public sealed class CoursesController(ICourseService service) : ControllerBase
     [Authorize(Roles = "Administrador")]
     [HttpGet("course-reviews")]
     [ProducesResponseType<IReadOnlyList<CourseReviewResponseDTO>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetPendingReviews(CancellationToken cancellationToken) =>
-        Ok(await service.GetPendingReviewsAsync(cancellationToken));
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetPendingReviews(int? limit, int? offset, CancellationToken cancellationToken) =>
+        Ok(await service.GetPendingReviewsAsync(cancellationToken, ListPaging.Read(limit, offset)));
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpGet("course-reviews/mine")]
     [ProducesResponseType<IReadOnlyList<CourseReviewResponseDTO>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetMyReviews(CancellationToken cancellationToken) =>
-        Ok(await service.GetMyReviewsAsync(cancellationToken));
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetMyReviews(int? limit, int? offset, CancellationToken cancellationToken) =>
+        Ok(await service.GetMyReviewsAsync(cancellationToken, ListPaging.Read(limit, offset)));
+
+    [Authorize(Roles = "Profesor,Administrador")]
+    [HttpGet("course-reviews/{id:guid}")]
+    [ProducesResponseType<CourseReviewSnapshotResponseDTO>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetReviewSnapshot(Guid id, CancellationToken cancellationToken)
+    {
+        var review = await service.GetReviewSnapshotAsync(id, cancellationToken);
+        Response.Headers.CacheControl = "private, no-store";
+        return Ok(review);
+    }
 
     [Authorize(Roles = "Administrador")]
     [HttpPost("course-reviews/{id:guid}/decision")]
@@ -125,13 +150,7 @@ public sealed class CoursesController(ICourseService service) : ControllerBase
         return Ok(course);
     }
 
-    private static CoursePage? ReadPage(int? limit, int? offset)
-    {
-        if (limit is null && offset is null) return null;
-        if (limit is null or < 1 or > 100 || offset is < 0)
-        {
-            throw new LumenValidationException("La paginación requiere limit entre 1 y 100 y offset mayor o igual a cero.");
-        }
-        return new CoursePage(offset ?? 0, limit.Value);
-    }
+    private IReadOnlyCollection<long> ReadEditTag(Guid id) =>
+        CourseEditTag.Read(id, Request.Headers.IfMatch.Select(value => value ?? string.Empty).ToArray());
+
 }

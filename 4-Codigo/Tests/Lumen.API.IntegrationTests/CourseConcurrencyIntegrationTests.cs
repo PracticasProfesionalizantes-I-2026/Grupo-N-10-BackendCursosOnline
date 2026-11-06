@@ -27,10 +27,11 @@ public sealed class CourseConcurrencyIntegrationTests
         using var secondClient = await CourseTestClient.LoginAsync(factory);
         var course = firstOperation == "publishedUpdate"
             ? await CourseTestClient.PublishedAsync(firstClient) : await CourseTestClient.DraftAsync(firstClient);
+        var tag = await CourseTestClient.ReadTagAsync(firstClient, course.Id);
         gate.Arm();
-        var firstRequest = RequestAsync(firstClient, course, firstOperation, "Primera escritura");
+        var firstRequest = RequestAsync(firstClient, course, firstOperation, "Primera escritura", tag);
         await gate.FirstRead.Task.WaitAsync(TimeSpan.FromSeconds(15));
-        var secondRequest = RequestAsync(secondClient, course, secondOperation, "Escritura tardía");
+        var secondRequest = RequestAsync(secondClient, course, secondOperation, "Escritura tardía", tag);
         await gate.SecondRead.Task.WaitAsync(TimeSpan.FromSeconds(15));
         gate.AllowFirst.TrySetResult();
         var firstResponse = await firstRequest;
@@ -38,9 +39,9 @@ public sealed class CourseConcurrencyIntegrationTests
         var committed = await SnapshotAsync(factory, course.Id);
         gate.AllowSecond.TrySetResult();
         var secondResponse = await secondRequest;
-        Assert.Equal(HttpStatusCode.Conflict, secondResponse.StatusCode);
+        Assert.Equal(secondOperation == "submit" ? HttpStatusCode.Conflict : HttpStatusCode.PreconditionFailed, secondResponse.StatusCode);
         var error = await secondResponse.Content.ReadFromJsonAsync<ApiErrorResponseDTO>(CourseTestClient.Json);
-        Assert.Equal("CourseStateConflictException", error!.Code);
+        Assert.Equal(secondOperation == "submit" ? "CourseStateConflictException" : "CourseVersionMismatchException", error!.Code);
         Assert.Equal(committed, await SnapshotAsync(factory, course.Id));
 
         await using var scope = factory.Services.CreateAsyncScope();
@@ -114,9 +115,9 @@ public sealed class CourseConcurrencyIntegrationTests
                 new(null, "Módulo agregado", "Descripción", 15, "Contenido agregado", ["nuevo.pdf"])
             ]
         };
+        var tag = await CourseTestClient.ReadTagAsync(editor, course.Id);
         gate.Arm();
-        Task<HttpResponseMessage> EditAsync() =>
-            editor.PutAsJsonAsync($"/api/courses/{course.Id}", changes, CourseTestClient.Json);
+        Task<HttpResponseMessage> EditAsync() => CourseTestClient.SendEditAsync(editor, course.Id, changes, tag);
         Task<HttpResponseMessage> SubmitAsync() =>
             submitter.PostAsync($"/api/courses/{course.Id}/submit-review", null);
 
@@ -147,13 +148,13 @@ public sealed class CourseConcurrencyIntegrationTests
         using (firstResponse)
         using (secondResponse)
         {
-            Assert.Equal([HttpStatusCode.OK, HttpStatusCode.Conflict],
-                new[] { firstResponse.StatusCode, secondResponse.StatusCode }.OrderBy(x => x));
-            var conflict = firstResponse.StatusCode == HttpStatusCode.Conflict ? firstResponse : secondResponse;
-            var error = await conflict.Content.ReadFromJsonAsync<ApiErrorResponseDTO>(CourseTestClient.Json);
-            Assert.Equal("CourseStateConflictException", error!.Code);
+            Assert.Single(new[] { firstResponse, secondResponse }, x => x.StatusCode == HttpStatusCode.OK);
             var editResponse = editReadsFirst ? firstResponse : secondResponse;
             var editWon = editResponse.StatusCode == HttpStatusCode.OK;
+            var conflict = firstResponse.StatusCode == HttpStatusCode.OK ? secondResponse : firstResponse;
+            Assert.Equal(editWon ? HttpStatusCode.Conflict : HttpStatusCode.PreconditionFailed, conflict.StatusCode);
+            var error = await conflict.Content.ReadFromJsonAsync<ApiErrorResponseDTO>(CourseTestClient.Json);
+            Assert.Equal(editWon ? "CourseStateConflictException" : "CourseVersionMismatchException", error!.Code);
             var persisted = await CourseTestClient.GetAsync(editor, course.Id);
             Assert.Equal(editWon ? "Borrador" : "EnRevision", persisted.Status);
             if (editWon)
@@ -191,9 +192,9 @@ public sealed class CourseConcurrencyIntegrationTests
             new GatedCourseRepository(new CourseRepository(provider.GetRequiredService<LumenDbContext>()), gate))
     };
 
-    private static Task<HttpResponseMessage> RequestAsync(HttpClient client, CourseResponseDTO course, string operation, string title) =>
+    private static Task<HttpResponseMessage> RequestAsync(HttpClient client, CourseResponseDTO course, string operation, string title, string tag) =>
         operation == "submit" ? client.PostAsync($"/api/courses/{course.Id}/submit-review", null)
-        : client.PutAsJsonAsync($"/api/courses/{course.Id}", CourseTestClient.Update(course) with { Title = title }, CourseTestClient.Json);
+        : CourseTestClient.SendEditAsync(client, course.Id, CourseTestClient.Update(course) with { Title = title }, tag);
 
     private static async Task<string> SnapshotAsync(LumenApiFactory factory, Guid courseId)
     {
@@ -244,6 +245,7 @@ public sealed class CourseConcurrencyIntegrationTests
 
     private sealed class GatedCourseRepository(ICourseRepository inner, CourseReadGate gate) : ICourseRepository
     {
+        public Task<CourseReview?> GetReviewByIdAsync(Guid id, CancellationToken ct = default) => inner.GetReviewByIdAsync(id, ct);
         public async Task<Course?> GetByIdForUpdateAsync(Guid id, CancellationToken ct = default) =>
             await gate.AfterReadAsync(await inner.GetByIdForUpdateAsync(id, ct), ct);
         public async Task<CourseReview?> GetReviewByIdForUpdateAsync(Guid id, CancellationToken ct = default) =>
@@ -254,12 +256,12 @@ public sealed class CourseConcurrencyIntegrationTests
         public Task SaveAsync(CancellationToken ct = default) => inner.SaveAsync(ct);
         public Task<Course?> GetByIdAsync(Guid id, CancellationToken ct = default) => inner.GetByIdAsync(id, ct);
         public Task<Course?> GetPublishedByIdAsync(Guid id, CancellationToken ct = default) => inner.GetPublishedByIdAsync(id, ct);
-        public Task<IReadOnlyList<Course>> GetPublishedAsync(CancellationToken ct = default, CoursePage? page = null) => inner.GetPublishedAsync(ct, page);
-        public Task<IReadOnlyList<Course>> GetByOwnerAsync(Guid id, CancellationToken ct = default, CoursePage? page = null) => inner.GetByOwnerAsync(id, ct, page);
-        public Task<IReadOnlyList<Course>> GetAllAsync(CancellationToken ct = default, CoursePage? page = null) => inner.GetAllAsync(ct, page);
+        public Task<IReadOnlyList<Course>> GetPublishedAsync(CancellationToken ct = default, ListPage? page = null) => inner.GetPublishedAsync(ct, page);
+        public Task<IReadOnlyList<Course>> GetByOwnerAsync(Guid id, CancellationToken ct = default, ListPage? page = null) => inner.GetByOwnerAsync(id, ct, page);
+        public Task<IReadOnlyList<Course>> GetAllAsync(CancellationToken ct = default, ListPage? page = null) => inner.GetAllAsync(ct, page);
         public Task<CourseReview> CreateReviewAsync(CourseReview review, CancellationToken ct = default) => inner.CreateReviewAsync(review, ct);
-        public Task<IReadOnlyList<CourseReview>> GetPendingReviewsAsync(CancellationToken ct = default) => inner.GetPendingReviewsAsync(ct);
-        public Task<IReadOnlyList<CourseReview>> GetReviewsByRequesterAsync(Guid id, CancellationToken ct = default) => inner.GetReviewsByRequesterAsync(id, ct);
+        public Task<IReadOnlyList<CourseReview>> GetPendingReviewsAsync(CancellationToken ct = default, ListPage? page = null) => inner.GetPendingReviewsAsync(ct, page);
+        public Task<IReadOnlyList<CourseReview>> GetReviewsByRequesterAsync(Guid id, CancellationToken ct = default, ListPage? page = null) => inner.GetReviewsByRequesterAsync(id, ct, page);
     }
 }
 

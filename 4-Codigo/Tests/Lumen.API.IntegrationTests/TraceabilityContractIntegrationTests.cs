@@ -22,16 +22,23 @@ public sealed class TraceabilityContractIntegrationTests
         var tag = original.Headers.ETag!.ToString();
         var update = CourseTestClient.Update(course);
 
-        async Task<HttpResponseMessage> SendAsync(string title, string condition)
+        async Task<HttpResponseMessage> SendAsync(string title, string? condition)
         {
             using var request = new HttpRequestMessage(HttpMethod.Put, path)
             {
                 Content = JsonContent.Create(update with { Title = title }, options: Json)
             };
-            request.Headers.TryAddWithoutValidation("If-Match", condition);
+            if (condition is not null) request.Headers.TryAddWithoutValidation("If-Match", condition);
             return await teacher.SendAsync(request);
         }
 
+        foreach (var missingVersion in new[] { null, "*" })
+        {
+            using var rejected = await SendAsync("Edición incondicional", missingVersion);
+            Assert.Equal(HttpStatusCode.PreconditionRequired, rejected.StatusCode);
+            Assert.True(rejected.Headers.CacheControl!.NoStore);
+        }
+        Assert.Equal(course.Title, (await CourseTestClient.GetAsync(teacher, course.Id)).Title);
         using var saved = await SendAsync("Primera edición", tag);
         Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
         Assert.NotEqual(tag, saved.Headers.ETag!.ToString());

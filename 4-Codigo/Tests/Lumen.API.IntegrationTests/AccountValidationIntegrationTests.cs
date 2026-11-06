@@ -19,6 +19,8 @@ public sealed class AccountValidationIntegrationTests
     [InlineData("email", "Name <valid@example.test>")]
     [InlineData("firstName", " ")]
     [InlineData("firstName", "over-limit")]
+    [InlineData("dni", "AB\n123")]
+    [InlineData("phone", "+54\u000011")]
     public async Task PublicRegistrationRejectsInvalidInputWithoutCreatingUser(string field, string? value)
     {
         using var factory = new LumenApiFactory();
@@ -41,12 +43,16 @@ public sealed class AccountValidationIntegrationTests
         using var client = factory.CreateClient();
         var payload = Registration();
         payload["firstName"] = $" {new string('A', UserFieldLimits.Name)} ";
+        payload["dni"] = "AB-123";
+        payload["phone"] = "+54 (11) 1234-5678";
         using var response = await client.PostAsJsonAsync("/api/auth/register", payload, Json);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.Null(response.Headers.Location);
         var result = await response.Content.ReadFromJsonAsync<UserResponseDTO>(Json);
         Assert.Equal(UserFieldLimits.Name, result!.FirstName.Length);
         Assert.Equal(UserRole.Profesor, result.Role);
+        Assert.Equal("AB-123", result.Dni);
+        Assert.Equal("+54 (11) 1234-5678", result.Phone);
     }
 
     [Fact]

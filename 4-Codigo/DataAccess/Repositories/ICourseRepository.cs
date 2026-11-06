@@ -12,12 +12,13 @@ public interface ICourseRepository
     Task<Course?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<Course?> GetByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default);
     Task<Course?> GetPublishedByIdAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<Course>> GetPublishedAsync(CancellationToken cancellationToken = default, CoursePage? page = null);
-    Task<IReadOnlyList<Course>> GetByOwnerAsync(Guid ownerId, CancellationToken cancellationToken = default, CoursePage? page = null);
-    Task<IReadOnlyList<Course>> GetAllAsync(CancellationToken cancellationToken = default, CoursePage? page = null);
+    Task<IReadOnlyList<Course>> GetPublishedAsync(CancellationToken cancellationToken = default, ListPage? page = null);
+    Task<IReadOnlyList<Course>> GetByOwnerAsync(Guid ownerId, CancellationToken cancellationToken = default, ListPage? page = null);
+    Task<IReadOnlyList<Course>> GetAllAsync(CancellationToken cancellationToken = default, ListPage? page = null);
     Task<CourseReview> CreateReviewAsync(CourseReview review, CancellationToken cancellationToken = default);
+    Task<CourseReview?> GetReviewByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<CourseReview?> GetReviewByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<CourseReview>> GetPendingReviewsAsync(CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<CourseReview>> GetReviewsByRequesterAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<CourseReview>> GetPendingReviewsAsync(CancellationToken cancellationToken = default, ListPage? page = null);
+    Task<IReadOnlyList<CourseReview>> GetReviewsByRequesterAsync(Guid userId, CancellationToken cancellationToken = default, ListPage? page = null);
 }
 

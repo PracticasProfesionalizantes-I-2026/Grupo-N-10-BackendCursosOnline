@@ -59,19 +59,19 @@ public sealed class EnrollmentService(
         }
     }
 
-    public async Task<IReadOnlyList<EnrollmentResponseDTO>> GetMineAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<EnrollmentResponseDTO>> GetMineAsync(CancellationToken cancellationToken = default, ListPage? page = null)
     {
         ServiceGuard.Role(currentUser, UserRole.Alumno);
-        var enrollments = await enrollmentRepository.GetByStudentAsync(currentUser.UserId, cancellationToken);
+        var enrollments = await enrollmentRepository.GetByStudentAsync(currentUser.UserId, cancellationToken, page);
         return enrollments.Select(MapToResponseDTO).ToList();
     }
 
     public async Task<IReadOnlyList<EnrollmentResponseDTO>> GetAllAsync(
         EnrollmentStatus? status,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, ListPage? page = null)
     {
         ServiceGuard.Role(currentUser, UserRole.Administrador);
-        var enrollments = await enrollmentRepository.GetAllAsync(status, cancellationToken);
+        var enrollments = await enrollmentRepository.GetAllAsync(status, cancellationToken, page);
         return enrollments.Select(MapToResponseDTO).ToList();
     }
 
@@ -165,8 +165,8 @@ public sealed class EnrollmentService(
 
     private static EnrollmentResponseDTO MapToResponseDTO(Enrollment enrollment)
     {
-        var title = enrollment.Course.PublishedRevision?.Title
-            ?? enrollment.Course.WorkingRevision?.Title
+        var title = CourseService.OwnRevision(enrollment.Course, enrollment.Course.PublishedRevision)?.Title
+            ?? CourseService.OwnRevision(enrollment.Course, enrollment.Course.WorkingRevision)?.Title
             ?? string.Empty;
         return new EnrollmentResponseDTO(
             enrollment.Id, enrollment.StudentId, enrollment.CourseId, title, enrollment.Status,

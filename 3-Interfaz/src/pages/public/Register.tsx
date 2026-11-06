@@ -58,7 +58,9 @@ export function Register() {
       ;(['firstName', 'lastName', 'dni', 'phone', 'address', 'postalCode'] as const).forEach((field) => {
         if (!form[field].trim()) next[field] = 'Este campo es obligatorio.'
       })
-      if (form.dni && !/^\d{7,9}$/.test(form.dni.replace(/\D/g, ''))) next.dni = 'Ingresá un DNI válido.'
+      for (const field of ['dni', 'phone'] as const) {
+        if (/\p{Cc}/u.test(form[field].trim())) next[field] = 'El valor contiene caracteres de control.'
+      }
     }
     setErrors(next)
     return Object.keys(next).length === 0

@@ -127,35 +127,37 @@ public sealed class CourseRepository(LumenDbContext context) : ICourseRepository
     }
 
     public Task<Course?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
-        ReadGraph().Include(x => x.PublishedRevision).ThenInclude(x => x!.Modules)
-            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        ReadGraph().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-    public Task<Course?> GetByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default) =>
-        TrackedGraph().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+    public async Task<Course?> GetByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var course = await TrackedGraph().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (course?.PublishedRevision is { } published && published.Id != course.WorkingRevisionId)
+        {
+            // A published revision's modules are immutable. Load that exact ID separately
+            // to avoid multiplying the working and published module rows in the main query.
+            await context.Entry(published).Collection(x => x.Modules).LoadAsync(cancellationToken);
+        }
+        return course;
+    }
 
     public Task<Course?> GetPublishedByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         PublishedGraph().SingleOrDefaultAsync(
             x => x.Id == id && x.PublishedRevisionId != null && x.OperationalStatus == CourseOperationalStatus.Activo,
             cancellationToken);
 
-    public async Task<IReadOnlyList<Course>> GetPublishedAsync(CancellationToken cancellationToken = default, CoursePage? page = null) =>
-        await ApplyPage(PublishedGraph()
+    public async Task<IReadOnlyList<Course>> GetPublishedAsync(CancellationToken cancellationToken = default, ListPage? page = null) =>
+        await PublishedGraph()
             .Where(x => x.PublishedRevisionId != null && x.OperationalStatus == CourseOperationalStatus.Activo)
-            .OrderByDescending(x => x.PublishedRevision!.PublishedAtUtc), page)
+            .OrderByDescending(x => x.PublishedRevision!.PublishedAtUtc).ThenBy(x => x.Id).WithPage(page)
             .ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<Course>> GetByOwnerAsync(Guid ownerId, CancellationToken cancellationToken = default, CoursePage? page = null) =>
-        await ApplyPage(ReadGraph().Where(x => x.OwnerProfessorId == ownerId).OrderByDescending(x => x.UpdatedAtUtc), page)
+    public async Task<IReadOnlyList<Course>> GetByOwnerAsync(Guid ownerId, CancellationToken cancellationToken = default, ListPage? page = null) =>
+        await ReadGraph().Where(x => x.OwnerProfessorId == ownerId).OrderByDescending(x => x.UpdatedAtUtc).ThenBy(x => x.Id).WithPage(page)
             .ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<Course>> GetAllAsync(CancellationToken cancellationToken = default, CoursePage? page = null) =>
-        await ApplyPage(ReadGraph().OrderByDescending(x => x.UpdatedAtUtc), page).ToListAsync(cancellationToken);
-
-    private static IQueryable<Course> ApplyPage(IOrderedQueryable<Course> courses, CoursePage? page)
-    {
-        var ordered = courses.ThenBy(x => x.Id);
-        return page is null ? ordered : ordered.Skip(page.Offset).Take(page.Limit);
-    }
+    public async Task<IReadOnlyList<Course>> GetAllAsync(CancellationToken cancellationToken = default, ListPage? page = null) =>
+        await ReadGraph().OrderByDescending(x => x.UpdatedAtUtc).ThenBy(x => x.Id).WithPage(page).ToListAsync(cancellationToken);
 
     public async Task<CourseReview> CreateReviewAsync(CourseReview review, CancellationToken cancellationToken = default)
     {
@@ -165,39 +167,46 @@ public sealed class CourseRepository(LumenDbContext context) : ICourseRepository
         return review;
     }
 
+    public Task<CourseReview?> GetReviewByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        context.CourseReviews.AsNoTracking().Include(x => x.CourseRevision).Include(x => x.Snapshot)
+            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+
     public Task<CourseReview?> GetReviewByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default) =>
         context.CourseReviews
             .Include(x => x.CourseRevision).ThenInclude(x => x.Modules)
             .Include(x => x.CourseRevision).ThenInclude(x => x.Course)
             .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-    public async Task<IReadOnlyList<CourseReview>> GetPendingReviewsAsync(CancellationToken cancellationToken = default) =>
+    public async Task<IReadOnlyList<CourseReview>> GetPendingReviewsAsync(CancellationToken cancellationToken = default, ListPage? page = null) =>
         await context.CourseReviews.AsNoTracking()
             .Include(x => x.CourseRevision).ThenInclude(x => x.Course)
             .Where(x => x.Decision == null && x.CourseRevision.Status == CourseRevisionStatus.EnRevision &&
                 x.CourseRevision.Course.WorkingRevisionId == x.CourseRevisionId)
-            .OrderBy(x => x.RequestedAtUtc)
+            .OrderBy(x => x.RequestedAtUtc).ThenBy(x => x.Id).WithPage(page)
             .ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<CourseReview>> GetReviewsByRequesterAsync(Guid userId, CancellationToken cancellationToken = default) =>
+    public async Task<IReadOnlyList<CourseReview>> GetReviewsByRequesterAsync(Guid userId, CancellationToken cancellationToken = default, ListPage? page = null) =>
         await context.CourseReviews.AsNoTracking()
             .Include(x => x.CourseRevision).ThenInclude(x => x.Course)
             .Where(x => x.RequestedByUserId == userId)
-            .OrderByDescending(x => x.RequestedAtUtc)
+            .OrderByDescending(x => x.RequestedAtUtc).ThenBy(x => x.Id).WithPage(page)
             .ToListAsync(cancellationToken);
 
     private IQueryable<Course> ReadGraph() =>
         context.Courses.AsNoTracking()
+            .Where(x => x.WorkingRevision == null || x.WorkingRevision.CourseId == x.Id)
             .Include(x => x.WorkingRevision).ThenInclude(x => x!.Modules)
             .Include(x => x.PublishedRevision);
 
     private IQueryable<Course> TrackedGraph() =>
         context.Courses
+            .Where(x => x.WorkingRevision == null || x.WorkingRevision.CourseId == x.Id)
             .Include(x => x.WorkingRevision).ThenInclude(x => x!.Modules)
-            .Include(x => x.PublishedRevision).ThenInclude(x => x!.Modules);
+            .Include(x => x.PublishedRevision);
 
     private IQueryable<Course> PublishedGraph() =>
         context.Courses.AsNoTracking()
+            .Where(x => x.PublishedRevision != null && x.PublishedRevision.CourseId == x.Id)
             .Include(x => x.PublishedRevision).ThenInclude(x => x!.Modules);
 
     private static void AssignModuleIds(CourseRevision revision)

@@ -42,7 +42,7 @@ Permite que un Profesor o Administrador prepare un curso, lo guarde como borrado
 5. Para cada módulo, completa nombre, descripción y duración y agrega el contenido o recursos previstos. **Reglas aplicables:** **RN-15**.
 6. El sistema calcula la duración total como suma de las duraciones de los módulos. **Reglas aplicables:** **RN-05**.
 7. El Profesor o Administrador selecciona "Enviar a revisión".
-8. El sistema valida la información obligatoria y la existencia de al menos un módulo. **Reglas aplicables:** **RN-04**.
+8. El sistema valida la información obligatoria y la existencia de al menos un módulo. **Reglas aplicables:** **RN-04**. Si el cuerpo de creación supera el límite de transporte, la API responde HTTP 413 y no crea el borrador.
 9. El sistema cambia el curso a EN REVISIÓN y registra la solicitud de auditoría. **Reglas aplicables:** **RN-06**. En la API el guardado crea primero un BORRADOR con POST /api/courses y responde 201. El envío posterior mediante POST /api/courses/{id}/submit-review responde 200 y genera la auditoría. Si el envío falla, la creación ya confirmada se conserva como borrador. El prototipo representa el alta como Profesor. El alta administrativa está disponible en la API.
 10. El sistema informa que el curso fue enviado a revisión.
 
@@ -85,6 +85,7 @@ Permite que un Profesor o Administrador prepare un curso, lo guarde como borrado
 | `201` | Created | Creación del borrador, incluido A1. |
 | `400` | Bad Request | A2: Curso sin módulos; A3: Información obligatoria incompleta. |
 | `200` | OK | Envío del borrador a revisión. |
+| `413` | Content Too Large | Cuerpo mayor que el límite de transporte de la API. |
 
 ### Nota: Validación vs. Verificación aplicada
 

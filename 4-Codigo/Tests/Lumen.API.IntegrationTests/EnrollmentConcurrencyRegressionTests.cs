@@ -111,7 +111,8 @@ public sealed class EnrollmentConcurrencyRegressionTests(ITestOutputHelper outpu
             course.Modality, course.MaxCapacity, course.LearningObjectives, course.SuggestedPrerequisites,
             course.Modules.Where(x => x.Id != removedModule).Select(x => new CourseModuleUpdateDTO(
                 x.Id, x.Name, x.Description, x.DurationMinutes, x.Content!, x.Resources)).ToList());
-        using var edited = await teacher.PutAsJsonAsync($"/api/courses/{scenario.CourseId}", update, Json);
+        using var edited = await CourseTestClient.SendEditAsync(teacher, scenario.CourseId, update,
+            await CourseTestClient.ReadTagAsync(teacher, scenario.CourseId));
         Assert.Equal(HttpStatusCode.OK, edited.StatusCode);
         using var submitted = await teacher.PostAsync($"/api/courses/{scenario.CourseId}/submit-review", null);
         Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);

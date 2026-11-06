@@ -1,3 +1,4 @@
+using Lumen.API.Http;
 using Lumen.BusinessLogic.Interfaces;
 using Lumen.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
@@ -12,8 +13,9 @@ public sealed class UsersController(IUserService service) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<UserResponseDTO>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAll(CancellationToken cancellationToken) =>
-        Ok(await service.GetAllAsync(cancellationToken));
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetAll(int? limit, int? offset, CancellationToken cancellationToken) =>
+        Ok(await service.GetAllAsync(cancellationToken, ListPaging.Read(limit, offset)));
 
     [HttpGet("{id:guid}")]
     [ProducesResponseType<UserResponseDTO>(StatusCodes.Status200OK)]

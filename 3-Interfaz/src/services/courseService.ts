@@ -1,5 +1,5 @@
-import type { AppState, Course, Enrollment, EnrollmentStatus, ProgressRecord } from '@/types'
-import { courseVersion, progressStatus, publishedCourseView } from '../utils/format.ts'
+import type { AppState, Course, Enrollment, EnrollmentStatus, Module, ProgressRecord } from '@/types'
+import { courseVersion, progressStatus, publishedCourseView, uid } from '../utils/format.ts'
 
 export const getOperationalStatus = (course: Course) =>
   course.operationalStatus ??
@@ -14,6 +14,25 @@ export const canEditWorkingCourse = (course: Course) =>
   getOperationalStatus(course) !== 'FINALIZADO' &&
   (course.status === 'BORRADOR' || course.status === 'PUBLICADO' ||
     course.status === 'CAMBIOS SOLICITADOS' || course.status === 'PAUSADO')
+
+export const canRecoverWorkingDraft = (course: Course) =>
+  course.status === 'RECHAZADO' && getOperationalStatus(course) !== 'FINALIZADO'
+
+export const recoverWorkingDraft = (course: Course, date: string): Course | undefined =>
+  canRecoverWorkingDraft(course)
+    ? { ...course, ...structuredClone(courseVersion(course)), status: 'BORRADOR', updatedAt: date }
+    : undefined
+
+export const identifyWorkingModules = (course: Course, modules: Module[]) => {
+  const published = new Map(getPublication(course)?.modules.map((module) => [module.id, module]))
+  return modules.map((module) => {
+    const previous = published.get(module.id)
+    if (!previous || (module.name === previous.name && module.description === previous.description &&
+      module.durationHours === previous.durationHours && module.resources.length === previous.resources.length &&
+      module.resources.every((resource, index) => resource === previous.resources[index]))) return module
+    return { ...module, id: uid('module') }
+  })
+}
 
 export const getPublication = (course?: Course): Course | undefined => {
   if (!course) return undefined

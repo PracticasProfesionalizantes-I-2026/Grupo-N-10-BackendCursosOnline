@@ -265,7 +265,9 @@ public sealed class EnrollmentCreationIntegrationTests
         var update = new CourseUpdateDTO("Cambios sin aprobar", course.Description, course.Category, course.Level,
             course.Modality, course.MaxCapacity, course.LearningObjectives, course.SuggestedPrerequisites,
             course.Modules.Select(x => new CourseModuleUpdateDTO(x.Id, x.Name, x.Description, x.DurationMinutes, x.Content!, x.Resources)).ToList());
-        Assert.Equal(HttpStatusCode.OK, (await teacher.PutAsJsonAsync($"/api/courses/{course.Id}", update, JsonOptions)).StatusCode);
+        using var edited = await CourseTestClient.SendEditAsync(teacher, course.Id, update,
+            await CourseTestClient.ReadTagAsync(teacher, course.Id));
+        Assert.Equal(HttpStatusCode.OK, edited.StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await teacher.PostAsync($"/api/courses/{course.Id}/submit-review", null)).StatusCode);
         using var student = factory.CreateClient();
         await RegisterStudentAsync(student);

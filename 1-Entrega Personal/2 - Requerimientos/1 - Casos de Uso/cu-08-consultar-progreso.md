@@ -38,7 +38,7 @@ Permite consultar el avance de un Alumno en un curso mediante porcentaje y estad
 
 1. El Alumno accede a sus cursos, el Profesor al seguimiento de alumnos de sus cursos y el Administrador a la consulta de progreso desde su gestión general.
 2. El usuario selecciona el curso o Alumno correspondiente. El sistema verifica que el Alumno consulte su propio progreso y que el Profesor consulte únicamente alumnos de cursos propios. **Reglas aplicables:** **RN-14**.
-3. El sistema consulta el avance registrado al realizar módulos o actividades del curso (CU-16); esta consulta no modifica el progreso. El progreso se calcula para la inscripción aprobada a partir de los módulos de la publicación vigente. Una inscripción nueva tiene su propio avance y no reutiliza el de una cancelada. La consulta administrativa global está disponible en la API.
+3. El sistema consulta el avance registrado al realizar módulos o actividades del curso (CU-16); esta consulta no modifica el progreso. El progreso se calcula para la inscripción aprobada a partir de los módulos de la publicación vigente. Una inscripción nueva tiene su propio avance y no reutiliza el de una cancelada. Al republicar, solo los módulos sin cambios conservan sus completados. Cambiar el orden no reinicia el avance. Un módulo nuevo o modificado empieza pendiente y los completados de módulos retirados quedan en el historial. La API permite paginar el listado de avance de inscripciones aprobadas.
 4. El sistema muestra el porcentaje de avance.
 5. El sistema muestra el estado asociado: 0 % NO INICIADO, 1-99 % EN PROGRESO o 100 % COMPLETADO. **Reglas aplicables:** **RN-13**.
 
@@ -75,18 +75,21 @@ Permite consultar el avance de un Alumno en un curso mediante porcentaje y estad
 | `200` | OK | resultado satisfactorio de Consultar Progreso. |
 | `409` | Conflict | A1: Sin inscripción aprobada. |
 | `403` | Forbidden | A2: Profesor intenta consultar un curso ajeno; A3: Alumno intenta consultar progreso ajeno. |
+| `400` | Bad Request | Parámetros de paginación inválidos. |
 
 ### Nota: Validación vs. Verificación aplicada
 
 - **Validación (Presentación):** controla formato, presencia y estructura de los datos de entrada; los errores detectables en esta capa se representan con `400 Bad Request`.
 - **Verificación (Negocio):** controla permisos, estados y reglas RN aplicables; los rechazos se representan con `403 Forbidden` o `409 Conflict`, según corresponda.
 
+La paginación de la API es optativa. Acepta limit de 1 a 100 y offset desde cero con limit. Sin parámetros mantiene el arreglo completo.
+
 ### Evidencia ejecutable de CU-08
 
 | Fuente | Recorrido o contrato |
 |---|---|
 | API | `GET /api/enrollments/{id}/progress; GET /api/courses/{id}/students/progress` |
-| Pruebas automatizadas | ProgressServiceTests; ProgressIntegrationTests; demo.test.mjs |
+| Pruebas automatizadas | CourseReviewHistoryIntegrationTests; PagingIntegrationTests; ProgressServiceTests; ProgressIntegrationTests; demo.test.mjs |
 | Bruno | Enrollments/08,10; Exposición/12,14,18–19 |
 
 200 calcula sin escribir; 403 por alcance y 409 por inscripción no aprobada. La vista global Admin está en la API.

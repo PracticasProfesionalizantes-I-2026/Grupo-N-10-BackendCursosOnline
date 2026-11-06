@@ -68,5 +68,24 @@ public sealed class AuthServiceTests
         await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
             service.LoginAsync(new LoginRequestDTO("a@b.com", "bad")));
     }
+
+    [Fact]
+    public async Task LoginAsync_ForMissingAccountVerifiesAPasswordHashAndNeverIssuesAToken()
+    {
+        var users = new Mock<IUserRepository>();
+        users.Setup(x => x.GetByEmailAsync("MISSING@EXAMPLE.TEST", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        var hasher = new Mock<IPasswordHasher<User>>();
+        hasher.Setup(x => x.VerifyHashedPassword(It.IsAny<User>(), It.IsAny<string>(), "synthetic"))
+            .Returns(PasswordVerificationResult.Success);
+        var tokens = new Mock<ITokenService>();
+        var service = new AuthService(users.Object, hasher.Object, tokens.Object);
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
+            service.LoginAsync(new LoginRequestDTO("missing@example.test", "synthetic")));
+
+        hasher.Verify(x => x.VerifyHashedPassword(It.IsAny<User>(), It.Is<string>(hash => hash.Length > 0), "synthetic"), Times.Once);
+        tokens.VerifyNoOtherCalls();
+    }
 }
 

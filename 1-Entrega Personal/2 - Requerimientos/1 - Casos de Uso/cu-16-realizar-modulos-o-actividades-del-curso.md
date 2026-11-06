@@ -38,8 +38,8 @@ Permite que el Alumno avance en un curso realizando sus módulos o actividades y
 1. El Alumno accede a un curso con inscripción APROBADA mediante CU-12. **Reglas aplicables:** **RN-11**.
 2. El sistema muestra los módulos o actividades y su contenido o recursos.
 3. El Alumno selecciona un módulo o actividad del curso. **Reglas aplicables:** **RN-15**.
-4. El sistema verifica que la inscripción propia continúe APROBADA y que el módulo o actividad pertenezca a ese curso. **Reglas aplicables:** **RN-11**, **RN-15**. La API registra únicamente módulos de la publicación vigente. Repetir la confirmación del mismo módulo conserva un solo registro y el mismo avance.
-5. El Alumno realiza el módulo o actividad. Al completarlo, el sistema refleja el avance correspondiente dentro de su progreso.
+4. El sistema verifica que la inscripción propia continúe APROBADA y que el módulo o actividad pertenezca a ese curso. **Reglas aplicables:** **RN-11**, **RN-15**. La API registra únicamente módulos de la publicación vigente. Repetir la confirmación del mismo módulo conserva un solo registro y el mismo avance. Si se republica, se conserva el avance de módulos idénticos, aunque se reordenen. Los cambios de contenido, nombre, descripción, duración o recursos generan otro identificador. Los completados anteriores se preservan en el historial.
+5. El Alumno realiza el módulo o actividad. Al completarlo, el sistema refleja el avance correspondiente dentro de su progreso. En el prototipo, el alumno puede volver a marcar el módulo como pendiente en sus datos locales. La API ofrece la finalización idempotente.
 6. El sistema actualiza el porcentaje asociado a los módulos o actividades completadas y el estado definido en RN-13. **Reglas aplicables:** **RN-13**.
 7. El Alumno consulta el avance resultante y puede continuar con el curso.
 
@@ -90,7 +90,7 @@ Permite que el Alumno avance en un curso realizando sus módulos o actividades y
 | Fuente | Recorrido o contrato |
 |---|---|
 | API | `PUT /api/enrollments/{id}/modules/{moduleId}/completion` |
-| Pruebas automatizadas | ModuleCompletionServiceTests; ModuleCompletionIntegrationTests; EnrollmentConcurrencyRegressionTests |
+| Pruebas automatizadas | CourseReviewHistoryIntegrationTests; ModuleCompletionServiceTests; ModuleCompletionIntegrationTests; EnrollmentConcurrencyRegressionTests |
 | Bruno | Enrollments/09; Exposición/13,15–17 |
 
 200 registra una vez; 403 por inscripción ajena y 409 por estado o módulo incorrecto. El prototipo representa avance local.

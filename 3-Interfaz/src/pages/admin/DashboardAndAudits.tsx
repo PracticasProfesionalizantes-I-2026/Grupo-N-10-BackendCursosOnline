@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import type { Audit, AuditDecision } from '@/types'
-import { CourseStatusBadge, EmptyState, MetricCard, Modal, PageHeader, SearchInput, StatusBadge } from '@/components/UI'
+import { EmptyState, MetricCard, Modal, PageHeader, SearchInput, StatusBadge } from '@/components/UI'
 import { useApp } from '@/hooks/useApp'
 import { formatDate, formatDuration, fullName } from '@/utils/format'
 
@@ -106,7 +106,8 @@ export function AdminAudits() {
       state.audits.filter((audit) => {
         const course = state.courses.find((item) => item.id === audit.courseId)
         const teacher = state.users.find((item) => item.id === audit.teacherId)
-        const text = (course?.title + ' ' + fullName(teacher)).toLowerCase()
+        const title = audit.submission?.title ?? (audit.status === 'PENDIENTE' ? course?.title : 'Envío histórico')
+        const text = ((title ?? '') + ' ' + fullName(teacher)).toLowerCase()
         return audit.status === tab && text.includes(query.toLowerCase())
       }),
     [query, state.audits, state.courses, state.users, tab],
@@ -150,8 +151,10 @@ export function AdminAudits() {
                 <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary"><ClipboardCheck size={22} /></span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="truncate text-lg font-bold text-foreground">{course?.title}</h2>
-                    {course && <CourseStatusBadge status={course.status} />}
+                    <h2 className="truncate text-lg font-bold text-foreground">
+                      {audit.submission?.title ?? (audit.status === 'PENDIENTE' ? course?.title : 'Envío histórico')}
+                    </h2>
+                    {audit.decision && <StatusBadge status={audit.decision} />}
                   </div>
                   <p className="mt-1 text-sm text-slate-500">Prof. {fullName(teacher)} · {audit.type} · {formatDate(audit.createdAt)}</p>
                 </div>
@@ -209,12 +212,13 @@ function AuditDetail({
 }) {
   const { state } = useApp()
   const course = state.courses.find((item) => item.id === audit?.courseId)
+  const submission = audit?.submission ?? (audit?.status === 'PENDIENTE' ? course : undefined)
   const teacher = state.users.find((item) => item.id === audit?.teacherId)
   return (
     <Modal
       open={Boolean(audit)}
       onClose={onClose}
-      title={course?.title ?? 'Detalle de auditoría'}
+      title={submission?.title ?? 'Detalle de auditoría'}
       description={audit ? audit.type + ' · Prof. ' + fullName(teacher) : undefined}
       size="lg"
       footer={
@@ -227,31 +231,40 @@ function AuditDetail({
         ) : <button className="btn-secondary" onClick={onClose}>Cerrar</button>
       }
     >
-      {audit && course && (
+      {audit && (
         <div className="space-y-5">
+          <p className="text-sm text-slate-500">{audit.decision ?? audit.status} · Enviado el {formatDate(audit.createdAt)}</p>
+          {audit.resolvedAt && <p className="text-sm text-slate-500">Resuelto el {formatDate(audit.resolvedAt)}</p>}
+          {!submission && <p>Este envío histórico no tiene una copia de su contenido.</p>}
+          {submission && <>
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl bg-background-secondary p-4"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Estado</p><div className="mt-2"><CourseStatusBadge status={course.status} /></div></div>
-            <div className="rounded-xl bg-background-secondary p-4"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Duración</p><p className="mt-2 font-bold text-foreground">{formatDuration(course.durationHours)}</p></div>
-            <div className="rounded-xl bg-background-secondary p-4"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Módulos</p><p className="mt-2 font-bold text-foreground">{course.modules.length}</p></div>
+            <div className="rounded-xl bg-background-secondary p-4"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Duración</p><p className="mt-2 font-bold text-foreground">{formatDuration(submission.durationHours)}</p></div>
+            <div className="rounded-xl bg-background-secondary p-4"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Módulos</p><p className="mt-2 font-bold text-foreground">{submission.modules.length}</p></div>
           </div>
           <div>
             <h3 className="font-bold text-foreground">Descripción</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{course.description || 'Sin descripción.'}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{submission.description || 'Sin descripción.'}</p>
           </div>
           <div>
             <h3 className="font-bold text-foreground">Módulos</h3>
             <div className="mt-3 space-y-2">
-              {course.modules.map((module, index) => (
+              {submission.modules.map((module, index) => (
                 <div key={module.id} className="rounded-xl border border-slate-200 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-bold text-slate-800">{index + 1}. {module.name}</p>
                     <span className="text-xs font-semibold text-slate-400">{formatDuration(module.durationHours)}</span>
                   </div>
                   <p className="mt-1 text-sm leading-6 text-slate-500">{module.description || 'Sin descripción.'}</p>
+                  {module.resources.length > 0 && (
+                    <ul className="mt-2 list-disc pl-5 text-sm text-slate-600">
+                      {module.resources.map((resource, resourceIndex) => <li key={resourceIndex}>{resource}</li>)}
+                    </ul>
+                  )}
                 </div>
               ))}
             </div>
           </div>
+          </>}
           {audit.observations && (
             <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-amber-300">
               <p className="font-bold">Observaciones</p>

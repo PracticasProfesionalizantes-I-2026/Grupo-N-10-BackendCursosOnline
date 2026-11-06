@@ -6,7 +6,7 @@ import { CourseCard } from '@/components/CourseCard'
 import { CourseForm } from '@/components/CourseForm'
 import { CourseStatusBadge, EmptyState, MetricCard, PageHeader, SearchInput } from '@/components/UI'
 import { useApp } from '@/hooks/useApp'
-import { canEditWorkingCourse, courseService, getCourseDisplayStatus } from '@/services/courseService'
+import { canEditWorkingCourse, canRecoverWorkingDraft, courseService, getCourseDisplayStatus } from '@/services/courseService'
 import { formatDate, formatDuration } from '@/utils/format'
 
 export function TeacherDashboard() {
@@ -163,7 +163,7 @@ export function TeacherCreateCourse() {
 }
 
 export function TeacherEditCourse() {
-  const { state, currentUser, updateCourse } = useApp()
+  const { state, currentUser, updateCourse, recoverCourse } = useApp()
   const { courseId } = useParams()
   const navigate = useNavigate()
   const course = state.courses.find((item) => item.id === courseId)
@@ -172,13 +172,16 @@ export function TeacherEditCourse() {
   if (!course || !currentUser || (!isAdmin && course.teacherId !== currentUser.id)) return <Navigate to={returnTo} replace />
   const displayStatus = getCourseDisplayStatus(course)
   const canEdit = canEditWorkingCourse(course)
+  const canRecover = canRecoverWorkingDraft(course)
 
   return (
     <>
       <PageHeader
         eyebrow="Edición de curso"
         title={course.title}
-        description={canEdit ? 'Editá el contenido y volvé a enviarlo para su revisión administrativa.' : 'El estado actual de la versión de trabajo no admite modificaciones.'}
+        description={canRecover ? 'Creá un nuevo borrador sin alterar el rechazo ni la publicación anterior.'
+          : canEdit ? 'Editá el contenido y volvé a enviarlo para su revisión administrativa.'
+            : 'El estado actual de la versión de trabajo no admite modificaciones.'}
         backTo={returnTo}
         actions={<CourseStatusBadge status={displayStatus} />}
       />
@@ -191,6 +194,12 @@ export function TeacherEditCourse() {
             <p className="mt-1 text-sm leading-6">{course.adminObservation}</p>
           </div>
         </div>
+      )}
+
+      {canRecover && (
+        <button className="btn-primary mb-6" onClick={() => {
+          if (recoverCourse(course.id)) toast.success('Se creó un nuevo borrador.')
+        }}>Crear borrador desde el rechazo</button>
       )}
 
       {course.publishedVersion && (

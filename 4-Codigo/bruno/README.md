@@ -1,6 +1,6 @@
 # Bruno — ejecución y exposición de LUMEN
 
-La colección contiene 54 requests. Incluye 19 de `00-Exposicion`, tres comprobaciones adicionales de reportes y una edición con ETag obsoleto. Los dos environments son `local` (API habitual, puerto 5080) y `demo-temporal` (API aislada, puerto 5081). Para este recorrido usar exclusivamente `demo-temporal`.
+La colección contiene 58 requests. Incluye 19 de `00-Exposicion` y recorridos generales, de edición condicional, reportes y recuperación. Los dos environments son `local` (API habitual, puerto 5080) y `demo-temporal` (API aislada, puerto 5081). Para estos recorridos usar exclusivamente `demo-temporal`.
 
 ## 1. Iniciar una API con SQLite temporal
 
@@ -127,7 +127,9 @@ Las 31 solicitudes de `Auth`, `Users`, `Courses`, `Catalog`, `Enrollments` y `Re
 | `Courses/08-finish` | Administrador autenticado; finalizar al terminar las comprobaciones |
 | `Enrollments/07-cancel` | Alumno titular; cancelar después de consultar/completar módulos |
 
-Para reproducir los 35 requests generales y de reportes sobre una base temporal nueva, seguir este orden. Auth 01–04 → Users 01–03 → Courses 01, 03, 02, 04, 12, 05, 09, 10, 11 → Catalog 01–02 → Enrollments 01, 02, 03, 04, 06, 05, 08, 09, 10 → Reports 01–04 → Courses 06, 07 → Enrollments 07 → Courses 08. Los números corresponden a los prefijos de archivo de cada carpeta.
+Para reproducir los 37 requests generales sobre una base temporal nueva, seguir este orden. Auth 01–04 → Users 01–03 → Courses 01, 03, 02, 04, 12, 13, 05, 09, 10, 11, 14 → Catalog 01–02 → Enrollments 01, 02, 03, 04, 06, 05, 08, 09, 10 → Reports 01–04 → Courses 06, 07 → Enrollments 07 → Courses 08. Los números corresponden a los prefijos de archivo de cada carpeta.
+
+Para el rechazo y la recuperación, usar otra base temporal. Auth 02, 03 → Courses 03, 05, 15, 02, 16, 14. La lectura 02 obtiene el ETag posterior al rechazo. La lectura 14 consulta la evidencia después de crear el borrador, para verificar que sigue asociada al envío anterior.
 
 Repetir registro/alta de Administrador en la misma base produce 409 por email existente; esto es una precondición del contrato, no se disimula aceptando errores como éxitos. Esas altas no forman parte de `00-Exposicion`, que sí puede repetirse íntegramente en la misma base temporal creando otro curso.
 
@@ -162,3 +164,5 @@ La ejecución se automatizó con un harness que leyó los `.bru` mediante el par
 Bruno CLI 4.3.0 aprobó 19 requests y 54 tests de exposición, y 33 requests y 65 tests generales y de reportes en una segunda instancia SQLite temporal. Después de precisar las aserciones del resumen con datos de la semilla, una ejecución independiente del login y los tres reportes aprobó 4 requests y 6 tests. La verificación final de backend aprobó 367 pruebas .NET (101 unitarias y 266 de integración). Los comandos y requisitos están en su [guía](../README.md).
 
 En la segunda etapa, el mismo CLI aprobó 19 requests y 54 tests de exposición, y 35 requests y 69 tests generales en una segunda instancia temporal. La corrida incluye HTTP 412 con una etiqueta obsoleta y la conversión UTC de un reporte por fecha civil.
+
+En la cuarta ronda se aprobaron 19 requests y 54 tests de exposición, 37 requests y 71 tests generales, y 8 requests y 14 tests de recuperación en tres instancias temporales. Se cubrieron 58 requests distintos, con pasos reutilizados en el recorrido de recuperación. La regresión de HTTP 413 se ejecuta en la suite de integración con Kestrel.

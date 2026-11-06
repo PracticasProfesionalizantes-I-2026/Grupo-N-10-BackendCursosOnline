@@ -51,8 +51,7 @@ public sealed class ProgressService(
             throw new EnrollmentOwnershipException();
         }
         EnsureApproved(enrollment);
-        var published = enrollment.Course.PublishedRevision
-            ?? throw new CourseStateConflictException("El curso no posee una versión publicada.");
+        var published = CourseService.RequireOwnPublication(enrollment.Course);
         if (!published.Modules.Any(x => x.Id == moduleId))
         {
             throw new ModuleCourseMismatchException();
@@ -61,7 +60,7 @@ public sealed class ProgressService(
 
     public async Task<IReadOnlyList<StudentProgressResponseDTO>> GetCourseProgressAsync(
         Guid courseId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, ListPage? page = null)
     {
         ServiceGuard.Role(currentUser, UserRole.Profesor, UserRole.Administrador);
         var course = await courseRepository.GetByIdAsync(courseId, cancellationToken)
@@ -70,9 +69,8 @@ public sealed class ProgressService(
         {
             throw new CourseOwnershipException();
         }
-        var enrollments = await enrollmentRepository.GetByCourseAsync(courseId, cancellationToken);
+        var enrollments = await enrollmentRepository.GetApprovedByCourseAsync(courseId, cancellationToken, page);
         return enrollments
-            .Where(x => x.Status == EnrollmentStatus.Aprobada)
             .Select(x => new StudentProgressResponseDTO(
                 x.StudentId,
                 $"{x.Student.FirstName} {x.Student.LastName}",
@@ -106,8 +104,7 @@ public sealed class ProgressService(
 
     private static ProgressResponseDTO MapToResponseDTO(Enrollment enrollment)
     {
-        var published = enrollment.Course.PublishedRevision
-            ?? throw new CourseStateConflictException("El curso no posee una versión publicada.");
+        var published = CourseService.RequireOwnPublication(enrollment.Course);
         var validModuleIds = published.Modules.Select(x => x.Id).ToHashSet();
         var completedIds = enrollment.ModuleCompletions
             .Select(x => x.ModuleId)

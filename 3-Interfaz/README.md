@@ -20,6 +20,8 @@ El catálogo conserva la versión aprobada durante una auditoría y oculta curso
 
 La edición administrativa y la del profesor usan el mismo formulario de versión de trabajo. Enviar una edición genera una auditoría y conserva la publicación anterior. Los reportes usan fechas civiles en la zona del navegador. La API ofrece por separado un parámetro de zona para obtener el mismo intervalo de fechas.
 
+En el prototipo se puede copiar una revisión rechazada a un borrador y consultar la copia local de cada envío nuevo desde Auditorías. Los completados solo se trasladan a módulos sin cambios al republicar. Las condiciones HTTP de edición y paginación corresponden a la API.
+
 ## Usuarios demo
 
 | Rol | Email | Contraseña |

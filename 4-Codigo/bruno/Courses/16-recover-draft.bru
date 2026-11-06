@@ -1,0 +1,31 @@
+meta {
+  name: Crear un borrador a partir de una revisión rechazada
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/courses/{{courseId}}/recover-draft
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{teacherToken}}
+}
+
+headers {
+  If-Match: {{courseEditTag}}
+}
+
+tests {
+  test("La recuperación crea otra versión con una etiqueta nueva", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.id).to.equal(bru.getVar("courseId"));
+    expect(body.workingStatus).to.equal("Borrador");
+    expect(body.workingVersion).to.equal(bru.getVar("rejectedVersion") + 1);
+    expect(body.publishedVersion).to.equal(null);
+    expect(res.getHeader("etag")).not.to.equal(bru.getVar("courseEditTag"));
+  });
+}

@@ -1,0 +1,28 @@
+meta {
+  name: Consultar el contenido enviado a auditoría
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/course-reviews/{{reviewId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test("La evidencia identifica el envío y su revisión", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.review.id).to.equal(bru.getVar("reviewId"));
+    expect(body.review.revisionId).to.equal(bru.getVar("reviewRevisionId"));
+    expect(body.submission.id).to.equal(bru.getVar("courseId"));
+    expect(body.submission.workingVersion).to.equal(body.review.version);
+    expect(body.submission.workingStatus).to.equal("EnRevision");
+    expect(body.submission.modules.length).to.be.above(0);
+  });
+}

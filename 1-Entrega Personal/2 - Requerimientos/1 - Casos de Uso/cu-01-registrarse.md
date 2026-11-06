@@ -40,7 +40,7 @@ Permite que una persona cree una cuenta pública como Alumno o Profesor, registr
 3. El usuario ingresa email y contraseña.
 4. El sistema valida que el email no se encuentre registrado y que los campos obligatorios estén completos.
 5. El usuario completa Nombre, Apellido, DNI, Teléfono, Dirección y Código Postal. **Reglas aplicables:** **RN-02**.
-6. El sistema valida la información personal. La API comprueba formato de email, campos obligatorios y longitudes definidas por el modelo. **Reglas aplicables:** **RN-02**. El alta exige los datos personales y el rol permitido. El correo mal formado, un campo obligatorio incompleto o una longitud superior al modelo dan HTTP 400. Si el correo ya existe, la API devuelve 409. El alta exitosa devuelve 201 con los datos de la cuenta. El prototipo conserva un derivado local de la contraseña para iniciar sesión.
+6. El sistema valida la información personal. La API comprueba formato de email, campos obligatorios y longitudes definidas por el modelo. **Reglas aplicables:** **RN-02**. El alta exige los datos personales y el rol permitido. DNI y teléfono con caracteres de control internos reciben HTTP 400. Se admiten letras, signos y formatos internacionales. El correo mal formado, un campo obligatorio incompleto o una longitud superior al modelo dan HTTP 400. Si el correo ya existe, la API devuelve 409. El alta exitosa devuelve 201 con los datos de la cuenta. El prototipo conserva un derivado local de la contraseña para iniciar sesión. Si el cuerpo del alta supera el límite de transporte, la API responde HTTP 413 y no crea la cuenta.
 7. El sistema muestra una revisión de los datos ingresados.
 8. El usuario confirma el registro.
 9. El sistema registra la cuenta y muestra una confirmación.
@@ -77,6 +77,7 @@ Permite que una persona cree una cuenta pública como Alumno o Profesor, registr
 | `201` | Created | resultado satisfactorio de Registrarse. |
 | `409` | Conflict | A1: Email ya registrado. |
 | `400` | Bad Request | A2: Información obligatoria incompleta. |
+| `413` | Content Too Large | Cuerpo mayor que el límite de transporte de la API. |
 
 ### Nota: Validación vs. Verificación aplicada
 

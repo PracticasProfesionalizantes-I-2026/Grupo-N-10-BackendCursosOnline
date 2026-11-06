@@ -191,9 +191,9 @@ public sealed class EnrollmentResolutionConcurrencyIntegrationTests
             await gate.AfterReadAsync(await inner.GetByIdAsync(id, ct), ct);
         public async Task<Enrollment?> GetByIdForUpdateAsync(Guid id, CancellationToken ct = default) =>
             await gate.AfterReadAsync(await inner.GetByIdForUpdateAsync(id, ct), ct);
-        public Task<IReadOnlyList<Enrollment>> GetByStudentAsync(Guid id, CancellationToken ct = default) => inner.GetByStudentAsync(id, ct);
-        public Task<IReadOnlyList<Enrollment>> GetByCourseAsync(Guid id, CancellationToken ct = default) => inner.GetByCourseAsync(id, ct);
-        public Task<IReadOnlyList<Enrollment>> GetAllAsync(EnrollmentStatus? status, CancellationToken ct = default) => inner.GetAllAsync(status, ct);
+        public Task<IReadOnlyList<Enrollment>> GetByStudentAsync(Guid id, CancellationToken ct = default, ListPage? page = null) => inner.GetByStudentAsync(id, ct, page);
+        public Task<IReadOnlyList<Enrollment>> GetApprovedByCourseAsync(Guid id, CancellationToken ct = default, ListPage? page = null) => inner.GetApprovedByCourseAsync(id, ct, page);
+        public Task<IReadOnlyList<Enrollment>> GetAllAsync(EnrollmentStatus? status, CancellationToken ct = default, ListPage? page = null) => inner.GetAllAsync(status, ct, page);
         public Task<bool> HasPendingOrApprovedAsync(Guid studentId, Guid courseId, CancellationToken ct = default) =>
             inner.HasPendingOrApprovedAsync(studentId, courseId, ct);
     }

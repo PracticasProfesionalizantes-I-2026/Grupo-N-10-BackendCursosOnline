@@ -37,7 +37,7 @@ Permite que un usuario registrado acceda al sistema y sea dirigido al panel corr
 1. El usuario selecciona "Iniciar Sesión".
 2. El sistema solicita email y contraseña.
 3. El usuario ingresa sus credenciales.
-4. El sistema valida las credenciales. La API verifica la contraseña antes de informar si la cuenta está deshabilitada. Una contraseña incorrecta recibe 401 y una válida en una cuenta inactiva recibe 403. Si una misma IP supera 20 intentos en una ventana de 60 segundos, la API responde 429 con Retry-After y el usuario debe esperar antes de reintentar. Las credenciales demo de la API solo se admiten en entornos de demostración.
+4. El sistema valida las credenciales. La API verifica la contraseña antes de informar si la cuenta está deshabilitada. Una contraseña incorrecta recibe 401 y una válida en una cuenta inactiva recibe 403. Si una misma IP supera 20 intentos en una ventana de 60 segundos, la API responde 429 con Retry-After y el usuario debe esperar antes de reintentar. Las credenciales demo de la API solo se admiten en entornos de demostración. Un correo inexistente también pasa por una verificación de contraseña de costo comparable y recibe HTTP 401. Si el cuerpo supera el límite de transporte, la API devuelve HTTP 413 sin iniciar sesión.
 5. El sistema identifica el rol asociado a la cuenta.
 6. El sistema habilita las funcionalidades correspondientes.
 7. El sistema redirige al Panel de Alumno, Profesor o Administrador según corresponda y muestra sus accesos permitidos.
@@ -80,6 +80,7 @@ Permite que un usuario registrado acceda al sistema y sea dirigido al panel corr
 | `400` | Bad Request | A2: Campos vacíos. |
 | `403` | Forbidden | A3: cuenta inactiva con contraseña válida. |
 | `429` | Too Many Requests | A4: límite temporal de login. |
+| `413` | Content Too Large | Cuerpo mayor que el límite de transporte de la API. |
 
 ### Nota: Validación vs. Verificación aplicada
 

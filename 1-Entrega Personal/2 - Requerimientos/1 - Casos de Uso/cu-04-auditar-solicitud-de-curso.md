@@ -39,10 +39,10 @@ Permite que un Administrador revise una solicitud de creación o modificación d
 1. El Administrador accede a la sección de auditorías.
 2. El sistema muestra las solicitudes de auditoría cuyos cursos están EN REVISIÓN. **Reglas aplicables:** **RN-06**.
 3. El Administrador selecciona una solicitud.
-4. El sistema muestra la información del curso, sus módulos y, si corresponde, los cambios realizados.
+4. El sistema muestra el contenido guardado al enviar la solicitud, incluidos los módulos. En la API el Administrador o Profesor solicitante puede consultar ese envío por su identificador. Las auditorías antiguas sin copia muestran su decisión sin atribuirles contenido. Las listas de auditorías admiten paginación optativa.
 5. El Administrador revisa la información.
 6. El Administrador selecciona "Aprobar".
-7. El sistema registra la decisión y cambia el curso a PUBLICADO. La API exige una decisión explícita; si falta o es inválida, responde HTTP 400 y conserva el estado anterior. La observación es obligatoria al solicitar cambios. **Reglas aplicables:** **RN-06**. La aprobación reemplaza la publicación vigente. Si se rechaza la revisión o se solicitan cambios, se conserva la publicación anterior si existe. La revisión rechazada y su decisión quedan registradas. La recuperación tras un rechazo queda pendiente de definición.
+7. El sistema registra la decisión y cambia el curso a PUBLICADO. La API exige una decisión explícita; si falta o es inválida, responde HTTP 400 y conserva el estado anterior. La observación es obligatoria al solicitar cambios. **Reglas aplicables:** **RN-06**. La aprobación reemplaza la publicación vigente. Si se rechaza la revisión o se solicitan cambios, se conserva la publicación anterior si existe. La revisión rechazada y su decisión quedan registradas. El autor puede recuperar el contenido como un nuevo borrador mediante CU-05. La revisión rechazada y su decisión se conservan. Si el cuerpo de la decisión supera el límite de transporte, la API responde HTTP 413 sin resolver la auditoría.
 8. El sistema informa que la auditoría fue aprobada.
 
 ### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
@@ -50,7 +50,7 @@ Permite que un Administrador revise una solicitud de creación o modificación d
 * **6a. Rechazar solicitud — A1 (HTTP 200 OK):**
   1. El Administrador selecciona "Rechazar".
   2. El sistema registra la decisión.
-  3. El curso queda RECHAZADO y no se publica.
+  3. La revisión queda RECHAZADA. Si ya había una publicación, sigue disponible según el estado operativo. El solicitante puede iniciar la recuperación de CU-05.
 
 * **6b. Solicitar cambios — A2 (HTTP 200 OK):**
   1. El Administrador detecta información que debe corregirse. **Reglas aplicables:** **RN-07**.
@@ -83,6 +83,7 @@ Permite que un Administrador revise una solicitud de creación o modificación d
 | `200` | OK | resultado satisfactorio de Auditar Solicitud de Curso; A1: Rechazar solicitud; A2: Solicitar cambios. |
 | `400` | Bad Request | Decisión ausente o inválida, u observación ausente al solicitar cambios. |
 | `409` | Conflict | A3: La solicitud ya no corresponde a un curso EN REVISIÓN. |
+| `413` | Content Too Large | Cuerpo mayor que el límite de transporte de la API. |
 
 ### Nota: Validación vs. Verificación aplicada
 
@@ -93,8 +94,8 @@ Permite que un Administrador revise una solicitud de creación o modificación d
 
 | Fuente | Recorrido o contrato |
 |---|---|
-| API | `GET /api/course-reviews; POST /api/course-reviews/{id}/decision` |
-| Pruebas automatizadas | CourseCreationIntegrationTests; CourseConcurrencyIntegrationTests; demo.test.mjs |
-| Bruno | Courses/09–11; Exposición/06–07 |
+| API | `GET /api/course-reviews y /api/course-reviews/{id}; POST /api/course-reviews/{id}/decision` |
+| Pruebas automatizadas | CourseCreationIntegrationTests; CourseConcurrencyIntegrationTests; CourseReviewHistoryIntegrationTests; demo.test.mjs |
+| Bruno | Courses/09–11,14–15; Exposición/06–07 |
 
-200 aplica decisión; 400/409 preservan estado. El rechazo conserva la publicación. Recuperación e instantáneas pendientes.
+200 aplica decisión; 400/409 preservan estado. El rechazo conserva la publicación. La recuperación preserva el rechazo y cada nuevo envío tiene una copia inmutable.

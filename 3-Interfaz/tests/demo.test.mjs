@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { appReducer } from '../src/context/appReducer.ts'
 import {
-  calculatePublishedProgress, canEditWorkingCourse, canRequestEnrollment, courseService, getEnrollmentProgress, getPublication, getWorkingEditBase, linkLegacyProgress,
+  calculatePublishedProgress, canEditWorkingCourse, canRequestEnrollment, courseService, getEnrollmentProgress,
+  getPublication, getWorkingEditBase, identifyWorkingModules, linkLegacyProgress, recoverWorkingDraft,
 } from '../src/services/courseService.ts'
 import { createDemoCredential, matchesDemoCredential, migrateDemoUsers } from '../src/services/demoCredentials.ts'
 import { dateInputValue, reportDateRange } from '../src/utils/format.ts'
@@ -13,6 +14,27 @@ const course = {
   id: 'c', status: 'EN REVISIÓN', title: 'Borrador', modules: [{ id: 'borrador' }],
   publishedVersion: { title: 'Publicado', modules: [{ id: 'publicado' }] },
 }
+
+test('recovery copies a rejected draft and retains the previous publication', () => {
+  const rejected = { ...course, status: 'RECHAZADO' }
+  const draft = recoverWorkingDraft(rejected, date)
+  assert.equal(draft.status, 'BORRADOR')
+  assert.equal(rejected.status, 'RECHAZADO')
+  assert.deepEqual(draft.modules, rejected.modules)
+  assert.notEqual(draft.modules, rejected.modules)
+  assert.equal(getPublication(draft).title, 'Publicado')
+  assert.equal(recoverWorkingDraft(draft, date), undefined)
+  assert.equal(recoverWorkingDraft({ ...rejected, operationalStatus: 'FINALIZADO' }, date), undefined)
+})
+
+test('only unchanged published modules keep their identity', () => {
+  const first = { id: 'one', name: 'Tema', description: 'Desc', durationHours: 1, resources: ['material.pdf'] }
+  const second = { ...first, id: 'two' }
+  const published = { ...course, status: 'PUBLICADO', publishedVersion: undefined, modules: [first, second] }
+  const edited = identifyWorkingModules(published, [second, { ...first, resources: ['otro.pdf'] }])
+  assert.equal(edited[0].id, second.id)
+  assert.notEqual(edited[1].id, first.id)
+})
 const state = {
   courses: [course], enrollments: [old], notifications: [],
   progressRecords: [{ id: 'p', enrollmentId: old.id, studentId: 's', courseId: 'c', completedModuleIds: ['publicado'], percentage: 100 }],

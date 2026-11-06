@@ -94,6 +94,7 @@ export interface Audit {
   resolvedAt?: string
   decision?: AuditDecision
   observations?: string
+  submission?: CourseVersion
 }
 
 export interface Activity {

@@ -42,7 +42,7 @@ Permite que un Alumno solicite su inscripción a un curso publicado. La solicitu
 3. El Alumno selecciona un curso.
 4. El sistema muestra el detalle del curso.
 5. El Alumno selecciona "Inscribirse".
-6. El sistema verifica que no exista una inscripción duplicada y que el curso admita inscripciones. **Reglas aplicables:** **RN-09**, **RN-12**. Un borrador en revisión no cambia la disponibilidad de una publicación vigente. La pausa o finalización impide nuevas solicitudes. En la API, un conflicto de disponibilidad o una inscripción activa duplicada devuelve 409 sin registrar otra solicitud.
+6. El sistema verifica que no exista una inscripción duplicada y que el curso admita inscripciones. **Reglas aplicables:** **RN-09**, **RN-12**. Un borrador en revisión no cambia la disponibilidad de una publicación vigente. La pausa o finalización impide nuevas solicitudes. En la API, un conflicto de disponibilidad o una inscripción activa duplicada devuelve 409 sin registrar otra solicitud. Si el cuerpo supera el límite de transporte, la API responde HTTP 413 sin registrar la solicitud.
 7. El sistema registra la solicitud en estado PENDIENTE. **Reglas aplicables:** **RN-10**.
 8. El sistema informa que la solicitud fue enviada y queda a la espera de revisión.
 
@@ -80,6 +80,7 @@ Permite que un Alumno solicite su inscripción a un curso publicado. La solicitu
 | --- | --- | --- |
 | `201` | Created | resultado satisfactorio de Solicitar Inscripción a un Curso. |
 | `409` | Conflict | A1: Inscripción duplicada; A3: El curso no admite nuevas inscripciones. |
+| `413` | Content Too Large | Cuerpo mayor que el límite de transporte de la API. |
 
 ### Nota: Validación vs. Verificación aplicada
 

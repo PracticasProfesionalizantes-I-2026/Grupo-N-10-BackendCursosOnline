@@ -14,10 +14,10 @@ public sealed class UserService(
     IPasswordHasher<User> passwordHasher,
     ICurrentUser currentUser) : IUserService
 {
-    public async Task<IReadOnlyList<UserResponseDTO>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<UserResponseDTO>> GetAllAsync(CancellationToken cancellationToken = default, ListPage? page = null)
     {
         ServiceGuard.Role(currentUser, UserRole.Administrador);
-        var users = await userRepository.GetAllAsync(cancellationToken);
+        var users = await userRepository.GetAllAsync(cancellationToken, page);
         return users.Select(MapToResponseDTO).ToList();
     }
 

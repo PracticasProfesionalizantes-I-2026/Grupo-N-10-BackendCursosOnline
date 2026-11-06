@@ -67,7 +67,10 @@ public sealed record CourseResponseDTO(
     IReadOnlyList<string> SuggestedPrerequisites,
     IReadOnlyList<CourseModuleResponseDTO> Modules,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc)
+{
+    public string? WorkingStatus { get; init; }
+}
 
 public sealed record PublishedCourseResponseDTO(
     Guid Id,
@@ -100,4 +103,6 @@ public sealed record CourseReviewResponseDTO(
 public sealed record CourseReviewDecisionDTO(
     [property: JsonRequired] CourseReviewDecision Decision,
     string? Observation = null);
+
+public sealed record CourseReviewSnapshotResponseDTO(CourseReviewResponseDTO Review, CourseResponseDTO? Submission);
 

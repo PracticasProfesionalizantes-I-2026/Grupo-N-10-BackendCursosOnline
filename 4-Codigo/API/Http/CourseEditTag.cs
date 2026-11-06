@@ -9,15 +9,16 @@ internal static class CourseEditTag
 {
     internal static string For(CourseResponseDTO course) => Format(course.Id, course.UpdatedAtUtc.Ticks);
 
-    internal static IReadOnlyCollection<long>? Read(Guid courseId, IList<string> header)
+    internal static IReadOnlyCollection<long> Read(Guid courseId, IList<string> header)
     {
-        if (header.Count == 0) return null;
+        if (header.Count == 0) throw new CourseEditPreconditionRequiredException();
         if (!EntityTagHeaderValue.TryParseStrictList(header, out var tags) || tags.Count == 0 ||
             (tags.Count > 1 && tags.Contains(EntityTagHeaderValue.Any)))
         {
             throw new LumenValidationException("La cabecera If-Match no es válida.");
         }
-        if (tags.Count == 1 && tags[0].Equals(EntityTagHeaderValue.Any)) return null;
+        if (tags.Count == 1 && tags[0].Equals(EntityTagHeaderValue.Any))
+            throw new CourseEditPreconditionRequiredException();
 
         var versions = new List<long>();
         foreach (var tag in tags)

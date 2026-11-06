@@ -16,5 +16,6 @@ public sealed class CourseReview
     public User? ReviewedByUser { get; set; }
     public DateTime RequestedAtUtc { get; set; }
     public DateTime? ReviewedAtUtc { get; set; }
+    public CourseReviewSnapshot? Snapshot { get; set; }
 }
 

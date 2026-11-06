@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Lumen.BusinessLogic.Abstractions;
 using Lumen.BusinessLogic.Interfaces;
 using Lumen.DataAccess.Entities;
@@ -14,6 +15,8 @@ public sealed class AuthService(
     IPasswordHasher<User> passwordHasher,
     ITokenService tokenService) : IAuthService
 {
+    private static readonly User MissingAccount = CreateMissingAccount();
+
     public async Task<UserResponseDTO> RegisterAsync(UserCreateDTO dto, CancellationToken cancellationToken = default)
     {
         if (dto.Role is not (UserRole.Alumno or UserRole.Profesor))
@@ -51,10 +54,10 @@ public sealed class AuthService(
     {
         var normalizedEmail = ServiceGuard.NormalizeEmail(dto.Email);
         ServiceGuard.Required(dto.Password, "contraseña");
-        var user = await userRepository.GetByEmailAsync(normalizedEmail, cancellationToken)
-            ?? throw new InvalidCredentialsException();
-        var verification = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, dto.Password);
-        if (verification == PasswordVerificationResult.Failed)
+        var user = await userRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
+        var account = user ?? MissingAccount;
+        var verification = passwordHasher.VerifyHashedPassword(account, account.PasswordHash, dto.Password);
+        if (user is null || verification == PasswordVerificationResult.Failed)
         {
             throw new InvalidCredentialsException();
         }
@@ -64,6 +67,15 @@ public sealed class AuthService(
         }
         var token = tokenService.Generate(user);
         return new LoginResponseDTO(token.AccessToken, token.ExpiresAtUtc, MapToResponseDTO(user));
+    }
+
+    private static User CreateMissingAccount()
+    {
+        // Match the default Identity hasher used for stored accounts, without persisting this account.
+        var account = new User();
+        account.PasswordHash = new PasswordHasher<User>().HashPassword(account,
+            Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+        return account;
     }
 
     private static UserResponseDTO MapToResponseDTO(User user) =>

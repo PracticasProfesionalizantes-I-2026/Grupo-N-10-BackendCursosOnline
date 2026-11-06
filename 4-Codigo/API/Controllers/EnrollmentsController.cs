@@ -1,3 +1,4 @@
+using Lumen.API.Http;
 using Lumen.BusinessLogic.Interfaces;
 using Lumen.Shared.DTOs;
 using Lumen.Shared.Enums;
@@ -29,15 +30,16 @@ public sealed class EnrollmentsController(
     [Authorize(Roles = "Alumno")]
     [HttpGet("enrollments/mine")]
     [ProducesResponseType<IReadOnlyList<EnrollmentResponseDTO>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetMine(CancellationToken cancellationToken) =>
-        Ok(await enrollmentService.GetMineAsync(cancellationToken));
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetMine(int? limit, int? offset, CancellationToken cancellationToken) =>
+        Ok(await enrollmentService.GetMineAsync(cancellationToken, ListPaging.Read(limit, offset)));
 
     [Authorize(Roles = "Administrador")]
     [HttpGet("enrollments")]
     [ProducesResponseType<IReadOnlyList<EnrollmentResponseDTO>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetAll([FromQuery] EnrollmentStatus? status, CancellationToken cancellationToken) =>
-        Ok(await enrollmentService.GetAllAsync(status, cancellationToken));
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetAll([FromQuery] EnrollmentStatus? status, int? limit, int? offset, CancellationToken cancellationToken) =>
+        Ok(await enrollmentService.GetAllAsync(status, cancellationToken, ListPaging.Read(limit, offset)));
 
     [Authorize(Roles = "Alumno,Administrador")]
     [HttpGet("enrollments/{id:guid}")]
@@ -95,9 +97,10 @@ public sealed class EnrollmentsController(
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpGet("courses/{courseId:guid}/students/progress")]
     [ProducesResponseType<IReadOnlyList<StudentProgressResponseDTO>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> GetCourseProgress(Guid courseId, CancellationToken cancellationToken) =>
-        Ok(await progressService.GetCourseProgressAsync(courseId, cancellationToken));
+    public async Task<IActionResult> GetCourseProgress(Guid courseId, int? limit, int? offset, CancellationToken cancellationToken) =>
+        Ok(await progressService.GetCourseProgressAsync(courseId, cancellationToken, ListPaging.Read(limit, offset)));
 }

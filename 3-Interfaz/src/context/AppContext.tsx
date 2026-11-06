@@ -1,10 +1,10 @@
 import { createContext, useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
 import { createDemoState, DEMO_STATE_KEY, demoUsers, matchesSeedPassword } from '@/data/seed'
 import type { AppState, AuditDecision, Course, CourseDraft, CourseStatus, EnrollmentStatus, Role, User } from '@/types'
-import { uid } from '@/utils/format'
+import { courseVersion, uid } from '@/utils/format'
 import {
   calculatePublishedProgress, canEditWorkingCourse, canRequestEnrollment,
-  getApprovedEnrollment, getPublication, getWorkingEditBase, linkLegacyProgress,
+  getApprovedEnrollment, getPublication, getWorkingEditBase, identifyWorkingModules, linkLegacyProgress, recoverWorkingDraft,
 } from '@/services/courseService'
 import { appReducer } from './appReducer'
 import { createDemoCredential, matchesDemoCredential, migrateDemoUsers } from '@/services/demoCredentials'
@@ -44,6 +44,7 @@ interface AppContextValue {
   register: (payload: RegisterPayload) => Promise<User>
   createCourse: (draft: CourseDraft, submit: boolean) => Course
   updateCourse: (courseId: string, draft: CourseDraft, submit: boolean) => Course | undefined
+  recoverCourse: (courseId: string) => boolean
   resolveAudit: (auditId: string, decision: AuditDecision, observations?: string) => void
   requestEnrollment: (courseId: string) => boolean
   updateEnrollment: (enrollmentId: string, status: EnrollmentStatus) => void
@@ -174,7 +175,8 @@ function AppSessionProvider({ children, initialState }: { children: ReactNode; i
           updatedAt: date,
         }
         const audit = submit
-          ? { id: uid('audit'), courseId: course.id, teacherId: currentUser.id, type: 'Creación' as const, status: 'PENDIENTE' as const, createdAt: date }
+          ? { id: uid('audit'), courseId: course.id, teacherId: currentUser.id, type: 'Creación' as const,
+              status: 'PENDIENTE' as const, createdAt: date, submission: structuredClone(courseVersion(course)) }
           : undefined
         dispatch({
           type: 'CREATE_COURSE',
@@ -201,6 +203,7 @@ function AppSessionProvider({ children, initialState }: { children: ReactNode; i
         const updated: Course = {
           ...original,
           ...draft,
+          modules: identifyWorkingModules(original, draft.modules),
           status: submit ? 'EN REVISIÓN' : 'BORRADOR',
           ...editBase,
           adminObservation: submit ? undefined : original.adminObservation,
@@ -214,6 +217,7 @@ function AppSessionProvider({ children, initialState }: { children: ReactNode; i
               type: original.publishedAt || editBase.publishedVersion ? ('Modificación' as const) : ('Creación' as const),
               status: 'PENDIENTE' as const,
               createdAt: date,
+              submission: structuredClone(courseVersion(updated)),
             }
           : undefined
         dispatch({
@@ -229,6 +233,19 @@ function AppSessionProvider({ children, initialState }: { children: ReactNode; i
           },
         })
         return updated
+      },
+      recoverCourse: (courseId) => {
+        const course = state.courses.find((item) => item.id === courseId)
+        if (!currentUser || !course || !(currentUser.role === 'ADMINISTRADOR' ||
+          (currentUser.role === 'PROFESOR' && course.teacherId === currentUser.id))) return false
+        const date = now()
+        const draft = recoverWorkingDraft(course, date)
+        if (!draft) return false
+        dispatch({ type: 'UPDATE_COURSE', course: draft, activity: {
+          id: uid('act'), audience: currentUser.role, userId: currentUser.id,
+          message: 'Se recuperó un borrador de ' + course.title + '.', createdAt: date,
+        } })
+        return true
       },
       resolveAudit: (auditId, decision, observations) => {
         if (currentUser?.role === 'ADMINISTRADOR')

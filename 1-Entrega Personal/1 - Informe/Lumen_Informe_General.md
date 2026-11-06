@@ -148,7 +148,7 @@ El MVP documenta las capacidades esenciales de Lumen y las representa mediante u
 
 La etapa inicial se centró en documentación y prototipado frontend. La entrega posterior incorpora una API ejecutable, persistencia SQLite, autenticación y pruebas. El prototipo sigue usando datos locales; su integración con la API y un despliegue productivo quedan fuera de esta entrega.
 
-El catálogo y el alumno consultan la publicación vigente. Las modificaciones se guardan en una versión de trabajo hasta que se aprueban. La API admite edición condicional y reportes de fechas civiles con zona explícita. La autenticación aplica un límite temporal por IP. Los casos de uso detallan estas condiciones.
+El catálogo y el alumno consultan la publicación vigente. Las modificaciones se guardan en una versión de trabajo hasta que se aprueban. La API exige edición condicional, permite recuperar rechazos como borradores separados y conserva una copia por envío a auditoría. Los reportes admiten fechas civiles con zona explícita. La autenticación aplica un límite temporal por IP. Los casos de uso detallan estas condiciones.
 
 ### 4.2 Limitaciones y exclusiones (Out of Scope)
 

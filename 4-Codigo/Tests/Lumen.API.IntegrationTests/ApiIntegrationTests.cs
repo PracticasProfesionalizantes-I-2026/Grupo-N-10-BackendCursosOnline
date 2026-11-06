@@ -82,7 +82,8 @@ public sealed class ApiIntegrationTests
             course.Modules.Select(x => new CourseModuleUpdateDTO(
                 x.Id, x.Name, x.Description, x.DurationMinutes, x.Content ?? string.Empty, x.Resources)).ToList());
 
-        var updateResponse = await client.PutAsJsonAsync($"/api/courses/{course.Id}", update, JsonOptions);
+        using var updateResponse = await CourseTestClient.SendEditAsync(client, course.Id, update,
+            await CourseTestClient.ReadTagAsync(client, course.Id));
         Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
         var submitResponse = await client.PostAsync($"/api/courses/{course.Id}/submit-review", null);
         Assert.Equal(HttpStatusCode.OK, submitResponse.StatusCode);
