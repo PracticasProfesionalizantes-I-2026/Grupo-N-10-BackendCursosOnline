@@ -4,7 +4,7 @@ La colección contiene 58 requests. Incluye 19 de `00-Exposicion` y recorridos g
 
 ## 1. Iniciar una API con SQLite temporal
 
-Requisitos: SDK **.NET 10.0.403** (roll-forward `latestPatch` dentro de 10.0.4xx), Windows PowerShell **5.1** o PowerShell **7**, y Bruno instalado. Ver también la [guía del backend](../README.md). Desde la raíz del repositorio, abrir una terminal PowerShell dedicada y ejecutar el bloque completo. El puerto 5081 debe estar libre; si está ocupado, detener únicamente la instancia temporal propia o elegir otro puerto y adaptar `baseUrl` antes de continuar.
+Requisitos: SDK **.NET 10 desde 10.0.100** (roll-forward `minor`; verificación local con 10.0.400), Windows PowerShell **5.1** o PowerShell **7**, y Bruno instalado. Ver también la [guía del backend](../README.md). Desde la raíz del repositorio, abrir una terminal PowerShell dedicada y ejecutar el bloque completo. El puerto 5081 debe estar libre; si está ocupado, detener únicamente la instancia temporal propia o elegir otro puerto y adaptar `baseUrl` antes de continuar.
 
 ```powershell
 Set-Location -LiteralPath '4-Codigo'
@@ -114,6 +114,9 @@ Las 31 solicitudes de `Auth`, `Users`, `Courses`, `Catalog`, `Enrollments` y `Re
 | `Courses/01-list-manageable`, `03-create` | Profesor autenticado |
 | `Courses/02-detail`, `04-update`, `12-stale-edit`, `05-submit-review` | Curso propio editable. El detalle guarda ETag, la edición lo usa y la prueba obsoleta vuelve a enviarlo antes de iniciar la auditoría |
 | `Courses/09-pending-reviews`, `10-my-reviews`, `11-resolve-review` | Administrador para pendientes/decisión; Profesor para auditorías propias; decidir usa `reviewId` de submit-review |
+| `Courses/17`–`22` | Recorrido CU-04/RN-17: Administrador A crea y envía; sus intentos de aprobar y pedir cambios devuelven 403; la revisión sigue pendiente; Administrador B la aprueba. Ejecutar en ese orden sobre la base temporal. |
+
+Para `Courses/22`, crear previamente una segunda cuenta mediante `POST /api/users/administrators` con la sesión de A y una contraseña generada localmente. Iniciar sesión como B con `POST /api/auth/login` y cargar en la colección `reviewerToken` y `reviewerUserId` recibidos, sin guardar contraseña ni token en archivos versionados. La semilla de desarrollo solo crea un Administrador y no permite completar la aprobación cruzada sin esta cuenta adicional. Los requests `Courses/17`–`21` tampoco requieren guardar credenciales adicionales en el repositorio.
 | `Catalog/01-list`, `02-detail` | Alumno autenticado en estos requests; detalle requiere `courseId` publicado y disponible |
 | `Enrollments/01-create`, `02-mine` | Alumno autenticado; crear exige curso disponible y sin otra inscripción pendiente/aprobada del mismo alumno |
 | `Enrollments/03-list-pending`, `06-resolve` | Administrador autenticado; decisión requiere `enrollmentId` pendiente |

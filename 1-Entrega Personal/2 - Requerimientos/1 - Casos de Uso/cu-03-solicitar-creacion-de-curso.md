@@ -21,7 +21,7 @@
 **Actores involucrados:**
 
 - **Principal:** Profesor / Administrador
-- **Secundarios:** Administrador, en la auditoría posterior del CU-04.
+- **Secundarios:** Administrador distinto de quien solicitó la revisión, en la auditoría posterior del CU-04 (RN-17, issue docente #16).
 
 ---
 

@@ -87,7 +87,7 @@ Los contratos HTTP utilizan DTOs. Las pruebas unitarias y de integración se enc
 
 **Seguir la [guía operativa del backend](4-Codigo/README.md)** para ejecutar desde una copia limpia. Incluye los bloques completos de PowerShell, la configuración segura de JWT, las migraciones y los comandos de inicio y pruebas.
 
-1. Instalar el **SDK .NET 10.0.403** indicado en [global.json](4-Codigo/global.json). Su política `latestPatch` admite parches posteriores de la misma banda **10.0.4xx**. Los ejemplos operativos son compatibles con Windows PowerShell 5.1 y PowerShell 7.
+1. Instalar un **SDK de .NET 10 desde 10.0.100**, según [global.json](4-Codigo/global.json). La política `minor` permite bandas compatibles de .NET 10; esta ronda verificó 10.0.400. Los ejemplos operativos son compatibles con Windows PowerShell 5.1 y PowerShell 7.
 2. Restaurar y compilar desde la raíz del repositorio:
 
    ```powershell
@@ -121,6 +121,8 @@ La cuarta ronda aprobó **389 pruebas .NET** (102 unitarias y 287 de integració
 La quinta ronda incorpora las políticas aprobadas de datos argentinos, límites de cursos y cupo efectivo. La API registra el motivo al rechazar pendientes durante la finalización. Los resultados de las verificaciones de esta ronda constan en [la auditoría](AUDITORIA_Y_PLAN_DE_CORRECCIONES.md).
 
 El [seguimiento de auditoría](AUDITORIA_Y_PLAN_DE_CORRECCIONES.md) conserva los 33 hallazgos, la matriz de trazabilidad y la revisión de CU-01 a CU-16.
+
+El [seguimiento de las 20 issues docentes](SEGUIMIENTO_ISSUES_DOCENTE.md) registra las rondas por riesgo y la evidencia de cada corrección.
 
 ## Prototipo frontend
 

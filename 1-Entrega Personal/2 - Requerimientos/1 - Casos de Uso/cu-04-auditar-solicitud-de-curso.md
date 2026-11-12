@@ -9,18 +9,18 @@
 | --- | --- |
 | **ID del Caso de Uso** | CU-04 |
 | **Nombre** | Auditar Solicitud de Curso |
-| **Actor Principal** | Administrador |
+| **Actor Principal** | Administrador que no solicitó la revisión seleccionada |
 | **Alcance / Nivel** | Sistema Lumen; meta de usuario |
 | **Stakeholders e intereses** | Administrador → resolver auditorías con estados consistentes; autor del curso → conocer la decisión y las observaciones; Alumno → acceder únicamente a cursos publicados |
 | **Disparador (Trigger)** | El Administrador selecciona una solicitud de auditoría de un curso en estado EN REVISIÓN desde su panel. |
 | **Prioridad / Frecuencia** | No especificada en el documento fuente |
-| **Reglas de negocio relacionadas** | RN-06 y RN-07 |
-| **Referencias funcionales** | RF-14 y RF-15; RN-06 y RN-07; estados de cursos. |
+| **Reglas de negocio relacionadas** | RN-06, RN-07 y RN-17 (issue docente #16) |
+| **Referencias funcionales** | RF-14 y RF-15; RN-06, RN-07 y RN-17; RNF-16 (issue docente #17); estados de cursos. |
 | **Autores / Fecha** | Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026) |
 
 **Actores involucrados:**
 
-- **Principal:** Administrador
+- **Principal:** Administrador distinto del solicitante de la revisión.
 - **Secundarios:** Profesor o Administrador que preparó el curso o sus modificaciones.
 
 ---
@@ -33,14 +33,15 @@ Permite que un Administrador revise una solicitud de creación o modificación d
 
 - El Administrador debe haber iniciado sesión.
 - Debe existir una solicitud de auditoría cuyo curso esté EN REVISIÓN.
+- El Administrador que decide debe ser distinto de `RequestedByUserId` de esa revisión; se requiere un segundo Administrador cuando el primero hizo el envío. **Regla aplicable:** **RN-17**.
 
 ### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 200)
 
 1. El Administrador accede a la sección de auditorías.
 2. El sistema muestra las solicitudes de auditoría cuyos cursos están EN REVISIÓN. **Reglas aplicables:** **RN-06**.
 3. El Administrador selecciona una solicitud.
-4. El sistema muestra el contenido guardado al enviar la solicitud, incluidos los módulos. En la API el Administrador o Profesor solicitante puede consultar ese envío por su identificador. Las auditorías antiguas sin copia muestran su decisión sin atribuirles contenido. Las listas de auditorías admiten paginación optativa.
-5. El Administrador revisa la información.
+4. El sistema muestra el contenido guardado al enviar la solicitud, incluidos los módulos. En la API el Administrador o Profesor solicitante puede consultar ese envío por su identificador. La instantánea del envío es inmutable en SQLite mediante restricciones y triggers (**RNF-16**). Las auditorías antiguas sin copia muestran su decisión sin atribuirles contenido. Las listas de auditorías admiten paginación optativa.
+5. El sistema identifica al solicitante persistido de esta revisión y comprueba que sea distinto del Administrador autenticado. El Administrador revisa la información. **Regla aplicable:** **RN-17**.
 6. El Administrador selecciona "Aprobar".
 7. El sistema registra la decisión y cambia el curso a PUBLICADO. La API exige una decisión explícita; si falta o es inválida, responde HTTP 400 y conserva el estado anterior. La observación es obligatoria al solicitar cambios. **Reglas aplicables:** **RN-06**. La aprobación reemplaza la publicación vigente. Si se rechaza la revisión o se solicitan cambios, se conserva la publicación anterior si existe. La revisión rechazada y su decisión quedan registradas. El autor puede recuperar el contenido como un nuevo borrador mediante CU-05. La revisión rechazada y su decisión se conservan. Si el cuerpo de la decisión supera el límite de transporte, la API responde HTTP 413 sin resolver la auditoría. Al aprobar una nueva publicación, el cupo no puede quedar por debajo de los alumnos aprobados; el conflicto conserva la publicación previa.
 8. El sistema informa que la auditoría fue aprobada.
@@ -62,6 +63,11 @@ Permite que un Administrador revise una solicitud de creación o modificación d
   1. Antes de registrar la decisión, el sistema detecta que el curso ya no está EN REVISIÓN.
   2. El sistema muestra el estado actual y no aplica una nueva decisión sobre esa solicitud.
 
+* **5a. El Administrador intenta resolver su propia solicitud — A4 (HTTP 403 Forbidden):**
+  1. El sistema compara la identidad autenticada con el solicitante persistido de la revisión seleccionada. **Regla aplicable:** **RN-17**, originada en la issue docente #16.
+  2. Rechaza la aprobación, el rechazo o la solicitud de cambios. La decisión, el estado de la revisión y la publicación permanecen sin cambios.
+  3. Otro Administrador autorizado puede retomar la auditoría. La restricción se aplica a cada envío, aunque el creador original del curso sea otra persona.
+
 ### 5. SUB-VARIACIONES (opcional)
 
 - No se especifican sub-variaciones adicionales en el documento fuente.
@@ -71,6 +77,7 @@ Permite que un Administrador revise una solicitud de creación o modificación d
 - La auditoría queda resuelta.
 - El curso cambia a PUBLICADO, CAMBIOS SOLICITADOS o RECHAZADO según la decisión.
 - El usuario que preparó el curso o sus modificaciones puede visualizar el estado resultante en sus solicitudes de auditoría.
+- Si se deniega una decisión por RN-17, la auditoría sigue pendiente y no se modifica la publicación vigente.
 
 ---
 
@@ -82,6 +89,7 @@ Permite que un Administrador revise una solicitud de creación o modificación d
 | --- | --- | --- |
 | `200` | OK | resultado satisfactorio de Auditar Solicitud de Curso; A1: Rechazar solicitud; A2: Solicitar cambios. |
 | `400` | Bad Request | Decisión ausente o inválida, u observación ausente al solicitar cambios. |
+| `403` | Forbidden | A4: el Administrador intenta resolver la revisión que solicitó. |
 | `409` | Conflict | A3: La solicitud ya no corresponde a un curso EN REVISIÓN. |
 | `413` | Content Too Large | Cuerpo mayor que el límite de transporte de la API. |
 
@@ -98,4 +106,4 @@ Permite que un Administrador revise una solicitud de creación o modificación d
 | Pruebas automatizadas | CourseCreationIntegrationTests; CourseConcurrencyIntegrationTests; CourseReviewHistoryIntegrationTests; demo.test.mjs |
 | Bruno | Courses/09–11,14–15; Exposición/06–07 |
 
-200 aplica decisión; 400/409 preservan estado. El rechazo conserva la publicación. La recuperación preserva el rechazo y cada nuevo envío tiene una copia inmutable.
+200 aplica decisión; 400/403/409 preservan estado. El rechazo conserva la publicación. La recuperación preserva el rechazo y cada nuevo envío tiene una copia inmutable.

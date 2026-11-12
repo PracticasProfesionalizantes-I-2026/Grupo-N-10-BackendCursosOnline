@@ -1,0 +1,50 @@
+meta {
+  name: SoD crear borrador como Administrador A
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/courses
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Curso para segregación de funciones",
+    "description": "Recorrido de auditoría con dos administradores",
+    "category": "Tecnología",
+    "level": "Inicial",
+    "modality": "Online",
+    "maxCapacity": 25,
+    "learningObjectives": ["Aplicar fundamentos"],
+    "suggestedPrerequisites": [],
+    "modules": [{ "name": "Introducción", "description": "Primer módulo", "durationMinutes": 60, "content": "Contenido inicial", "resources": [] }]
+  }
+}
+
+script:pre-request {
+  if (!bru.getVar("adminToken")) throw new Error("Iniciar sesión como Administrador A antes de este recorrido.");
+  bru.deleteVar("sodCourseId");
+  bru.deleteVar("sodReviewId");
+}
+
+script:post-response {
+  if (res.getStatus() === 201 && res.getBody()?.id) bru.setVar("sodCourseId", res.getBody().id);
+}
+
+tests {
+  test("Administrador A crea borrador", function () {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().status).to.equal("Borrador");
+  });
+}

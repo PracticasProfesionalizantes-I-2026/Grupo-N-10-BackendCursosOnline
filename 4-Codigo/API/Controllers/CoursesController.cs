@@ -138,6 +138,7 @@ public sealed class CoursesController(ICourseService service) : ControllerBase
     [HttpPost("course-reviews/{id:guid}/decision")]
     [ProducesResponseType<CourseReviewResponseDTO>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ResolveReview(Guid id, CourseReviewDecisionDTO dto, CancellationToken cancellationToken) =>

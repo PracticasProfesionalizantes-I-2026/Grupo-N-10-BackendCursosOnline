@@ -15,7 +15,7 @@
 | **Disparador (Trigger)** | El usuario selecciona la opción "Iniciar Sesión". |
 | **Prioridad / Frecuencia** | No especificada en el documento fuente |
 | **Reglas de negocio relacionadas** | No se identifica una RN específica; aplican RF-05 a RF-07, RF-29 a RF-33 y la matriz de permisos |
-| **Referencias funcionales** | RF-05 a RF-07 y RF-29 a RF-33; matriz de permisos. |
+| **Referencias funcionales** | RF-05 a RF-07 y RF-29 a RF-33; RNF-17 y RNF-18 (issue docente #17); matriz de permisos. |
 | **Autores / Fecha** | Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026) |
 
 **Actores involucrados:**
@@ -37,7 +37,7 @@ Permite que un usuario registrado acceda al sistema y sea dirigido al panel corr
 1. El usuario selecciona "Iniciar Sesión".
 2. El sistema solicita email y contraseña.
 3. El usuario ingresa sus credenciales.
-4. El sistema valida las credenciales. La API verifica la contraseña antes de informar si la cuenta está deshabilitada. Una contraseña incorrecta recibe 401 y una válida en una cuenta inactiva recibe 403. Si una misma IP supera 20 intentos en una ventana de 60 segundos, la API responde 429 con Retry-After y el usuario debe esperar antes de reintentar. Las credenciales demo de la API solo se admiten en entornos de demostración. Un correo inexistente también pasa por una verificación de contraseña de costo comparable y recibe HTTP 401. Si el cuerpo supera el límite de transporte, la API devuelve HTTP 413 sin iniciar sesión. Las cuentas existentes siguen autenticándose con su contraseña anterior; la política de alta nueva no se aplica al login.
+4. El sistema valida las credenciales. La API verifica la contraseña antes de informar si la cuenta está deshabilitada. Una contraseña incorrecta recibe 401 y una válida en una cuenta inactiva recibe 403. Si una misma IP supera 20 intentos en una ventana de 60 segundos, la API responde 429 con Retry-After y el usuario debe esperar antes de reintentar (**RNF-17**). Las credenciales demo de la API solo se admiten en Development y Testing; la sesión usa JWT firmado con HS256 y clave externa de al menos 32 bytes UTF-8 (**RNF-18**). Un correo inexistente también pasa por una verificación de contraseña de costo comparable y recibe HTTP 401. Si el cuerpo supera el límite de transporte, la API devuelve HTTP 413 sin iniciar sesión. Las cuentas existentes siguen autenticándose con su contraseña anterior; la política de alta nueva no se aplica al login.
 5. El sistema identifica el rol asociado a la cuenta.
 6. El sistema habilita las funcionalidades correspondientes.
 7. El sistema redirige al Panel de Alumno, Profesor o Administrador según corresponda y muestra sus accesos permitidos.
