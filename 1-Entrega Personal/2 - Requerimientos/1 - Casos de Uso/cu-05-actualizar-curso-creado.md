@@ -15,13 +15,13 @@
 | **Disparador (Trigger)** | El Profesor accede a sus cursos o solicitudes de auditoría, o el Administrador a la gestión de cursos, y selecciona "Editar Curso". |
 | **Prioridad / Frecuencia** | No especificada en el documento fuente |
 | **Reglas de negocio relacionadas** | RN-03 a RN-07 y RN-15 |
-| **Referencias funcionales** | RF-09 a RF-16 y RF-31; RN-03 a RN-07 y RN-15; permiso de edición del Administrador. |
+| **Referencias funcionales** | RF-09 a RF-16 y RF-31; RN-03 a RN-07 y RN-15; RNF-15 (issue docente #17); permiso de edición del Administrador. |
 | **Autores / Fecha** | Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026) |
 
 **Actores involucrados:**
 
 - **Principal:** Profesor / Administrador
-- **Secundarios:** Administrador, en la auditoría posterior del CU-04.
+- **Secundarios:** Administrador distinto de quien solicitó la revisión, en la auditoría posterior del CU-04 (RN-17, issue docente #16).
 
 ---
 
@@ -40,7 +40,7 @@ Permite retomar un BORRADOR o modificar un curso PUBLICADO o con CAMBIOS SOLICIT
 1. El Profesor accede a sus cursos o a sus solicitudes de auditoría; el Administrador accede a la gestión de cursos.
 2. El sistema muestra los cursos accesibles según el rol y, cuando corresponda, el estado de la auditoría y las observaciones recibidas.
 3. El usuario selecciona el curso y solicita editarlo. El sistema verifica el rol y la propiedad cuando actúa un Profesor. **Reglas aplicables:** **RN-03**.
-4. El sistema muestra los datos actuales y los módulos del curso. En la API la consulta de gestión entrega ETag. Guardar o recuperar requiere el ETag específico en If-Match. Una etiqueta ausente o el comodín devuelven 428. Una etiqueta obsoleta devuelve 412 sin escribir, incluso si otra edición ganó durante la persistencia. Una cabecera mal formada devuelve 400. Editar una revisión en EN REVISIÓN o RECHAZADA devuelve 409 con una etiqueta vigente. El Administrador edita la versión de trabajo mediante el mismo flujo de auditoría.
+4. El sistema muestra los datos actuales y los módulos del curso. En la API la consulta de gestión entrega ETag. Guardar o recuperar requiere el ETag específico en If-Match (**RNF-15**). Una etiqueta ausente o el comodín devuelven 428. Una etiqueta obsoleta devuelve 412 sin escribir, incluso si otra edición ganó durante la persistencia. Una cabecera mal formada devuelve 400. Editar una revisión en EN REVISIÓN o RECHAZADA devuelve 409 con una etiqueta vigente. El Administrador edita la versión de trabajo mediante el mismo flujo de auditoría.
 5. El usuario modifica los datos del curso o sus módulos, con nombre, descripción, duración y contenido o recursos. **Reglas aplicables:** **RN-15**.
 6. El sistema valida los datos obligatorios y la existencia de al menos un módulo, y recalcula la duración total como suma de sus duraciones. **Reglas aplicables:** **RN-04**, **RN-05**. Si el cuerpo del guardado supera el límite de transporte, la API responde HTTP 413 y conserva la revisión vigente. La edición permite reducir gradualmente colecciones o textos históricos que superan los topes nuevos, sin aumentar un exceso. El cupo no puede reducirse por debajo de las inscripciones aprobadas.
 7. El usuario confirma el envío de los cambios a revisión.

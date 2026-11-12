@@ -1,0 +1,33 @@
+meta {
+  name: SoD enviar revisión como Administrador A
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/api/courses/{{sodCourseId}}/submit-review
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+script:pre-request {
+  if (!bru.getVar("adminToken") || !bru.getVar("sodCourseId")) throw new Error("Ejecutar login de Administrador A y Courses/17.");
+  bru.deleteVar("sodReviewId");
+}
+
+script:post-response {
+  if (res.getStatus() === 200 && res.getBody()?.id) bru.setVar("sodReviewId", res.getBody().id);
+}
+
+tests {
+  test("Revisión pendiente solicitada por A", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().courseId).to.equal(bru.getVar("sodCourseId"));
+    expect(res.getBody().decision).to.equal(null);
+    expect(res.getBody().requestedByUserId).to.equal(bru.getVar("adminUserId"));
+  });
+}

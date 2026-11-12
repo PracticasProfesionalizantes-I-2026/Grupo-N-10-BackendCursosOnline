@@ -14,6 +14,68 @@ namespace Lumen.API.IntegrationTests;
 
 public sealed class CourseReviewHistoryIntegrationTests
 {
+    [Theory]
+    [InlineData(CourseReviewDecision.Aprobada, null)]
+    [InlineData(CourseReviewDecision.CambiosSolicitados, "Corregir contenidos")]
+    public async Task RequestingAdministrator_CannotResolveOwnReview_AndAnotherAdministratorCan(
+        CourseReviewDecision decision, string? observation)
+    {
+        using var factory = new LumenApiFactory();
+        using var requester = await CourseTestClient.LoginAsync(factory, DemoAccounts.AdministratorEmail);
+        var otherEmail = $"reviewer-{Guid.NewGuid():N}@lumen.local";
+        using var created = await requester.PostAsJsonAsync("/api/users/administrators",
+            new AdministratorCreateDTO(otherEmail, DbInitializer.DemoPassword, "Otra", "Auditora", "87654321",
+                "11-1234-5678", "Dirección", "1000"), CourseTestClient.Json);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var reviewer = await CourseTestClient.LoginAsync(factory, otherEmail);
+        var course = await CourseTestClient.DraftAsync(requester);
+        var review = await CourseTestClient.SubmitAsync(requester, course.Id);
+
+        using var forbidden = await requester.PostAsJsonAsync($"/api/course-reviews/{review.Id}/decision",
+            new CourseReviewDecisionDTO(decision, observation), CourseTestClient.Json);
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        Assert.Equal("ForbiddenOperationException",
+            (await forbidden.Content.ReadFromJsonAsync<ApiErrorResponseDTO>(CourseTestClient.Json))!.Code);
+        var pending = await ReadHistoryAsync(requester, review.Id);
+        Assert.Null(pending.Review.Decision);
+        Assert.Null(pending.Review.ReviewedByUserId);
+        Assert.Equal("EnRevision", (await CourseTestClient.GetAsync(requester, course.Id)).WorkingStatus);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<LumenDbContext>();
+            Assert.Null((await db.CourseReviews.AsNoTracking().SingleAsync(x => x.Id == review.Id)).Decision);
+            Assert.Null((await db.Courses.AsNoTracking().SingleAsync(x => x.Id == course.Id)).PublishedRevisionId);
+        }
+
+        await DecideAsync(reviewer, review.Id, decision, observation);
+        Assert.Equal(decision, (await ReadHistoryAsync(reviewer, review.Id)).Review.Decision);
+    }
+
+    [Fact]
+    public async Task ReviewRequester_IsCheckedPerSubmission_NotByOriginalCourseCreator()
+    {
+        using var factory = new LumenApiFactory();
+        using var originalCreator = await CourseTestClient.LoginAsync(factory, DemoAccounts.AdministratorEmail);
+        var otherEmail = $"editor-{Guid.NewGuid():N}@lumen.local";
+        using var created = await originalCreator.PostAsJsonAsync("/api/users/administrators",
+            new AdministratorCreateDTO(otherEmail, DbInitializer.DemoPassword, "Otro", "Editor", "87654321",
+                "11-1234-5678", "Dirección", "1000"), CourseTestClient.Json);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var other = await CourseTestClient.LoginAsync(factory, otherEmail);
+        var course = await CourseTestClient.DraftAsync(originalCreator);
+        var first = await CourseTestClient.SubmitAsync(originalCreator, course.Id);
+        await DecideAsync(other, first.Id, CourseReviewDecision.CambiosSolicitados, "Revisar");
+        await CourseTestClient.PutAsync(other, course.Id, CourseTestClient.Update(course) with { Title = "Nueva versión" });
+        var second = await CourseTestClient.SubmitAsync(other, course.Id);
+        Assert.NotEqual(first.RequestedByUserId, second.RequestedByUserId);
+
+        using var forbidden = await other.PostAsJsonAsync($"/api/course-reviews/{second.Id}/decision",
+            new CourseReviewDecisionDTO(CourseReviewDecision.Aprobada, null), CourseTestClient.Json);
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        await DecideAsync(originalCreator, second.Id, CourseReviewDecision.Aprobada, null);
+        Assert.Equal(CourseReviewDecision.Aprobada, (await ReadHistoryAsync(originalCreator, second.Id)).Review.Decision);
+    }
+
     [Fact]
     public async Task LegacyForeignPointers_DoNotExposeAnotherCourseOrEraseTheStoredRows()
     {

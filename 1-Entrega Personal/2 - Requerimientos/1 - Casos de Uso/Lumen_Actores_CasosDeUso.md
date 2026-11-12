@@ -171,7 +171,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 - **Descripción:** Permite que un usuario registrado acceda al sistema y sea dirigido al panel correspondiente según su rol.
 
-- **Referencias funcionales:** RF-05 a RF-07 y RF-29 a RF-33; matriz de permisos.
+- **Referencias funcionales:** RF-05 a RF-07 y RF-29 a RF-33; RNF-17 y RNF-18 (issue docente #17); matriz de permisos.
 
 - **Autores / Fecha:** Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026)
 
@@ -203,7 +203,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 3. El usuario ingresa sus credenciales.
 
-4. El sistema valida las credenciales. La API verifica la contraseña antes de informar si la cuenta está deshabilitada. Una contraseña incorrecta recibe 401 y una válida en una cuenta inactiva recibe 403. Si una misma IP supera 20 intentos en una ventana de 60 segundos, la API responde 429 con Retry-After y el usuario debe esperar antes de reintentar. Las credenciales demo de la API solo se admiten en entornos de demostración. Un correo inexistente también pasa por una verificación de contraseña de costo comparable y recibe HTTP 401. Si el cuerpo supera el límite de transporte, la API devuelve HTTP 413 sin iniciar sesión. Las cuentas existentes siguen autenticándose con su contraseña anterior; la política de alta nueva no se aplica al login.
+4. El sistema valida las credenciales. La API verifica la contraseña antes de informar si la cuenta está deshabilitada. Una contraseña incorrecta recibe 401 y una válida en una cuenta inactiva recibe 403. Si una misma IP supera 20 intentos en una ventana de 60 segundos, la API responde 429 con Retry-After y el usuario debe esperar antes de reintentar (RNF-17). Las credenciales demo de la API solo se admiten en Development y Testing; la sesión usa JWT firmado con HS256 y clave externa de al menos 32 bytes UTF-8 (RNF-18). Un correo inexistente también pasa por una verificación de contraseña de costo comparable y recibe HTTP 401. Si el cuerpo supera el límite de transporte, la API devuelve HTTP 413 sin iniciar sesión. Las cuentas existentes siguen autenticándose con su contraseña anterior; la política de alta nueva no se aplica al login.
 
 5. El sistema identifica el rol asociado a la cuenta.
 
@@ -249,7 +249,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 - **Actor principal:** Profesor / Administrador
 
-- **Actores secundarios:** Administrador, en la auditoría posterior del CU-04.
+- **Actores secundarios:** Administrador distinto del solicitante de la revisión, en la auditoría posterior del CU-04 (RN-17, issue docente #16).
 
 - **Disparador:** El Profesor o Administrador selecciona "Crear Curso" desde su panel.
 
@@ -329,13 +329,13 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 - **Descripción:** Permite que un Administrador revise una solicitud de creación o modificación de curso y determine su resultado.
 
-- **Referencias funcionales:** RF-14 y RF-15; RN-06 y RN-07; estados de cursos.
+- **Referencias funcionales:** RF-14 y RF-15; RN-06, RN-07 y RN-17 (issue docente #16); RNF-16 (issue docente #17); estados de cursos.
 
 - **Autores / Fecha:** Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026)
 
 #### 2. Participantes e Inicio:
 
-- **Actor principal:** Administrador
+- **Actor principal:** Administrador distinto del solicitante de la revisión seleccionada.
 
 - **Actores secundarios:** Profesor o Administrador que preparó el curso o sus modificaciones.
 
@@ -348,6 +348,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 - El Administrador debe haber iniciado sesión.
 
 - Debe existir una solicitud de auditoría cuyo curso esté EN REVISIÓN.
+- El Administrador que decide debe ser distinto del solicitante persistido de esa revisión; si el primer Administrador la envió, se requiere otro autorizado. **Regla aplicable:** **RN-17**.
 
 **Postcondiciones:**
 
@@ -367,9 +368,9 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 3. El Administrador selecciona una solicitud.
 
-4. El sistema muestra el contenido guardado al enviar la solicitud, incluidos los módulos. En la API el Administrador o Profesor solicitante puede consultar ese envío por su identificador. Las auditorías antiguas sin copia muestran su decisión sin atribuirles contenido. Las listas de auditorías admiten paginación optativa.
+4. El sistema muestra el contenido guardado al enviar la solicitud, incluidos los módulos. En la API el Administrador o Profesor solicitante puede consultar ese envío por su identificador. La instantánea del envío es inmutable en SQLite mediante restricciones y triggers (RNF-16). Las auditorías antiguas sin copia muestran su decisión sin atribuirles contenido. Las listas de auditorías admiten paginación optativa.
 
-5. El Administrador revisa la información.
+5. El sistema compara al Administrador autenticado con el solicitante persistido de esta revisión. Si son distintos, el Administrador revisa la información. **Regla aplicable:** **RN-17**.
 
 6. El Administrador selecciona "Aprobar".
 
@@ -403,6 +404,14 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 6.2. El sistema muestra el estado actual y no aplica una nueva decisión sobre esa solicitud.
 
+**A4. El Administrador intenta resolver su propia solicitud (HTTP 403 Forbidden)**
+
+5.1. El sistema detecta que el Administrador autenticado solicitó esta revisión. **Regla aplicable:** **RN-17**, originada en la issue docente #16.
+
+5.2. Rechaza la aprobación, el rechazo o la solicitud de cambios. La revisión, su estado y la publicación permanecen sin cambios.
+
+5.3. Otro Administrador autorizado puede resolverla; se compara el solicitante de cada envío, no el creador original del curso.
+
 ### CU-05 – Actualizar Curso Creado:
 
 #### 1. Información General:
@@ -413,7 +422,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 - **Descripción:** Permite retomar un BORRADOR o modificar un curso PUBLICADO o con CAMBIOS SOLICITADOS. El Profesor actúa únicamente sobre cursos propios y el Administrador desde la gestión general de cursos. Guardar un BORRADOR y enviar modificaciones a auditoría son resultados diferentes.
 
-- **Referencias funcionales:** RF-09 a RF-16 y RF-31; RN-03 a RN-07 y RN-15; permiso de edición del Administrador.
+- **Referencias funcionales:** RF-09 a RF-16 y RF-31; RN-03 a RN-07 y RN-15; RNF-15 (issue docente #17); permiso de edición del Administrador.
 
 - **Autores / Fecha:** Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026)
 
@@ -421,7 +430,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 - **Actor principal:** Profesor / Administrador
 
-- **Actores secundarios:** Administrador, en la auditoría posterior del CU-04.
+- **Actores secundarios:** Administrador distinto del solicitante de la revisión, en la auditoría posterior del CU-04 (RN-17, issue docente #16).
 
 - **Disparador:** El Profesor accede a sus cursos o solicitudes de auditoría, o el Administrador a la gestión de cursos, y selecciona "Editar Curso".
 
@@ -453,7 +462,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 3. El usuario selecciona el curso y solicita editarlo. El sistema verifica el rol y la propiedad cuando actúa un Profesor.
 
-4. El sistema muestra los datos actuales y los módulos del curso. En la API la consulta de gestión entrega ETag. Guardar o recuperar requiere el ETag específico en If-Match. Una etiqueta ausente o el comodín devuelven 428. Una etiqueta obsoleta devuelve 412 sin escribir, incluso si otra edición ganó durante la persistencia. Una cabecera mal formada devuelve 400. Editar una revisión en EN REVISIÓN o RECHAZADA devuelve 409 con una etiqueta vigente. El Administrador edita la versión de trabajo mediante el mismo flujo de auditoría.
+4. El sistema muestra los datos actuales y los módulos del curso. En la API la consulta de gestión entrega ETag. Guardar o recuperar requiere el ETag específico en If-Match (RNF-15). Una etiqueta ausente o el comodín devuelven 428. Una etiqueta obsoleta devuelve 412 sin escribir, incluso si otra edición ganó durante la persistencia. Una cabecera mal formada devuelve 400. Editar una revisión en EN REVISIÓN o RECHAZADA devuelve 409 con una etiqueta vigente. El Administrador edita la versión de trabajo mediante el mismo flujo de auditoría.
 
 5. El usuario modifica los datos del curso o sus módulos, con nombre, descripción, duración y contenido o recursos.
 

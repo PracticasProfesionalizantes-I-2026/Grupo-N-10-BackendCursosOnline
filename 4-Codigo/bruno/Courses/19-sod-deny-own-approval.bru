@@ -1,0 +1,34 @@
+meta {
+  name: SoD impedir autoaprobación
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/course-reviews/{{sodReviewId}}/decision
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  { "decision": "Aprobada", "observation": null }
+}
+
+script:pre-request {
+  if (!bru.getVar("adminToken") || !bru.getVar("sodReviewId")) throw new Error("Ejecutar Courses/17 y 18 como Administrador A.");
+}
+
+tests {
+  test("Autoaprobación prohibida con HTTP 403", function () {
+    expect(res.getStatus()).to.equal(403);
+    expect(res.getBody().code).to.equal("ForbiddenOperationException");
+  });
+}

@@ -222,6 +222,10 @@ public sealed class CourseService(
         }
         var review = await courseRepository.GetReviewByIdForUpdateAsync(reviewId, cancellationToken)
             ?? throw new CourseReviewNotFoundException(reviewId);
+        if (review.RequestedByUserId == currentUser.UserId)
+        {
+            throw new ForbiddenOperationException("Un administrador no puede resolver una revisión que solicitó él mismo.");
+        }
         var revision = review.CourseRevision;
         if (review.Decision is not null || revision.Status != CourseRevisionStatus.EnRevision ||
             revision.Course.WorkingRevisionId != revision.Id)

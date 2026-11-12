@@ -43,7 +43,7 @@ Los controllers no contienen reglas de negocio. Los services validan permisos, d
 
 Requisitos:
 
-- **SDK .NET 10.0.403**, según [global.json](global.json), y runtime **ASP.NET Core 10.0.14** o parche posterior de .NET 10 para ejecutar la API publicada. `rollForward: latestPatch` permite parches posteriores de SDK dentro de **10.0.4xx**. El runtime por sí solo no alcanza para compilar.
+- **SDK .NET 10.0.100 o posterior de la línea .NET 10**, según [global.json](global.json), y runtime **ASP.NET Core 10.0.14 o parche posterior** para ejecutar la API, fijado en `API/Lumen.API.csproj`. `rollForward: minor` permite seleccionar otra banda compatible del SDK 10; no cambia el runtime ni las versiones de paquetes. En esta ronda se comprobó la compilación con SDK 10.0.400; otras bandas no se probaron. El runtime por sí solo no alcanza para compilar.
 - **Windows PowerShell 5.1 o PowerShell 7** para los bloques de esta guía. Los ejemplos de generación aleatoria son compatibles con ambas versiones.
 - Acceso a NuGet para restaurar paquetes que no estén en la caché local. Bruno se necesita únicamente para utilizar su colección; la API y las pruebas .NET no lo requieren.
 
@@ -64,11 +64,15 @@ Comprobar que cada comando termine correctamente. Todos los comandos restantes d
 
 Al arrancar, la API valida JWT antes de abrir la base y aplica las migraciones pendientes. La carga de datos demo depende del entorno, como se detalla más abajo. Verificar siempre el destino SQLite antes de ejecutar la API.
 
+Si falta la clave o es inválida, el proceso de consola muestra instrucciones para configurar `Jwt:Key` mediante User Secrets o `Jwt__Key`, termina con código distinto de cero y no abre la base. No muestra el valor de la clave. Se requieren además `Jwt:Issuer` y `Jwt:Audience`; los valores de desarrollo se encuentran en la configuración del proyecto.
+
 ## Configuración JWT local y demostración
 
 No existe una clave de firma predeterminada en los archivos versionados. La API requiere Jwt:Key con contenido no vacío y al menos 32 bytes UTF-8. La clave anterior del repositorio está revocada: suministrarla mediante cualquier proveedor también impide el arranque. Los errores de configuración no muestran la clave.
 
 La firma continúa siendo HS256. La clave se interpreta como texto UTF-8, sin decodificar Base64 ni recortar caracteres. Emisión y validación utilizan las mismas opciones, estables durante la ejecución. Cambiar una clave requiere reiniciar la API y volver a iniciar sesión; los tokens firmados con la clave anterior dejan de ser válidos.
+
+Para CU-04, el Administrador que envió una revisión no puede aprobarla, rechazarla ni solicitarse cambios: `POST /api/course-reviews/{id}/decision` devuelve 403 y conserva la revisión y la publicación. Debe intervenir otro Administrador autorizado. La comparación usa el solicitante de cada revisión, incluso en cursos con revisiones históricas.
 
 ### Desarrollo local: User Secrets
 

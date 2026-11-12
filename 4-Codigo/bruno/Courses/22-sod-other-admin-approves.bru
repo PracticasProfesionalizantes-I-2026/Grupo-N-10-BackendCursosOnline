@@ -1,0 +1,39 @@
+meta {
+  name: SoD aprobación por Administrador B
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{baseUrl}}/api/course-reviews/{{sodReviewId}}/decision
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{reviewerToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  { "decision": "Aprobada", "observation": null }
+}
+
+script:pre-request {
+  if (!bru.getVar("sodReviewId") || !bru.getEnvVar("reviewerToken") || !bru.getEnvVar("reviewerUserId")) {
+    throw new Error("Ejecutar Courses/17 a 21 y configurar reviewerToken y reviewerUserId de otro Administrador autorizado.");
+  }
+  if (bru.getEnvVar("reviewerUserId") === bru.getVar("adminUserId")) throw new Error("El revisor debe ser otro Administrador.");
+}
+
+tests {
+  test("El Administrador B puede aprobar", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().id).to.equal(bru.getVar("sodReviewId"));
+    expect(res.getBody().decision).to.equal("Aprobada");
+    expect(res.getBody().reviewedByUserId).to.equal(bru.getEnvVar("reviewerUserId"));
+  });
+}

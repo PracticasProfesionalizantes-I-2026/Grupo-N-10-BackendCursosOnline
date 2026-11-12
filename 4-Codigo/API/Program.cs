@@ -1,6 +1,7 @@
 using System.Text;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
+using System.Reflection;
 using Lumen.API.OpenApi;
 using Lumen.API.Errors;
 using Lumen.API.Security;
@@ -85,7 +86,21 @@ builder.Services.AddRateLimiter(LoginRateLimit.Configure);
 var app = builder.Build();
 
 // Resolve after test-host overrides, but before any migration or database initialization.
-_ = app.Services.GetRequiredService<IOptions<JwtOptions>>().Value;
+try
+{
+    _ = app.Services.GetRequiredService<IOptions<JwtOptions>>().Value;
+}
+catch (OptionsValidationException)
+{
+    Console.Error.WriteLine("Configuración JWT ausente o inválida. La API no puede iniciar.");
+    Console.Error.WriteLine("Verificá Jwt:Key (clave propia de al menos 32 bytes UTF-8), Jwt:Issuer y Jwt:Audience desde 4-Codigo:");
+    Console.Error.WriteLine("  Generá la clave y enviá Jwt:Key por entrada estándar a dotnet user-secrets set --project API/Lumen.API.csproj.");
+    Console.Error.WriteLine("También podés establecer la variable de entorno Jwt__Key. Consultá 4-Codigo/README.md para ver el comando completo sin mostrar la clave.");
+    // In-process hosts retain the exception for their own lifecycle and diagnostics.
+    if (Assembly.GetEntryAssembly() != typeof(Program).Assembly) throw;
+    Environment.ExitCode = 1;
+    return;
+}
 
 await using (var scope = app.Services.CreateAsyncScope())
 {

@@ -1,0 +1,28 @@
+meta {
+  name: SoD comprobar que sigue pendiente
+  type: http
+  seq: 21
+}
+
+get {
+  url: {{baseUrl}}/api/course-reviews/{{sodReviewId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+script:pre-request {
+  if (!bru.getVar("adminToken") || !bru.getVar("sodReviewId")) throw new Error("Ejecutar Courses/17 a 20.");
+}
+
+tests {
+  test("La revisión permanece sin decidir", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().review.id).to.equal(bru.getVar("sodReviewId"));
+    expect(res.getBody().review.decision).to.equal(null);
+    expect(res.getBody().review.reviewedByUserId).to.equal(null);
+  });
+}

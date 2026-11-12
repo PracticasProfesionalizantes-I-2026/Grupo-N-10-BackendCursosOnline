@@ -294,6 +294,16 @@ Las exclusiones técnicas de esta lista describen el alcance aprobado para la et
 
 - **RNF-14:** La interfaz debe validar la información obligatoria antes de permitir avanzar en procesos como registro, envío de cursos e inscripciones.
 
+#### 5.2.8 Requisitos técnicos del backend:
+
+- **RNF-15 — Control de concurrencia optimista (issue docente #17):** La API debe emitir `ETag` en la consulta de gestión y el guardado de cursos, y exigir un `If-Match` específico al guardar o recuperar un borrador. Una cabecera ausente o comodín devuelve HTTP 428; una etiqueta obsoleta, 412 sin escritura; una mal formada, 400. Un estado incompatible con una etiqueta vigente devuelve 409.
+
+- **RNF-16 — Integridad en SQLite (issue docente #17):** Las instantáneas de cada envío a auditoría deben conservarse inmutables. Las restricciones y triggers de SQLite impiden actualizar, borrar o reemplazar esas instantáneas, preservan la relación entre curso y revisión, y bloquean reducciones de cupo por debajo de las inscripciones aprobadas.
+
+- **RNF-17 — Límite de autenticación (issue docente #17):** El login admite hasta 20 solicitudes por minuto y por dirección IP mediante ventana deslizante. Al excederlo devuelve HTTP 429 con `Retry-After` en segundos. El contador reside en memoria de cada instancia; un despliegue distribuido requiere una solución compartida para mantener un límite global.
+
+- **RNF-18 — Seguridad JWT (issue docente #17):** La clave de firma se configura fuera del repositorio mediante User Secrets o `Jwt__Key`, debe tener al menos 32 bytes UTF-8 y no puede ser la clave revocada. Los tokens se firman con HS256. Las identidades demo se admiten solo en Development y Testing; quedan bloqueadas en Production. La API no debe registrar ni mostrar la clave.
+
 ### 5.3 Estados del Sistema:
 
 **Estados de Cursos:**
@@ -343,7 +353,7 @@ Transiciones principales: BORRADOR -> EN REVISIÓN -> PUBLICADO / CAMBIOS SOLICI
 | Guardar curso como borrador | No | Sí, propio | Sí |
 | Editar curso | No | Sí, únicamente propio y sujeto a nueva auditoría | Sí |
 | Enviar curso a revisión | No | Sí, propio | Sí |
-| Auditar curso | No | No | Sí |
+| Auditar curso | No | No | Sí, si no solicitó esa revisión |
 | Pausar / reanudar curso | No | Sí, propio | Sí |
 | Finalizar curso | No | No | Sí |
 | Solicitar inscripción | Sí | No | No |
@@ -386,6 +396,8 @@ Transiciones principales: BORRADOR -> EN REVISIÓN -> PUBLICADO / CAMBIOS SOLICI
 - **RN-15:** Los módulos deben pertenecer a un curso existente.
 
 - **RN-16:** Los reportes administrativos básicos deben respetar el rango de fechas definido mediante Desde y Hasta.
+
+- **RN-17 (issue docente #16):** Un Administrador no puede resolver una revisión solicitada por él mismo, tanto al aprobar como al rechazar o solicitar cambios. Otro Administrador autorizado puede resolverla. La denegación devuelve HTTP 403 y conserva la revisión y la publicación.
 
 ### 5.6 Decisiones funcionales complementarias aprobadas por el equipo (noviembre de 2026)
 
