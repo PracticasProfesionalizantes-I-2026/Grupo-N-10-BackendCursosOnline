@@ -9,7 +9,8 @@ namespace Lumen.API.Controllers;
 [ApiController]
 [Authorize]
 [Route("api")]
-public sealed class CoursesController(ICourseService service) : ControllerBase
+public sealed class CoursesController(ICourseService service, ICourseReviewService reviewService,
+    IProgressService progressService) : ControllerBase
 {
     [HttpGet("catalog/courses")]
     [ProducesResponseType<IReadOnlyList<PublishedCourseResponseDTO>>(StatusCodes.Status200OK)]
@@ -22,6 +23,16 @@ public sealed class CoursesController(ICourseService service) : ControllerBase
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetPublished(Guid id, CancellationToken cancellationToken) =>
         Ok(await service.GetPublishedByIdAsync(id, cancellationToken));
+
+    [Authorize(Roles = "Profesor,Administrador")]
+    [HttpGet("courses/{courseId:guid}/students/progress")]
+    [ProducesResponseType<IReadOnlyList<StudentProgressResponseDTO>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> GetCourseProgress(Guid courseId, int? limit, int? offset, CancellationToken cancellationToken) =>
+        Ok(await progressService.GetCourseProgressAsync(courseId, cancellationToken, ListPaging.Read(limit, offset)));
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpGet("courses")]
@@ -80,7 +91,7 @@ public sealed class CoursesController(ICourseService service) : ControllerBase
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> SubmitReview(Guid id, CancellationToken cancellationToken) =>
-        Ok(await service.SubmitForReviewAsync(id, cancellationToken));
+        Ok(await reviewService.SubmitForReviewAsync(id, cancellationToken));
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpPost("courses/{id:guid}/pause")]
@@ -113,14 +124,14 @@ public sealed class CoursesController(ICourseService service) : ControllerBase
     [ProducesResponseType<IReadOnlyList<CourseReviewResponseDTO>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetPendingReviews(int? limit, int? offset, CancellationToken cancellationToken) =>
-        Ok(await service.GetPendingReviewsAsync(cancellationToken, ListPaging.Read(limit, offset)));
+        Ok(await reviewService.GetPendingReviewsAsync(cancellationToken, ListPaging.Read(limit, offset)));
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpGet("course-reviews/mine")]
     [ProducesResponseType<IReadOnlyList<CourseReviewResponseDTO>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetMyReviews(int? limit, int? offset, CancellationToken cancellationToken) =>
-        Ok(await service.GetMyReviewsAsync(cancellationToken, ListPaging.Read(limit, offset)));
+        Ok(await reviewService.GetMyReviewsAsync(cancellationToken, ListPaging.Read(limit, offset)));
 
     [Authorize(Roles = "Profesor,Administrador")]
     [HttpGet("course-reviews/{id:guid}")]
@@ -129,7 +140,7 @@ public sealed class CoursesController(ICourseService service) : ControllerBase
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetReviewSnapshot(Guid id, CancellationToken cancellationToken)
     {
-        var review = await service.GetReviewSnapshotAsync(id, cancellationToken);
+        var review = await reviewService.GetReviewSnapshotAsync(id, cancellationToken);
         Response.Headers.CacheControl = "private, no-store";
         return Ok(review);
     }
@@ -142,7 +153,7 @@ public sealed class CoursesController(ICourseService service) : ControllerBase
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ResolveReview(Guid id, CourseReviewDecisionDTO dto, CancellationToken cancellationToken) =>
-        Ok(await service.ResolveReviewAsync(id, dto, cancellationToken));
+        Ok(await reviewService.ResolveReviewAsync(id, dto, cancellationToken));
 
     private IActionResult WithEditTag(CourseResponseDTO course)
     {

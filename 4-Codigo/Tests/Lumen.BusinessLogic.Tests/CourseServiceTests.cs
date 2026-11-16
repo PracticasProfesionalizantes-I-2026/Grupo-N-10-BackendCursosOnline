@@ -66,7 +66,7 @@ public sealed class CourseServiceTests
         var course = new Course { Id = Guid.NewGuid(), OwnerProfessorId = teacherId, WorkingRevision = revision };
         var repository = new Mock<ICourseRepository>();
         repository.Setup(x => x.GetByIdForUpdateAsync(course.Id, It.IsAny<CancellationToken>())).ReturnsAsync(course);
-        var service = new CourseService(repository.Object, new TestCurrentUser { UserId = teacherId, Role = UserRole.Profesor });
+        var service = new CourseReviewService(repository.Object, new TestCurrentUser { UserId = teacherId, Role = UserRole.Profesor });
 
         await Assert.ThrowsAsync<CourseRequiresModuleException>(() => service.SubmitForReviewAsync(course.Id));
     }

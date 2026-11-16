@@ -28,7 +28,7 @@ erDiagram
 | `CourseRevisions` | PK `Id`; `(CourseId, Version)` único. |
 | `CourseModules` | PK `(RevisionId, Id)`; `(RevisionId, Order)` único. |
 | `CourseReviews` | PK `Id`; revisión y solicitante obligatorios, revisor opcional. |
-| `CourseReviewSnapshots` | PK y FK `ReviewId`; copia JSON independiente de la revisión editable. Los disparadores impiden actualizar, borrar o reemplazar la evidencia de un envío existente. |
+| `CourseReviewSnapshots` | PK y FK `ReviewId`; copia JSON independiente de la revisión editable. Los envíos nuevos usan `CourseReviewSnapshotPayload` con `SchemaVersion: 1`, separado del DTO HTTP; la lectura conserva el formato JSON histórico sin versión y las filas antiguas sin snapshot. Los disparadores impiden actualizar, borrar o reemplazar la evidencia de un envío existente. No se altera el esquema SQLite ni se reescriben filas históricas. |
 | `Enrollments` | PK `Id`; alumno y curso obligatorios. Índice único parcial sobre `(StudentId, CourseId)` para los estados `Pendiente` y `Aprobada`. `ResolutionReason` conserva el motivo del rechazo automático al finalizar. Solo las aprobadas ocupan cupo. |
 | `EnrollmentModuleCompletions` | PK `(EnrollmentId, ModuleId)`. Solo `EnrollmentId` es FK. El repositorio condiciona el alta del módulo a la publicación vigente. |
 

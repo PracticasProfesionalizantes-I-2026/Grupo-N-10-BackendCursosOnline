@@ -4,6 +4,7 @@ using System.Text.Json;
 using Lumen.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lumen.API.IntegrationTests;
@@ -123,6 +124,20 @@ public sealed class OpenApiContractTests(OpenApiContractFixture fixture) : IClas
             .ApiDescriptionGroups.Items.SelectMany(x => x.Items).Where(x => x.RelativePath?.StartsWith("api/") == true);
         Assert.Equal(descriptions.Select(x => $"{x.HttpMethod!.ToLowerInvariant()} /{x.RelativePath}").Order(), actual);
         CheckReferences(Document);
+    }
+
+    [Fact]
+    public void CourseProgress_HasOneCoursesControllerAction_AtTheExistingRoute()
+    {
+        var descriptions = fixture.Factory.Services.GetRequiredService<IApiDescriptionGroupCollectionProvider>()
+            .ApiDescriptionGroups.Items.SelectMany(x => x.Items)
+            .Where(x => x.HttpMethod == "GET" &&
+                x.RelativePath == "api/courses/{courseId}/students/progress");
+        var action = Assert.IsType<ControllerActionDescriptor>(Assert.Single(descriptions).ActionDescriptor);
+        Assert.Equal("Courses", action.ControllerName);
+        Assert.Equal("GetCourseProgress", action.ActionName);
+        Assert.NotEqual(JsonValueKind.Undefined,
+            Operation("/api/courses/{courseId}/students/progress", "get").ValueKind);
     }
 
     [Fact]

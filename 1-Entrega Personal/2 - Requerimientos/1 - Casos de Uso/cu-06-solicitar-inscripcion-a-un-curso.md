@@ -67,7 +67,7 @@ Permite que un Alumno solicite su inscripción a un curso publicado. La solicitu
 ### 6. POSTCONDICIONES
 
 - La solicitud queda registrada en estado PENDIENTE.
-- El Alumno puede consultar el estado de la solicitud mediante CU-12.
+- El Alumno puede consultar el estado de la solicitud mediante CU-12A.
 - Todavía no obtiene acceso al curso hasta su aprobación.
 
 ---

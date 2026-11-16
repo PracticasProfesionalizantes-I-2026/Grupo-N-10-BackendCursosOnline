@@ -12,11 +12,6 @@ public interface ICourseService
     Task<CourseResponseDTO> UpdateAsync(Guid id, CourseUpdateDTO dto, CancellationToken cancellationToken = default,
         IReadOnlyCollection<long>? expectedUpdates = null);
     Task<CourseResponseDTO> RecoverRejectedDraftAsync(Guid id, IReadOnlyCollection<long> expectedUpdates, CancellationToken cancellationToken = default);
-    Task<CourseReviewResponseDTO> SubmitForReviewAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<CourseReviewResponseDTO>> GetPendingReviewsAsync(CancellationToken cancellationToken = default, ListPage? page = null);
-    Task<IReadOnlyList<CourseReviewResponseDTO>> GetMyReviewsAsync(CancellationToken cancellationToken = default, ListPage? page = null);
-    Task<CourseReviewSnapshotResponseDTO> GetReviewSnapshotAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<CourseReviewResponseDTO> ResolveReviewAsync(Guid reviewId, CourseReviewDecisionDTO dto, CancellationToken cancellationToken = default);
     Task<CourseResponseDTO> PauseAsync(Guid id, CancellationToken cancellationToken = default);
     Task<CourseResponseDTO> ResumeAsync(Guid id, CancellationToken cancellationToken = default);
     Task<CourseResponseDTO> FinishAsync(Guid id, CancellationToken cancellationToken = default);

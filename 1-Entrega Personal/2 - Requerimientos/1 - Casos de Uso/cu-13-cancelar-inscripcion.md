@@ -35,7 +35,7 @@ Permite cancelar una inscripción APROBADA. El Alumno solo puede cancelar una in
 
 ### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 200)
 
-1. El Alumno accede a sus inscripciones o el Administrador a la gestión de inscripciones.
+1. El Alumno accede a sus inscripciones mediante CU-12A o el Administrador a la gestión de inscripciones.
 2. El sistema muestra las inscripciones que el actor puede gestionar y su estado.
 3. El actor selecciona una inscripción APROBADA y solicita cancelarla. **Reglas aplicables:** **RN-11**.
 4. El sistema verifica el rol, la propiedad cuando actúa el Alumno y el estado APROBADA. **Reglas aplicables:** **RN-11**.

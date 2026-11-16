@@ -94,13 +94,4 @@ public sealed class EnrollmentsController(
     public async Task<IActionResult> CompleteModule(Guid id, Guid moduleId, CancellationToken cancellationToken) =>
         Ok(await progressService.CompleteModuleAsync(id, moduleId, cancellationToken));
 
-    [Authorize(Roles = "Profesor,Administrador")]
-    [HttpGet("courses/{courseId:guid}/students/progress")]
-    [ProducesResponseType<IReadOnlyList<StudentProgressResponseDTO>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ApiErrorResponseDTO>(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> GetCourseProgress(Guid courseId, int? limit, int? offset, CancellationToken cancellationToken) =>
-        Ok(await progressService.GetCourseProgressAsync(courseId, cancellationToken, ListPaging.Read(limit, offset)));
 }

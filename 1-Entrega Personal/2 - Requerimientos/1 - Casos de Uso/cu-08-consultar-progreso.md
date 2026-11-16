@@ -36,7 +36,7 @@ Permite consultar el avance de un Alumno en un curso mediante porcentaje y estad
 
 ### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 200)
 
-1. El Alumno accede a sus cursos, el Profesor al seguimiento de alumnos de sus cursos y el Administrador a la consulta de progreso desde su gestión general.
+1. El Alumno accede a sus cursos aprobados mediante CU-12B, el Profesor al seguimiento de alumnos de sus cursos y el Administrador a la consulta de progreso desde su gestión general.
 2. El usuario selecciona el curso o Alumno correspondiente. El sistema verifica que el Alumno consulte su propio progreso y que el Profesor consulte únicamente alumnos de cursos propios. **Reglas aplicables:** **RN-14**.
 3. El sistema consulta el avance registrado al realizar módulos o actividades del curso (CU-16); esta consulta no modifica el progreso. El progreso se calcula para la inscripción aprobada a partir de los módulos de la publicación vigente. Una inscripción nueva tiene su propio avance y no reutiliza el de una cancelada. Al republicar, solo los módulos sin cambios conservan sus completados. Cambiar el orden no reinicia el avance. Un módulo nuevo o modificado empieza pendiente y los completados de módulos retirados quedan en el historial. La API permite paginar el listado de avance de inscripciones aprobadas.
 4. El sistema muestra el porcentaje de avance.

@@ -15,7 +15,7 @@
 | **Disparador (Trigger)** | El Alumno accede a uno de sus cursos con inscripción APROBADA y selecciona un módulo o actividad. |
 | **Prioridad / Frecuencia** | No especificada en el documento fuente |
 | **Reglas de negocio relacionadas** | RN-11, RN-13 y RN-15 |
-| **Referencias funcionales** | RF-24 y RF-27; RN-11, RN-13 y RN-15; estados de progreso. |
+| **Referencias funcionales** | RF-24, RF-27 y RF-27b (incorporado por la issue docente #22); RN-11, RN-13 y RN-15; estados de progreso. |
 | **Autores / Fecha** | Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026) |
 
 **Actores involucrados:**
@@ -35,7 +35,7 @@ Permite que el Alumno avance en un curso realizando sus módulos o actividades y
 
 ### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 200)
 
-1. El Alumno accede a un curso con inscripción APROBADA mediante CU-12. **Reglas aplicables:** **RN-11**.
+1. El Alumno accede a un curso con inscripción APROBADA mediante CU-12B. **Reglas aplicables:** **RN-11**.
 2. El sistema muestra los módulos o actividades y su contenido o recursos.
 3. El Alumno selecciona un módulo o actividad del curso. **Reglas aplicables:** **RN-15**.
 4. El sistema verifica que la inscripción propia continúe APROBADA y que el módulo o actividad pertenezca a ese curso. **Reglas aplicables:** **RN-11**, **RN-15**. La API registra únicamente módulos de la publicación vigente. Repetir la confirmación del mismo módulo conserva un solo registro y el mismo avance. Si se republica, se conserva el avance de módulos idénticos, aunque se reordenen. Los cambios de contenido, nombre, descripción, duración o recursos generan otro identificador. Los completados anteriores se preservan en el historial. Finalizar el curso conserva la finalización de módulos por alumnos con inscripción aprobada.
