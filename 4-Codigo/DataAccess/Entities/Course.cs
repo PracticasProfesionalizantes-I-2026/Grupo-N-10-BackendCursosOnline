@@ -16,6 +16,7 @@ public sealed class Course
     public CourseRevision? PublishedRevision { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
+    public long RowVersion { get; set; } = 1;
     public ICollection<CourseRevision> Revisions { get; set; } = [];
     public ICollection<Enrollment> Enrollments { get; set; } = [];
 }

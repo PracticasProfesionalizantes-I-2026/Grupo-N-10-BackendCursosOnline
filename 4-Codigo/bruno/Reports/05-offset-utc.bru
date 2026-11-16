@@ -1,0 +1,31 @@
+meta {
+  name: Reporte con desplazamiento y cambio de día UTC
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/reports/summary?from=2026-10-01T23:30:00-03:00&to=2026-10-01T23:30:00-03:00
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+script:pre-request {
+  if (typeof bru.getVar("adminToken") !== "string" || !bru.getVar("adminToken").length) {
+    throw new Error("Falta el login requerido: adminToken.");
+  }
+}
+
+tests {
+  test("HTTP 200 y desplazamiento convertido a UTC", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(new Date(body.from).toISOString()).to.equal("2026-10-02T02:30:00.000Z");
+    expect(new Date(body.to).toISOString()).to.equal("2026-10-02T02:30:00.000Z");
+    expect(body.timeZone).to.equal(undefined);
+  });
+}

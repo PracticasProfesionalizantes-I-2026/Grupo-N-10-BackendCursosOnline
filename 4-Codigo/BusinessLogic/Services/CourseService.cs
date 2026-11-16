@@ -62,7 +62,8 @@ public sealed class CourseService(
             OwnerProfessorId = currentUser.Role == UserRole.Profesor ? currentUser.UserId : null,
             OperationalStatus = CourseOperationalStatus.Activo,
             CreatedAtUtc = now,
-            UpdatedAtUtc = now
+            UpdatedAtUtc = now,
+            RowVersion = 1
         };
         revision.Version = 1;
         revision.CreatedAtUtc = now;
@@ -96,8 +97,7 @@ public sealed class CourseService(
         }
         else
         {
-            changes.UpdatedAtUtc = CourseRules.NextTimestamp(course.UpdatedAtUtc > working.UpdatedAtUtc ? course.UpdatedAtUtc : working.UpdatedAtUtc);
-            course.UpdatedAtUtc = changes.UpdatedAtUtc;
+            changes.UpdatedAtUtc = CourseRules.Touch(course);
             await SaveEditAsync(() => courseRepository.UpdateWorkingRevisionAsync(course, changes, cancellationToken), expectedUpdates);
         }
         return MapToResponseDTO(course);
@@ -126,15 +126,14 @@ public sealed class CourseService(
             throw new CourseStateConflictException("No puede incrementarse la versión del curso.");
 
         changes.Version = previous.Version + 1;
-        changes.UpdatedAtUtc = CourseRules.NextTimestamp(course.UpdatedAtUtc > previous.UpdatedAtUtc ? course.UpdatedAtUtc : previous.UpdatedAtUtc);
+        changes.UpdatedAtUtc = CourseRules.Touch(course);
         changes.CreatedAtUtc = changes.UpdatedAtUtc;
-        course.UpdatedAtUtc = changes.UpdatedAtUtc;
         await SaveEditAsync(() => courseRepository.AddRevisionAsync(course, changes, cancellationToken), expectedUpdates);
     }
 
     private static void EnsureExpectedVersion(Course course, IReadOnlyCollection<long>? expectedUpdates)
     {
-        if (expectedUpdates is not null && !expectedUpdates.Contains(course.UpdatedAtUtc.Ticks))
+        if (expectedUpdates is not null && !expectedUpdates.Contains(course.RowVersion))
             throw new CourseVersionMismatchException();
     }
 
@@ -166,7 +165,7 @@ public sealed class CourseService(
             throw new CourseStateConflictException("Solo puede finalizarse un curso publicado o pausado.");
         }
         course.OperationalStatus = CourseOperationalStatus.Finalizado;
-        course.UpdatedAtUtc = CourseRules.NextTimestamp(course.UpdatedAtUtc);
+        CourseRules.Touch(course);
         await courseRepository.FinishAndRejectPendingAsync(course, currentUser.UserId, DateTime.UtcNow, cancellationToken);
         return MapToResponseDTO(course);
     }
@@ -185,7 +184,7 @@ public sealed class CourseService(
             throw new CourseStateConflictException($"El estado actual del curso no permite cambiarlo a {target}.");
         }
         course.OperationalStatus = target;
-        course.UpdatedAtUtc = CourseRules.NextTimestamp(course.UpdatedAtUtc);
+        CourseRules.Touch(course);
         await courseRepository.SaveAsync(cancellationToken);
         return MapToResponseDTO(course);
     }
@@ -234,7 +233,7 @@ public sealed class CourseService(
             revision.SuggestedPrerequisites,
             revision.Modules.OrderBy(x => x.Order).Select(x => MapToModuleResponseDTO(x, true)).ToList(),
             course.CreatedAtUtc,
-            course.UpdatedAtUtc) { WorkingStatus = revision.Status.ToString() };
+            course.UpdatedAtUtc) { WorkingStatus = revision.Status.ToString(), RowVersion = course.RowVersion };
     }
 
     internal static PublishedCourseResponseDTO MapToPublishedResponseDTO(Course course, bool includeContent)

@@ -24,7 +24,7 @@ erDiagram
 | Tabla | Clave e invariantes |
 |---|---|
 | `Users` | PK `Id`; índice único de `NormalizedEmail`. |
-| `Courses` | PK `Id`; creador obligatorio, propietario opcional. `WorkingRevisionId` y `PublishedRevisionId` son FK opcionales e independientes. Los disparadores exigen que los punteros nuevos o actualizados pertenezcan al propio curso. |
+| `Courses` | PK `Id`; creador obligatorio, propietario opcional. `WorkingRevisionId` y `PublishedRevisionId` son FK opcionales e independientes. `RowVersion` es un entero obligatorio que inicia en 1 y sirve como token de concurrencia. Los disparadores exigen que los punteros nuevos o actualizados pertenezcan al propio curso. |
 | `CourseRevisions` | PK `Id`; `(CourseId, Version)` único. |
 | `CourseModules` | PK `(RevisionId, Id)`; `(RevisionId, Order)` único. |
 | `CourseReviews` | PK `Id`; revisión y solicitante obligatorios, revisor opcional. |
@@ -50,5 +50,7 @@ La cuarta migración agrega evidencia únicamente para envíos nuevos y no deriv
 La quinta migración impide la sustitución mediante `INSERT OR REPLACE`, que con disparadores recursivos desactivados puede omitir el disparador de borrado. Se aplica sin modificar las filas. [Resolución de conflictos en SQLite](https://www.sqlite.org/lang_conflict.html).
 
 La sexta migración agrega `ResolutionReason` sin modificar las inscripciones existentes. Los disparadores impiden reducir un cupo bajo la ocupación aprobada y publicar una revisión cuyo cupo no alcance. La aprobación de una solicitud comprueba el cupo en su sentencia de actualización. La finalización rechaza todas las pendientes y guarda el motivo en una sola transacción.
+
+La migración `AddCourseRowVersion` agrega `RowVersion INTEGER NOT NULL DEFAULT 1` a cursos existentes sin cambiar revisiones, inscripciones ni snapshots. Cada operación que modifica un curso incrementa el contador y EF compara atómicamente el valor anterior al guardar en SQLite. `UpdatedAtUtc` queda como fecha real de actualización y no se adelanta para representar una versión.
 
 Fuentes: [configuraciones de EF Core](DataAccess/Configurations), [migraciones](Migrations/DatabaseMigrations) y [snapshot del modelo](Migrations/DatabaseMigrations/LumenDbContextModelSnapshot.cs).

@@ -21,11 +21,10 @@ public sealed class CourseReviewService(ICourseRepository courseRepository, ICur
             throw new CourseStateConflictException("Solo una versión en borrador o con cambios solicitados puede enviarse a revisión.");
         }
         var totalDuration = CourseValidator.ValidateComplete(revision);
-        var updatedAt = CourseRules.NextTimestamp(course.UpdatedAtUtc > revision.UpdatedAtUtc ? course.UpdatedAtUtc : revision.UpdatedAtUtc);
+        var updatedAt = CourseRules.Touch(course);
         revision.Status = CourseRevisionStatus.EnRevision;
         revision.TotalDurationMinutes = totalDuration;
         revision.UpdatedAtUtc = updatedAt;
-        course.UpdatedAtUtc = revision.UpdatedAtUtc;
         var review = new CourseReview
         {
             CourseRevisionId = revision.Id,
@@ -112,8 +111,7 @@ public sealed class CourseReviewService(ICourseRepository courseRepository, ICur
             default:
                 throw new LumenValidationException("La decisión de auditoría no es válida.");
         }
-        revision.UpdatedAtUtc = CourseRules.NextTimestamp(revision.Course.UpdatedAtUtc > revision.UpdatedAtUtc ? revision.Course.UpdatedAtUtc : revision.UpdatedAtUtc);
-        revision.Course.UpdatedAtUtc = revision.UpdatedAtUtc;
+        revision.UpdatedAtUtc = CourseRules.Touch(revision.Course);
         await courseRepository.SaveAsync(cancellationToken);
         return MapToReviewResponseDTO(review);
     }

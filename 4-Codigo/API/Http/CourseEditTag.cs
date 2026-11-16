@@ -7,7 +7,7 @@ namespace Lumen.API.Http;
 
 internal static class CourseEditTag
 {
-    internal static string For(CourseResponseDTO course) => Format(course.Id, course.UpdatedAtUtc.Ticks);
+    internal static string For(CourseResponseDTO course) => Format(course.Id, course.RowVersion);
 
     internal static IReadOnlyCollection<long> Read(Guid courseId, IList<string> header)
     {
@@ -25,14 +25,14 @@ internal static class CourseEditTag
         {
             var value = tag.Tag.Value;
             if (!tag.IsWeak && value is { Length: 51 } &&
-                long.TryParse(value.AsSpan(34, 16), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var ticks) &&
-                value == Format(courseId, ticks))
+                long.TryParse(value.AsSpan(34, 16), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var version) &&
+                value == Format(courseId, version))
             {
-                versions.Add(ticks);
+                versions.Add(version);
             }
         }
         return versions;
     }
 
-    private static string Format(Guid id, long ticks) => $"\"{id:N}.{ticks:x16}\"";
+    private static string Format(Guid id, long version) => $"\"{id:N}.{version:x16}\"";
 }

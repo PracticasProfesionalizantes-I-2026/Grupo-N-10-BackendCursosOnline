@@ -1,6 +1,6 @@
 # Bruno — ejecución y exposición de LUMEN
 
-La colección contiene 58 requests. Incluye 19 de `00-Exposicion` y recorridos generales, de edición condicional, reportes y recuperación. Los dos environments son `local` (API habitual, puerto 5080) y `demo-temporal` (API aislada, puerto 5081). Para estos recorridos usar exclusivamente `demo-temporal`.
+La colección contiene 59 requests. Incluye 19 de `00-Exposicion` y recorridos generales, de edición condicional, reportes y recuperación. Los dos environments son `local` (API habitual, puerto 5080) y `demo-temporal` (API aislada, puerto 5081). Para estos recorridos usar exclusivamente `demo-temporal`.
 
 ## 1. Iniciar una API con SQLite temporal
 
@@ -51,7 +51,7 @@ Esperar a que la API escuche en 5081. La inicialización incorpora las cuentas d
 
 La siembra automática es atómica y solo se permite en Development o Testing cuando no existen usuarios. Production aplica migraciones sin crear datos demo. También rechaza el login y los tokens de las cuentas reservadas demo si se reutiliza su base; no elimina ni modifica esas filas. Preparar una base separada para cada entorno.
 
-Después del login de administrador, ejecutar `Reports` para comprobar el período pedido, un período vacío en la base demo y el rechazo de un período invertido.
+Después del login de administrador, ejecutar `Reports` para comprobar el período pedido, un período vacío en la base demo, el rechazo de un período invertido y la conversión `-03:00` a UTC que cruza de día.
 
 ## 2. Ejecutar desde Bruno
 
