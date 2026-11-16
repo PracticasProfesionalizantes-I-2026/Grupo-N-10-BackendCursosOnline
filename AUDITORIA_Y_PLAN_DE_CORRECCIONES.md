@@ -2,7 +2,7 @@
 
 Auditoría original: 05/11/2026, `main` en `050a17e35c5fe08bf56c70fdea95f521726cf104`. Línea base del informe: 33 hallazgos (7 altos, 21 medios y 5 bajos), 350 pruebas aprobadas (101 unitarias y 249 de integración), build sin errores ni advertencias. El alta de inscripción, las fechas obligatorias de reportes y Bearer/OpenAPI ya estaban corregidos en esa revisión. La auditoría original distingue API, prototipo local y decisiones de negocio; este registro conserva los mismos IDs.
 
-Las cinco rondas se realizaron sin modificar bases de producción. Esta quinta ronda continúa en `fix/auditoria-lumen` sobre `4e0ded1`, sin commit, push ni merge. Cada fila contiene el último resultado comprobado. Un bloqueo afecta solo a la corrección que depende de esa decisión.
+Las cinco rondas originales se realizaron sin modificar bases de producción. Registro histórico de la quinta ronda del 06/11/2026: en ese momento el trabajo estaba en `fix/auditoria-lumen` sobre `4e0ded1`, antes de su commit, push y merge. Las filas siguientes conservan los resultados y decisiones de aquella auditoría; los estados vigentes de las 20 issues docentes figuran en la matriz de trazabilidad y en el cierre final de este documento.
 
 | ID | Categoría | Severidad | Evidencia y archivos de origen | Corrección prevista o decisión | Dependencias, pruebas y documentación | Estado | Validación |
 |---|---|---|---|---|---|---|---|
@@ -522,10 +522,20 @@ Se cotejaron actores, objetivos, disparadores, precondiciones, flujos, excepcion
 - `AUDITORIA_Y_PLAN_DE_CORRECCIONES.md`
 - `README.md`
 
-## Cierre de las 20 issues docentes (Ronda 3, 16/11/2026)
+## Registro histórico: cierre local de la Ronda 3, antes del merge del PR #36 (16/11/2026)
 
-Las issues #14–#25 están integradas en `main`; las #26–#33 están corregidas y verificadas localmente en `fix/issues-riesgo-bajo`, sin commit, push, merge ni cierre remoto. La matriz conserva los 33 hallazgos originales y añade trazabilidad para las 20 issues docentes. RF-27b y CU-12A/B permanecen; CU-14A/B separan las transiciones bajo el identificador histórico CU-14.
+Al momento de este cierre local, las issues #14–#25 ya estaban integradas en `main`; las #26–#33 estaban corregidas y verificadas en `fix/issues-riesgo-bajo`, todavía antes del commit, push, merge y cierre remoto de esa ronda. La matriz conserva los 33 hallazgos originales y añade trazabilidad para las 20 issues docentes. RF-27b y CU-12A/B permanecen; CU-14A/B separan las transiciones bajo el identificador histórico CU-14.
 
 La verificación final aprobó build Release sin advertencias, 103 pruebas unitarias, 330 integraciones, 12 pruebas frontend, lint y build. Bruno aprobó 63 requests y 111 tests. OpenAPI y Scalar respondieron HTTP 200. La SQLite temporal pasó `PRAGMA integrity_check` tras siete migraciones; una prueba independiente aplicó `AddCourseRowVersion` sobre un esquema anterior y conservó los datos. Los Word se compararon en ambos sentidos con Markdown (192 y 622 párrafos) y se revisaron sus 11 y 22 páginas exportadas.
 
 La migración numérica obliga a refrescar ETags antiguos basados en ticks. El repositorio no incluye un comando de bootstrap para Production; RF-06 y README indican el aprovisionamiento restringido requerido sin presentarlo como una función implementada.
+
+## Estado vigente y auditoría final independiente (16/11/2026)
+
+Las tres rondas docentes están integradas en `main`: PR #34 para #14–#17, PR #35 para #18–#25 y PR #36 para #26–#33. GitHub muestra los tres PR integrados y las 20 issues docentes cerradas. El HEAD verificado de `main` es `42403d866eb1cbff4caf7b1156049e61d5018250`. Los párrafos de cierre anteriores son registros de sus momentos previos a los merges, no descripciones del estado vigente.
+
+La auditoría final independiente emitió **APTO CON OBSERVACIONES**: 17 issues **VERIFICADAS** y 3 **VERIFICADAS CON OBSERVACIONES** (#14, #30 y #32); ninguna quedó INCOMPLETA, CON REGRESIÓN o NO VERIFICABLE. No se detectaron regresiones funcionales. Este dictamen de verificación no cambia retrospectivamente los estados COMPLETADA de la matriz, que registran las correcciones implementadas.
+
+El hallazgo **H-01** era la narración desactualizada de la integración de la Ronda 3 y queda atendido por este cierre documental. **H-02** es un riesgo técnico potencial no bloqueante asociado a #30: `UserRepository.CreateAsync` exige el código SQLite 2067, pero distingue la columna `Users.NormalizedEmail` mediante una coincidencia con el mensaje del proveedor. No se reprodujo una traducción incorrecta ni una regresión funcional.
+
+La evidencia tiene límites de entorno: solo se ejecutó el SDK 10.0.400; el runtime disponible era ASP.NET Core 10.0.11 y la API exige 10.0.14, de modo que las verificaciones HTTP y Bruno se hicieron con una copia temporal cuyo `runtimeconfig` fue ajustado. Sin el paquete faltante en caché no se completó `npm ci --offline` desde el lockfile; en la copia pasaron las pruebas frontend y lint, TypeScript compiló y Vite generó el bundle con `--configLoader runner`, pero el build ordinario quedó limitado por permisos de lectura. El cotejo textual de Word y Markdown no encontró faltantes; la revisión visual de páginas no pudo repetirse. El primer Administrador de Production requiere un aprovisionamiento operativo restringido, todavía sin comando en el repositorio.
