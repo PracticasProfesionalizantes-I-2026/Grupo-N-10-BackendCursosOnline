@@ -15,7 +15,7 @@
 | **Disparador (Trigger)** | El Administrador selecciona la sección "Reportes". |
 | **Prioridad / Frecuencia** | No especificada en el documento fuente |
 | **Reglas de negocio relacionadas** | RN-16 |
-| **Referencias funcionales** | No especificadas en el documento fuente |
+| **Referencias funcionales** | RF-33, RF-34, RF-35; RN-16; política VAL-003. |
 | **Autores / Fecha** | Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026) |
 
 **Actores involucrados:**

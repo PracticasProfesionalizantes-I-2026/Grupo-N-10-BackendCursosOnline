@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Lumen.DataAccess;
 using Lumen.DataAccess.Entities;
 using Lumen.Shared.DTOs;
@@ -212,6 +213,10 @@ public sealed class CourseReviewHistoryIntegrationTests
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<LumenDbContext>();
+        var storedSnapshot = await db.Set<CourseReviewSnapshot>().AsNoTracking()
+            .SingleAsync(x => x.ReviewId == first.Id);
+        using (var payload = JsonDocument.Parse(storedSnapshot.ContentJson))
+            Assert.Equal(1, payload.RootElement.GetProperty("SchemaVersion").GetInt32());
         var legacyReviewId = Guid.NewGuid();
         db.CourseReviews.Add(new CourseReview
         {
@@ -220,10 +225,25 @@ public sealed class CourseReviewHistoryIntegrationTests
             RequestedByUserId = first.RequestedByUserId,
             RequestedAtUtc = first.RequestedAtUtc.AddDays(-1),
             Type = first.Type,
+            Decision = CourseReviewDecision.Rechazada,
+            Snapshot = new CourseReviewSnapshot { ContentJson = JsonSerializer.Serialize(initial.Submission) }
+        });
+        await db.SaveChangesAsync();
+        var legacy = await ReadHistoryAsync(admin, legacyReviewId);
+        Assert.Equal(initial.Submission.Title, legacy.Submission!.Title);
+        Assert.Equal(initial.Submission.Modules.Select(x => x.Id), legacy.Submission.Modules.Select(x => x.Id));
+        var noSnapshotId = Guid.NewGuid();
+        db.CourseReviews.Add(new CourseReview
+        {
+            Id = noSnapshotId,
+            CourseRevisionId = first.RevisionId,
+            RequestedByUserId = first.RequestedByUserId,
+            RequestedAtUtc = first.RequestedAtUtc.AddDays(-2),
+            Type = first.Type,
             Decision = CourseReviewDecision.Rechazada
         });
         await db.SaveChangesAsync();
-        Assert.Null((await ReadHistoryAsync(admin, legacyReviewId)).Submission);
+        Assert.Null((await ReadHistoryAsync(admin, noSnapshotId)).Submission);
         await Assert.ThrowsAsync<SqliteException>(() => db.Set<CourseReviewSnapshot>()
             .Where(x => x.ReviewId == first.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.ContentJson, "{}")));
         await Assert.ThrowsAsync<SqliteException>(() => db.Set<CourseReviewSnapshot>()

@@ -9,33 +9,33 @@
 | --- | --- |
 | **ID del Caso de Uso** | CU-01 |
 | **Nombre** | Registrarse |
-| **Actor Principal** | Alumno / Profesor |
+| **Actor Principal** | Visitante (Usuario No Registrado) |
 | **Alcance / Nivel** | Sistema Lumen; meta de usuario |
 | **Stakeholders e intereses** | Alumno y Profesor → crear una cuenta propia con los datos requeridos; Administrador → mantener usuarios identificados y roles controlados |
 | **Disparador (Trigger)** | El usuario selecciona la opción de registro desde la página principal. |
 | **Prioridad / Frecuencia** | No especificada en el documento fuente |
 | **Reglas de negocio relacionadas** | RN-01 (registro público limitado a ALUMNO y PROFESOR); RN-02 (información personal obligatoria) |
-| **Referencias funcionales** | No especificadas en el documento fuente |
+| **Referencias funcionales** | RF-01, RF-02, RF-03, RF-04; RN-01, RN-02; política VAL-002. |
 | **Autores / Fecha** | Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026) |
 
 **Actores involucrados:**
 
-- **Principal:** Alumno / Profesor
+- **Principal:** Visitante (Usuario No Registrado)
 
 ---
 
 ### 1. BREVE DESCRIPCIÓN
 
-Permite que una persona cree una cuenta pública como Alumno o Profesor, registre sus credenciales y complete la información personal requerida.
+Permite que un Visitante cree una cuenta pública, elija el rol Alumno o Profesor, registre sus credenciales y complete la información personal requerida (RF-01 a RF-04).
 
 ### 2. PRECONDICIONES
 
-- El usuario no debe poseer una cuenta registrada con el mismo email.
+- El Visitante todavía no tiene una sesión ni un rol activo; no debe existir una cuenta registrada con el mismo email.
 - El registro público se encuentra disponible únicamente para Alumno y Profesor.
 
 ### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 201)
 
-1. El usuario selecciona la opción de registro.
+1. El Visitante selecciona la opción de registro.
 2. El sistema solicita seleccionar el tipo de cuenta: Alumno o Profesor. La API rechaza su omisión con HTTP 400 y no crea una cuenta. **Reglas aplicables:** **RN-01**.
 3. El usuario ingresa email y contraseña.
 4. El sistema valida que el email no se encuentre registrado y que los campos obligatorios estén completos.
@@ -62,7 +62,7 @@ Permite que una persona cree una cuenta pública como Alumno o Profesor, registr
 
 ### 6. POSTCONDICIONES
 
-- La cuenta queda registrada con el rol seleccionado.
+- La cuenta queda registrada con el rol Alumno o Profesor elegido por el Visitante; desde entonces puede actuar con ese rol.
 - Los datos personales obligatorios quedan asociados a la cuenta.
 - El usuario queda habilitado para iniciar sesión.
 

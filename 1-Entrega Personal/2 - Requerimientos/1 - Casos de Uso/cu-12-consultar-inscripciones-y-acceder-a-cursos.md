@@ -14,8 +14,8 @@
 | **Stakeholders e intereses** | Alumno → conocer el estado de sus inscripciones y acceder a cursos aprobados; responsables del sistema → impedir accesos sin aprobación |
 | **Disparador (Trigger)** | El Alumno selecciona solicitudes e inscripciones o sus cursos desde el panel. |
 | **Prioridad / Frecuencia** | No especificada en el documento fuente |
-| **Reglas de negocio relacionadas** | RN-11 |
-| **Referencias funcionales** | RF-24, RF-26 y RF-30; RN-11; estados de inscripción. |
+| **Reglas de negocio relacionadas** | CU-12A: estados de inscripción; CU-12B: RN-11. |
+| **Referencias funcionales** | CU-12A: RF-26 y RF-30; CU-12B: RF-24 y RN-11. |
 | **Autores / Fecha** | Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026) |
 
 **Actores involucrados:**
@@ -26,43 +26,25 @@
 
 ### 1. BREVE DESCRIPCIÓN
 
-Permite que el Alumno consulte sus solicitudes, identifique sus cursos con inscripción APROBADA y acceda al curso cuando corresponda.
+CU-12 conserva el identificador histórico de la consulta de inscripciones y el acceso a cursos. Sus dos metas se especifican por separado en CU-12A y CU-12B; no se crean endpoints nuevos.
 
-### 2. PRECONDICIONES
+#### CU-12A — Consultar Estado de Solicitudes e Inscripciones
 
-- El usuario debe haber iniciado sesión como Alumno.
-- Solo puede consultar sus propias inscripciones.
+- **Actor y objetivo:** Alumno autenticado; conocer el estado de sus solicitudes e inscripciones propias (RF-26 y RF-30).
+- **Disparador:** el Alumno abre «Mis solicitudes e inscripciones».
+- **Precondiciones:** sesión de Alumno; no se exige tener inscripciones ni una inscripción aprobada.
+- **Flujo principal:** 1. El Alumno solicita `GET /api/enrollments/mine`. 2. El sistema devuelve HTTP 200 con sus inscripciones y estados PENDIENTE, APROBADA, RECHAZADA o CANCELADA; admite `limit` de 1 a 100 y `offset` no negativo junto con `limit`. 3. El Alumno consulta el estado; si está APROBADA, puede iniciar CU-12B. La consulta no modifica datos.
+- **Excepciones:** sin inscripciones, HTTP 200 con lista vacía; paginación inválida, HTTP 400; sin autenticación, HTTP 401; otro rol, HTTP 403. No se exponen inscripciones ajenas.
+- **Postcondición:** el Alumno conoce el estado de sus solicitudes; no cambia la inscripción.
 
-### 3. FLUJO PRINCIPAL (Camino Feliz - HTTP 200)
+#### CU-12B — Acceder al Contenido del Curso Aprobado
 
-1. El Alumno accede a sus solicitudes e inscripciones.
-2. El sistema muestra sus solicitudes y los cursos asociados, con el estado de cada inscripción.
-3. El Alumno consulta el estado y selecciona un curso con inscripción APROBADA. **Reglas aplicables:** **RN-11**.
-4. El sistema verifica que la inscripción pertenezca al Alumno y permanezca APROBADA. **Reglas aplicables:** **RN-11**. La finalización conserva el acceso de inscripciones APROBADAS y su progreso.
-5. El sistema permite acceder al curso y a sus módulos o actividades. **Reglas aplicables:** **RN-11**. Los nombres, el contenido y los módulos del alumno provienen de la publicación. La API admite paginación de las inscripciones propias. La pausa o finalización no revoca el acceso de una inscripción aprobada.
-6. El Alumno puede consultar su progreso (CU-08), realizar módulos o actividades (CU-16) o solicitar cancelar la inscripción (CU-13).
-
-### 4. FLUJOS ALTERNATIVOS (Caminos Tristes / Excepciones)
-
-* **2a. No existen solicitudes o inscripciones propias — A1 (HTTP 200 OK):**
-  1. El sistema informa que no hay inscripciones para mostrar.
-  2. El Alumno puede consultar cursos PUBLICADOS mediante CU-11.
-
-* **4a. Inscripción PENDIENTE, RECHAZADA o CANCELADA — A2 (HTTP 409 Conflict):**
-  1. El sistema muestra el estado correspondiente y no permite acceso al curso. **Reglas aplicables:** **RN-11**.
-  2. Si la inscripción está PENDIENTE, permanece a la espera de resolución en CU-07.
-
-* **4b. La inscripción pertenece a otro Alumno — A3 (HTTP 403 Forbidden):**
-  1. El sistema restringe la consulta y el acceso.
-
-### 5. SUB-VARIACIONES (opcional)
-
-- No se especifican sub-variaciones adicionales en el documento fuente.
-
-### 6. POSTCONDICIONES
-
-- El Alumno visualiza el estado PENDIENTE, APROBADA, RECHAZADA o CANCELADA de sus inscripciones, según corresponda.
-- El acceso al curso se habilita únicamente cuando la inscripción está APROBADA. La consulta no modifica estados.
+- **Actor y objetivo:** Alumno autenticado titular de una inscripción APROBADA; acceder a la versión publicada del curso (RF-24; RN-11).
+- **Disparador:** el Alumno elige una inscripción aprobada desde CU-12A.
+- **Precondiciones:** la inscripción existe, pertenece al Alumno y permanece APROBADA; existe una publicación válida del curso.
+- **Flujo principal:** 1. El Alumno solicita `GET /api/enrollments/{id}/course-content`. 2. El sistema comprueba titularidad y estado APROBADA. 3. Devuelve HTTP 200 con el contenido y los módulos de la publicación, incluso si el curso está pausado o finalizado. 4. El Alumno puede consultar progreso (CU-08), completar módulos (CU-16) o cancelar la inscripción (CU-13). La lectura no modifica estados.
+- **Excepciones:** sin autenticación, HTTP 401; rol ajeno o inscripción de otro Alumno, HTTP 403; inscripción inexistente, HTTP 404; inscripción PENDIENTE, RECHAZADA o CANCELADA, HTTP 409; publicación inválida, HTTP 409.
+- **Postcondición:** el contenido se muestra solo al titular aprobado; la consulta conserva inscripción, progreso y publicación.
 
 ---
 
@@ -72,9 +54,11 @@ Permite que el Alumno consulte sus solicitudes, identifique sus cursos con inscr
 
 | Código HTTP | Nombre Técnico | Contexto de Aplicación en el Caso de Uso |
 | --- | --- | --- |
-| `200` | OK | resultado satisfactorio de Consultar Inscripciones y Acceder a Cursos; A1: No existen solicitudes o inscripciones propias. |
-| `409` | Conflict | A2: Inscripción PENDIENTE, RECHAZADA o CANCELADA. |
-| `403` | Forbidden | A3: La inscripción pertenece a otro Alumno. |
+| `200` | OK | CU-12A devuelve inscripciones propias o lista vacía; CU-12B devuelve contenido publicado al titular aprobado. |
+| `409` | Conflict | CU-12B: inscripción no aprobada o publicación inválida. |
+| `403` | Forbidden | Rol ajeno o inscripción de otro Alumno. |
+| `401` | Unauthorized | Falta autenticación. |
+| `404` | Not Found | CU-12B: inscripción inexistente. |
 | `400` | Bad Request | Parámetros de paginación inválidos. |
 
 ### Nota: Validación vs. Verificación aplicada
@@ -92,4 +76,4 @@ La paginación de la API es optativa. Acepta limit de 1 a 100 y offset desde cer
 | Pruebas automatizadas | PagingIntegrationTests; EnrollmentCreationIntegrationTests; ProgressIntegrationTests; demo.test.mjs |
 | Bruno | Enrollments/02,04–05; Exposición/11 |
 
-200 consulta o acceso a publicación, 403 ajena y 409 si no está aprobada. Cerrar el catálogo no revoca acceso.
+CU-12A: 200 con lista propia, 400 por paginación. CU-12B: 200 con publicación, 403 ajena, 404 inexistente y 409 si no está aprobada. Pausar o finalizar no revoca acceso.

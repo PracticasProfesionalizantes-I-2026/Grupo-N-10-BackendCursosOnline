@@ -15,6 +15,8 @@ Actores y Casos de Uso
 
 ## 1. Actores Identificados
 
+**Visitante (Usuario No Registrado):** Persona sin cuenta ni sesión que inicia CU-01 y elige registrarse como Alumno o Profesor. El rol elegido solo queda activo tras el registro exitoso.
+
 **Alumno:** Usuario que consulta cursos PUBLICADOS, solicita y consulta inscripciones propias, accede a cursos con inscripción APROBADA, realiza módulos o actividades, consulta su progreso y cancela sus inscripciones APROBADAS.
 
 **Profesor:** Usuario que crea y mantiene cursos propios, agrega módulos, envía cursos o modificaciones a auditoría, consulta sus solicitudes y observaciones, pausa o reanuda cursos propios y consulta el progreso de sus alumnos. También puede consultar cursos PUBLICADOS.
@@ -27,9 +29,11 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 ## 2. Casos de Uso por Actor
 
-**Alumno:**
+**Visitante:**
 
 - CU-01 - Registrarse
+
+**Alumno:**
 
 - CU-02 - Iniciar Sesión
 
@@ -46,8 +50,6 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 - CU-16 - Realizar Módulos o Actividades del Curso
 
 **Profesor:**
-
-- CU-01 - Registrarse
 
 - CU-02 - Iniciar Sesión
 
@@ -97,27 +99,29 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 - **Id / Código:** CU-01
 
-- **Descripción:** Permite que una persona cree una cuenta pública como Alumno o Profesor, registre sus credenciales y complete la información personal requerida.
+- **Descripción:** Permite que un Visitante cree una cuenta pública como Alumno o Profesor, registre sus credenciales y complete la información personal requerida (RF-01 a RF-04).
+
+- **Referencias funcionales:** RF-01, RF-02, RF-03, RF-04; RN-01, RN-02; política VAL-002.
 
 - **Autores / Fecha:** Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026)
 
 #### 2. Participantes e Inicio:
 
-- **Actor principal:** Alumno / Profesor
+- **Actor principal:** Visitante (Usuario No Registrado)
 
-- **Disparador:** El usuario selecciona la opción de registro desde la página principal.
+- **Disparador:** El Visitante selecciona la opción de registro desde la página principal.
 
 #### 3. Condiciones Previas y Posteriores:
 
 **Precondiciones:**
 
-- El usuario no debe poseer una cuenta registrada con el mismo email.
+- El Visitante todavía no tiene sesión ni rol activo; no debe existir una cuenta registrada con el mismo email.
 
 - El registro público se encuentra disponible únicamente para Alumno y Profesor.
 
 **Postcondiciones:**
 
-- La cuenta queda registrada con el rol seleccionado.
+- La cuenta queda registrada con el rol Alumno o Profesor elegido por el Visitante; desde entonces puede actuar con ese rol.
 
 - Los datos personales obligatorios quedan asociados a la cuenta.
 
@@ -127,7 +131,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 **Flujo principal:**
 
-1. El usuario selecciona la opción de registro.
+1. El Visitante selecciona la opción de registro.
 
 2. El sistema solicita seleccionar el tipo de cuenta: Alumno o Profesor. La API rechaza su omisión con HTTP 400 y no crea una cuenta.
 
@@ -546,7 +550,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 - La solicitud queda registrada en estado PENDIENTE.
 
-- El Alumno puede consultar el estado de la solicitud mediante CU-12.
+- El Alumno puede consultar el estado de la solicitud mediante CU-12A.
 
 - Todavía no obtiene acceso al curso hasta su aprobación.
 
@@ -626,7 +630,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 - Si es APROBADA, el Alumno obtiene acceso al curso.
 
-- Si es RECHAZADA, el Alumno no obtiene acceso. El estado resultante puede consultarse mediante CU-12.
+- Si es RECHAZADA, el Alumno no obtiene acceso. El estado resultante puede consultarse mediante CU-12A.
 
 #### 4. Flujo de Eventos:
 
@@ -708,7 +712,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 **Flujo principal:**
 
-1. El Alumno accede a sus cursos, el Profesor al seguimiento de alumnos de sus cursos y el Administrador a la consulta de progreso desde su gestión general.
+1. El Alumno accede a sus cursos aprobados mediante CU-12B, el Profesor al seguimiento de alumnos de sus cursos y el Administrador a la consulta de progreso desde su gestión general.
 
 2. El usuario selecciona el curso o Alumno correspondiente. El sistema verifica que el Alumno consulte su propio progreso y que el Profesor consulte únicamente alumnos de cursos propios.
 
@@ -823,6 +827,8 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 - **Id / Código:** CU-10
 
 - **Descripción:** Permite que un Administrador consulte información básica del sistema aplicando un rango de fechas mediante los campos Desde y Hasta.
+
+- **Referencias funcionales:** RF-33, RF-34, RF-35; RN-16; política VAL-003.
 
 - **Autores / Fecha:** Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026)
 
@@ -944,65 +950,31 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 - **Id / Código:** CU-12
 
-- **Descripción:** Permite que el Alumno consulte sus solicitudes, identifique sus cursos con inscripción APROBADA y acceda al curso cuando corresponda.
+- **Descripción:** Caso histórico que agrupa las metas separadas de CU-12A y CU-12B.
 
-- **Referencias funcionales:** RF-24, RF-26 y RF-30; RN-11; estados de inscripción.
+- **Referencias funcionales:** CU-12A: RF-26 y RF-30; CU-12B: RF-24 y RN-11.
 
 - **Autores / Fecha:** Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026)
 
-#### 2. Participantes e Inicio:
+CU-12 conserva el identificador histórico de la consulta de inscripciones y el acceso a cursos. Sus dos metas se especifican por separado en CU-12A y CU-12B; no se crean endpoints nuevos.
 
-- **Actor principal:** Alumno
+#### CU-12A — Consultar Estado de Solicitudes e Inscripciones
 
-- **Disparador:** El Alumno selecciona solicitudes e inscripciones o sus cursos desde el panel.
+- **Actor y objetivo:** Alumno autenticado; conocer el estado de sus solicitudes e inscripciones propias (RF-26 y RF-30).
+- **Disparador:** el Alumno abre «Mis solicitudes e inscripciones».
+- **Precondiciones:** sesión de Alumno; no se exige tener inscripciones ni una inscripción aprobada.
+- **Flujo principal:** 1. El Alumno solicita `GET /api/enrollments/mine`. 2. El sistema devuelve HTTP 200 con sus inscripciones y estados PENDIENTE, APROBADA, RECHAZADA o CANCELADA; admite `limit` de 1 a 100 y `offset` no negativo junto con `limit`. 3. El Alumno consulta el estado; si está APROBADA, puede iniciar CU-12B. La consulta no modifica datos.
+- **Excepciones:** sin inscripciones, HTTP 200 con lista vacía; paginación inválida, HTTP 400; sin autenticación, HTTP 401; otro rol, HTTP 403. No se exponen inscripciones ajenas.
+- **Postcondición:** el Alumno conoce el estado de sus solicitudes; no cambia la inscripción.
 
-#### 3. Condiciones Previas y Posteriores:
+#### CU-12B — Acceder al Contenido del Curso Aprobado
 
-**Precondiciones:**
-
-- El usuario debe haber iniciado sesión como Alumno.
-
-- Solo puede consultar sus propias inscripciones.
-
-**Postcondiciones:**
-
-- El Alumno visualiza el estado PENDIENTE, APROBADA, RECHAZADA o CANCELADA de sus inscripciones, según corresponda.
-
-- El acceso al curso se habilita únicamente cuando la inscripción está APROBADA. La consulta no modifica estados.
-
-#### 4. Flujo de Eventos:
-
-**Flujo principal:**
-
-1. El Alumno accede a sus solicitudes e inscripciones.
-
-2. El sistema muestra sus solicitudes y los cursos asociados, con el estado de cada inscripción.
-
-3. El Alumno consulta el estado y selecciona un curso con inscripción APROBADA.
-
-4. El sistema verifica que la inscripción pertenezca al Alumno y permanezca APROBADA. La finalización conserva el acceso de inscripciones APROBADAS y su progreso.
-
-5. El sistema permite acceder al curso y a sus módulos o actividades. Los nombres, el contenido y los módulos del alumno provienen de la publicación. La API admite paginación de las inscripciones propias. La pausa o finalización no revoca el acceso de una inscripción aprobada.
-
-6. El Alumno puede consultar su progreso (CU-08), realizar módulos o actividades (CU-16) o solicitar cancelar la inscripción (CU-13).
-
-**Flujos Alternativos:**
-
-**A1. No existen solicitudes o inscripciones propias**
-
-2.1. El sistema informa que no hay inscripciones para mostrar.
-
-2.2. El Alumno puede consultar cursos PUBLICADOS mediante CU-11.
-
-**A2. Inscripción PENDIENTE, RECHAZADA o CANCELADA**
-
-4.1. El sistema muestra el estado correspondiente y no permite acceso al curso.
-
-4.2. Si la inscripción está PENDIENTE, permanece a la espera de resolución en CU-07.
-
-**A3. La inscripción pertenece a otro Alumno**
-
-4.1. El sistema restringe la consulta y el acceso.
+- **Actor y objetivo:** Alumno autenticado titular de una inscripción APROBADA; acceder a la versión publicada del curso (RF-24; RN-11).
+- **Disparador:** el Alumno elige una inscripción aprobada desde CU-12A.
+- **Precondiciones:** la inscripción existe, pertenece al Alumno y permanece APROBADA; existe una publicación válida del curso.
+- **Flujo principal:** 1. El Alumno solicita `GET /api/enrollments/{id}/course-content`. 2. El sistema comprueba titularidad y estado APROBADA. 3. Devuelve HTTP 200 con el contenido y los módulos de la publicación, incluso si el curso está pausado o finalizado. 4. El Alumno puede consultar progreso (CU-08), completar módulos (CU-16) o cancelar la inscripción (CU-13). La lectura no modifica estados.
+- **Excepciones:** sin autenticación, HTTP 401; rol ajeno o inscripción de otro Alumno, HTTP 403; inscripción inexistente, HTTP 404; inscripción PENDIENTE, RECHAZADA o CANCELADA, HTTP 409; publicación inválida, HTTP 409.
+- **Postcondición:** el contenido se muestra solo al titular aprobado; la consulta conserva inscripción, progreso y publicación.
 
 ### CU-13 – Cancelar Inscripción:
 
@@ -1042,7 +1014,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 **Flujo principal:**
 
-1. El Alumno accede a sus inscripciones o el Administrador a la gestión de inscripciones.
+1. El Alumno accede a sus inscripciones mediante CU-12A o el Administrador a la gestión de inscripciones.
 
 2. El sistema muestra las inscripciones que el actor puede gestionar y su estado.
 
@@ -1232,7 +1204,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 - **Descripción:** Permite que el Alumno avance en un curso realizando sus módulos o actividades y que el sistema represente ese avance como porcentaje y estado de progreso.
 
-- **Referencias funcionales:** RF-24 y RF-27; RN-11, RN-13 y RN-15; estados de progreso.
+- **Referencias funcionales:** RF-24, RF-27 y RF-27b (incorporado por la issue docente #22); RN-11, RN-13 y RN-15; estados de progreso.
 
 - **Autores / Fecha:** Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026)
 
@@ -1262,7 +1234,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 **Flujo principal:**
 
-1. El Alumno accede a un curso con inscripción APROBADA mediante CU-12.
+1. El Alumno accede a un curso con inscripción APROBADA mediante CU-12B.
 
 2. El sistema muestra los módulos o actividades y su contenido o recursos.
 

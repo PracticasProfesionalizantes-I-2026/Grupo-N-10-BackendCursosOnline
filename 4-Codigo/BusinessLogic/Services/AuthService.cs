@@ -24,28 +24,13 @@ public sealed class AuthService(
             throw new PublicRegistrationRoleNotAllowedException();
         }
 
-        var normalizedEmail = ServiceGuard.NormalizeNewEmail(dto.Email);
-        ServiceGuard.ValidatePersonalData(dto.FirstName, dto.LastName, dto.Dni, dto.Phone, dto.Address, dto.PostalCode, dto.Password);
-        if (await userRepository.EmailExistsAsync(normalizedEmail, cancellationToken))
+        var user = UserFactory.Create(dto.Email, dto.Password, dto.Role, dto.FirstName, dto.LastName,
+            dto.Dni, dto.Phone, dto.Address, dto.PostalCode, passwordHasher);
+        if (await userRepository.EmailExistsAsync(user.NormalizedEmail, cancellationToken))
         {
             throw new DuplicateEmailException(dto.Email);
         }
 
-        var user = new User
-        {
-            Email = dto.Email.Trim(),
-            NormalizedEmail = normalizedEmail,
-            Role = dto.Role,
-            FirstName = dto.FirstName.Trim(),
-            LastName = dto.LastName.Trim(),
-            Dni = dto.Dni.Trim(),
-            Phone = dto.Phone.Trim(),
-            Address = dto.Address.Trim(),
-            PostalCode = dto.PostalCode.Trim().ToUpperInvariant(),
-            IsActive = true,
-            CreatedAtUtc = DateTime.UtcNow
-        };
-        user.PasswordHash = passwordHasher.HashPassword(user, dto.Password);
         await userRepository.CreateAsync(user, cancellationToken);
         return MapToResponseDTO(user);
     }

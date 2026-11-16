@@ -136,7 +136,7 @@ public sealed class CourseUpdateServiceTests
         repository.Setup(x => x.CreateReviewAsync(It.IsAny<CourseReview>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((CourseReview review, CancellationToken _) => { requested = review; return review; });
 
-        await Service(course, repository).SubmitForReviewAsync(course.Id);
+        await ReviewService(course, repository).SubmitForReviewAsync(course.Id);
         Assert.Equal(CourseRevisionStatus.EnRevision, course.WorkingRevision!.Status);
         Assert.Equal(previous.AddTicks(1), course.UpdatedAtUtc);
         Assert.Equal(CourseReviewType.Modificacion, requested!.Type);
@@ -149,7 +149,7 @@ public sealed class CourseUpdateServiceTests
     public async Task Resolve_RejectsInvalidDecisionBeforeReading(CourseReviewDecision decision, string? observation)
     {
         var repository = new Mock<ICourseRepository>(MockBehavior.Strict);
-        var service = new CourseService(repository.Object, new TestCurrentUser { Role = UserRole.Administrador });
+        var service = new CourseReviewService(repository.Object, new TestCurrentUser { Role = UserRole.Administrador });
         await Assert.ThrowsAsync<LumenValidationException>(() => service.ResolveReviewAsync(Guid.NewGuid(), new(decision, observation)));
     }
 
@@ -184,7 +184,7 @@ public sealed class CourseUpdateServiceTests
                 revision.Modules.Add(new() { Id = Guid.NewGuid(), Name = "Extra", Description = "Desc", DurationMinutes = 1, Content = "Contenido" });
                 break;
         }
-        await Assert.ThrowsAsync<LumenValidationException>(() => Service(course, repository).SubmitForReviewAsync(course.Id));
+        await Assert.ThrowsAsync<LumenValidationException>(() => ReviewService(course, repository).SubmitForReviewAsync(course.Id));
         Assert.Equal(CourseRevisionStatus.Borrador, revision.Status);
         repository.Verify(x => x.CreateReviewAsync(It.IsAny<CourseReview>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -222,6 +222,9 @@ public sealed class CourseUpdateServiceTests
 
     private static CourseService Service(Course course, Mock<ICourseRepository> repository, UserRole role = UserRole.Profesor) =>
         new(repository.Object, new TestCurrentUser { UserId = course.OwnerProfessorId!.Value, Role = role });
+
+    private static CourseReviewService ReviewService(Course course, Mock<ICourseRepository> repository) =>
+        new(repository.Object, new TestCurrentUser { UserId = course.OwnerProfessorId!.Value, Role = UserRole.Profesor });
 
     private static void VerifyNoWrites(Mock<ICourseRepository> repository)
     {

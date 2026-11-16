@@ -232,6 +232,10 @@ Las exclusiones técnicas de esta lista describen el alcance aprobado para la et
 
 - **RF-27:** El sistema debe registrar el progreso del Alumno dentro de un curso aprobado mediante un porcentaje relacionado con módulos o actividades completadas.
 
+- **RF-27b:** El sistema debe permitir al Alumno con inscripción APROBADA registrar como completado cada módulo perteneciente a la versión publicada del curso, recalculando su progreso en forma inmediata e idempotente.
+
+RF-27b se incorpora por la issue docente #22; CU-16 describe su ejecución.
+
 - **RF-28:** El sistema debe permitir que el Alumno consulte su propio progreso y que el Profesor consulte el progreso de los alumnos de sus cursos.
 
 #### 5.1.4 Paneles y Navegación
