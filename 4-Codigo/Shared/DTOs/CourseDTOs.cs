@@ -70,6 +70,8 @@ public sealed record CourseResponseDTO(
     DateTime UpdatedAtUtc)
 {
     public string? WorkingStatus { get; init; }
+    [JsonIgnore]
+    public long RowVersion { get; init; }
 }
 
 public sealed record PublishedCourseResponseDTO(

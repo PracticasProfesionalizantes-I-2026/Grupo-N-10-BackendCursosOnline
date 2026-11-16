@@ -186,13 +186,15 @@ Las exclusiones técnicas de esta lista describen el alcance aprobado para la et
 
 - **RF-06:** El sistema debe asociar un rol a cada cuenta. Las cuentas de Administrador no pueden crearse mediante el registro público y son gestionadas internamente por el creador del sistema u otros administradores.
 
+El primer Administrador de Development o Testing se crea únicamente al inicializar una base vacía mediante `DbInitializer`; esas cuentas y credenciales son de demostración. En Production no hay alta automática ni endpoint público de bootstrap. Antes de operar una instalación real, un responsable autorizado debe aprovisionar la primera cuenta fuera de la API pública, con una contraseña única protegida y hash generado con el mismo servicio de contraseñas; debe limitar el acceso a la base y retirar los materiales de aprovisionamiento. Una vez autenticado, ese Administrador puede crear otra cuenta por `POST /api/users/administrators`. El repositorio no incluye aún un comando de aprovisionamiento para Production; su ejecución requiere un procedimiento operativo aprobado.
+
 - **RF-07:** El sistema debe restringir las funcionalidades visibles y disponibles de acuerdo con el rol del usuario.
 
 #### 5.1.2 Gestión de Cursos
 
 - **RF-08:** El sistema debe permitir que un Profesor cree un curso y lo guarde en estado BORRADOR antes de enviarlo a revisión.
 
-- **RF-09:** El sistema debe permitir que el Profesor ingrese la información del curso respaldada por el proyecto: título, descripción, categoría, nivel, modalidad, cupo máximo, objetivos de aprendizaje y requisitos previos sugeridos.
+- **RF-09:** El sistema debe permitir que el Profesor ingrese la información del curso respaldada por el proyecto: título, descripción, categoría, nivel, modalidad, cupo máximo entre 1 y 10.000 alumnos, objetivos de aprendizaje y requisitos previos sugeridos.
 
 - **RF-10:** El sistema debe permitir que el Profesor agregue uno o más módulos, indicando para cada módulo nombre, descripción y duración, y asociando su contenido o recursos.
 

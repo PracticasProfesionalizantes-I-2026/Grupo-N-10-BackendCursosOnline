@@ -94,6 +94,7 @@ public sealed class CourseUpdateServiceTests
         yield return [ValidUpdate() with { Level = new string('x', 101) }];
         yield return [ValidUpdate() with { Modality = new string('x', 101) }];
         yield return [ValidUpdate() with { MaxCapacity = -1 }];
+        yield return [ValidUpdate() with { MaxCapacity = 10_001 }];
         yield return [ValidUpdate() with { LearningObjectives = [null!] }];
         yield return [ValidUpdate() with { SuggestedPrerequisites = [null!] }];
         var module = ValidUpdate().Modules.Single();
@@ -126,19 +127,21 @@ public sealed class CourseUpdateServiceTests
     }
 
     [Fact]
-    public async Task Submit_CreatesModificationReviewAndAdvancesTimestampEvenWhenClockIsEarlier()
+    public async Task Submit_CreatesModificationReviewAndAdvancesVersionWithoutFutureTimestamp()
     {
         var (course, repository) = SetupCourse(CourseRevisionStatus.Borrador);
         course.PublishedRevisionId = Guid.NewGuid();
         course.UpdatedAtUtc = DateTime.UtcNow.AddDays(1);
         var previous = course.UpdatedAtUtc;
+        var previousVersion = course.RowVersion;
         CourseReview? requested = null;
         repository.Setup(x => x.CreateReviewAsync(It.IsAny<CourseReview>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((CourseReview review, CancellationToken _) => { requested = review; return review; });
 
         await ReviewService(course, repository).SubmitForReviewAsync(course.Id);
         Assert.Equal(CourseRevisionStatus.EnRevision, course.WorkingRevision!.Status);
-        Assert.Equal(previous.AddTicks(1), course.UpdatedAtUtc);
+        Assert.True(course.UpdatedAtUtc < previous);
+        Assert.Equal(previousVersion + 1, course.RowVersion);
         Assert.Equal(CourseReviewType.Modificacion, requested!.Type);
         Assert.Equal(course.WorkingRevisionId, requested.CourseRevisionId);
     }

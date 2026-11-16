@@ -173,8 +173,12 @@ public sealed class EnrollmentPersistenceIntegrationTests
         var student = new User { Id = Guid.NewGuid(), Email = "legacy@lumen.local", NormalizedEmail = "LEGACY@LUMEN.LOCAL", Role = UserRole.Alumno };
         var course = new Course { Id = Guid.NewGuid(), CreatedByUserId = student.Id };
         context.Users.Add(student);
-        context.Courses.Add(course);
         await context.SaveChangesAsync();
+        // This setup targets the initial schema, before RowVersion was introduced.
+        await context.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO "Courses" ("Id", "CreatedByUserId", "OperationalStatus", "CreatedAtUtc", "UpdatedAtUtc")
+            VALUES ({course.Id}, {course.CreatedByUserId}, {course.OperationalStatus.ToString()}, {course.CreatedAtUtc}, {course.UpdatedAtUtc})
+            """);
         var rows = statuses.Select(status => new Enrollment
         {
             Id = Guid.NewGuid(), StudentId = student.Id, CourseId = course.Id, Status = status, RequestedAtUtc = DateTime.UtcNow

@@ -148,6 +148,37 @@ public sealed class ReportsIntegrationTests
         Assert.Equal(0, repository.CallCount);
     }
 
+    [Theory]
+    [InlineData("2026-10-01", "2026-10-01T00:00:00Z")]
+    [InlineData("2026-10-01T23:30:00Z", "2026-10-01T23:30:00Z")]
+    [InlineData("2026-10-01T23:30:00-03:00", "2026-10-02T02:30:00Z")]
+    [InlineData("2026-10-01T23:30:00%2B00:00", "2026-10-01T23:30:00Z")]
+    public async Task Summary_InterpretsOffsetsAndUnzonedDatesWithoutHostTimeZone(
+        string queryDate, string expectedUtc)
+    {
+        var repository = new TrackingReportRepository();
+        using var baseFactory = new LumenApiFactory();
+        using var factory = baseFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IReportRepository>();
+                services.AddSingleton<IReportRepository>(repository);
+            }));
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, "admin@lumen.local");
+
+        using var response = await client.GetAsync($"/api/reports/summary?from={queryDate}&to={queryDate}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<ReportSummaryResponseDTO>(JsonOptions);
+        var expected = DateTime.Parse(expectedUtc, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+        Assert.Equal(expected, result!.From);
+        Assert.Equal(expected, result.To);
+        Assert.Null(result.TimeZone);
+        Assert.Equal(expected, repository.FromUtc);
+        Assert.Equal(expected.Date.AddDays(1), repository.ToUtcExclusive);
+        Assert.Equal(DateTimeKind.Utc, repository.FromUtc?.Kind);
+    }
+
     [Fact]
     public async Task Summary_WithMissingDates_WithoutAuthentication_ReturnsUnauthorized()
     {
@@ -201,11 +232,15 @@ public sealed class ReportsIntegrationTests
     private sealed class TrackingReportRepository : IReportRepository
     {
         public int CallCount { get; private set; }
+        public DateTime? FromUtc { get; private set; }
+        public DateTime? ToUtcExclusive { get; private set; }
 
         public Task<ReportCounts> GetCountsAsync(
             DateTime fromUtc, DateTime? toUtcExclusive, CancellationToken cancellationToken = default)
         {
             CallCount++;
+            FromUtc = fromUtc;
+            ToUtcExclusive = toUtcExclusive;
             return Task.FromResult(new ReportCounts(0, 0, 0));
         }
     }

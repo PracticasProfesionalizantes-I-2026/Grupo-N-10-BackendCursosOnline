@@ -1,4 +1,5 @@
 using System.Net.Mail;
+using System.Text.RegularExpressions;
 using Lumen.BusinessLogic.Abstractions;
 using Lumen.Shared.Enums;
 using Lumen.Shared.Exceptions;
@@ -6,8 +7,10 @@ using Lumen.Shared.Validation;
 
 namespace Lumen.BusinessLogic.Services;
 
-internal static class ServiceGuard
+internal static partial class ServiceGuard
 {
+    [GeneratedRegex(@"^(?:[0-9]{4}|[A-Za-z][0-9]{4}[A-Za-z]{3})$", RegexOptions.None, matchTimeoutMilliseconds: 250)]
+    private static partial Regex PostalCodeRegex();
     public static void Authenticated(ICurrentUser currentUser)
     {
         if (!currentUser.IsAuthenticated)
@@ -77,7 +80,7 @@ internal static class ServiceGuard
             throw new LumenValidationException("El teléfono debe tener entre 10 y 15 dígitos y usar un formato nacional o +54.");
         Required(address, "dirección", UserFieldLimits.Address);
         var validPostalCode = Required(postalCode, "código postal", UserFieldLimits.PostalCode);
-        if (!System.Text.RegularExpressions.Regex.IsMatch(validPostalCode, @"^(?:[0-9]{4}|[A-Za-z][0-9]{4}[A-Za-z]{3})$"))
+        if (!PostalCodeRegex().IsMatch(validPostalCode))
             throw new LumenValidationException("El código postal debe tener cuatro dígitos o el formato CPA argentino.");
         if (string.IsNullOrWhiteSpace(password) || password.Length is < 8 or > 128)
             throw new LumenValidationException("La contraseña debe tener entre 8 y 128 caracteres.");

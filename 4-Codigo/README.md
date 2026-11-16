@@ -168,11 +168,19 @@ Referencias: [User Secrets](https://learn.microsoft.com/en-us/aspnet/core/securi
 | Testing | Sí | Solo si no existen usuarios |
 | Production u otro entorno | Sí | No |
 
+Para preparar un entorno académico desde cero:
+
+1. Crear una SQLite temporal separada y configurar `ConnectionStrings__Lumen`, `Jwt__Key` aleatoria y `DOTNET_ENVIRONMENT=Development` o `Testing` con los bloques de ejecución de esta guía.
+2. Iniciar la API. `DbInitializer` migra el esquema y, solo si no hay usuarios, crea las identidades demo. Comprobar el login del Administrador de demostración; no usar esas credenciales fuera de este entorno.
+3. Para probar el alta de otro Administrador, autenticarse con la primera cuenta y llamar a `POST /api/users/administrators` con datos de prueba. El registro público no permite ese rol.
+
+En Production, preparar una base y una clave JWT propias, ejecutar las migraciones y aprovisionar la primera cuenta mediante un procedimiento restringido aprobado por el responsable del despliegue. El repositorio no entrega ese comando; sin esa operación externa no hay una cuenta administradora inicial. El operador debe usar una contraseña única, guardar solo su hash mediante el mismo servicio de contraseñas, proteger el acceso a SQLite y eliminar los materiales temporales. Tras el primer login, el endpoint interno anterior permite crear el segundo Administrador.
+
 La siembra demo se confirma en una sola transacción. Si falla, SQLite revierte la siembra y se puede reintentar sin reconstruir la base. En entornos no demo también se rechaza el acceso de las tres identidades reservadas, incluso con tokens emitidos previamente; las filas existentes se conservan. Production no crea un administrador automáticamente: el aprovisionamiento de la primera cuenta real debe realizarse con un procedimiento operativo aprobado.
 
 Sin un entorno explícito, la API utiliza Production y el ejecutor de migraciones tampoco genera demos. El perfil `http` y los bloques anteriores seleccionan Development explícitamente. Las pruebas y el recorrido temporal de Bruno utilizan Testing.
 
-Una Production vacía puede arrancar sin cuentas. Su primer Administrador requiere aprovisionamiento controlado fuera de este recorrido; el registro público sigue permitiendo únicamente Alumno y Profesor. Esta política no elimina cuentas demo que ya existieran.
+Una Production vacía puede arrancar sin cuentas; nunca se deben reutilizar allí las identidades demo. Esta política no elimina filas demo que ya existieran.
 
 En una base nueva de Development o Testing, las cuentas demo siguientes utilizan la contraseña pública de prueba `Lumen123!`:
 
@@ -201,13 +209,13 @@ PUT /api/courses/{id} guarda la revisión de trabajo. POST /api/courses/{id}/sub
 
 La actualización recibe la lista completa de módulos en su orden final. Un ID existente conserva la identidad del módulo; un ID nulo agrega uno nuevo. Los módulos omitidos se retiran únicamente de la revisión de trabajo. IDs vacíos, repetidos o ajenos a esa revisión devuelven ModuleCourseMismatchException (409). Los recursos son referencias textuales, no archivos cargados por este endpoint.
 
-El servicio valida y construye los cambios antes de modificar entidades rastreadas. Comprueba elementos nulos, cupo no negativo, duración positiva y suma representable como int. Aplica los límites ya definidos por el modelo: título y nombre de módulo 200 caracteres; descripción del curso 4000; categoría, nivel y modalidad 100; descripción de módulo 2000; contenido 8000; observación de auditoría 2000. Las entradas inválidas generan errores controlados (400). Guardar un borrador permite información incompleta y cero módulos; enviar requiere los campos principales, cupo positivo, al menos un módulo y contenido o recursos en cada módulo.
+El servicio valida y construye los cambios antes de modificar entidades rastreadas. Comprueba elementos nulos, cupo entre 1 y 10.000 alumnos, duración positiva y suma representable como int. Aplica los límites ya definidos por el modelo: título y nombre de módulo 200 caracteres; descripción del curso 4000; categoría, nivel y modalidad 100; descripción de módulo 2000; contenido 8000; observación de auditoría 2000. Las entradas inválidas generan errores controlados (400). Guardar un borrador permite información incompleta y cero módulos; enviar requiere los campos principales, al menos un módulo y contenido o recursos en cada módulo.
 
 El repositorio guarda la retirada explícita, la modificación y el agregado de módulos en una única transacción. Para intercambiar posiciones bajo el índice único (RevisionId, Order), utiliza posiciones negativas temporales y luego aplica el orden positivo final. Esas posiciones nunca se confirman como resultado de la actualización: cualquier error revierte toda la transacción, incluido UpdatedAtUtc.
 
-EF usa como tokens de concurrencia los campos existentes UpdatedAtUtc y WorkingRevisionId de Course, UpdatedAtUtc y Status de CourseRevision, y Decision de CourseReview. El servicio hace avanzar estrictamente la fecha de actualización, aun si el reloj devuelve un valor igual o anterior. Las escrituras comprueban los valores originales; un conflicto se traduce a CourseStateConflictException (409). Esta protección cubre envíos duplicados, ediciones concurrentes con el envío, primeras actualizaciones simultáneas y decisiones administrativas tardías. No agrega columnas ni requiere una migración. La creación de una revisión y el cambio del puntero de trabajo son atómicos; el envío guarda la solicitud y la transición juntos. Una decisión solo se aplica a una solicitud pendiente de la revisión de trabajo vigente.
+EF usa el contador `Course.RowVersion` como token de concurrencia, junto con `WorkingRevisionId`; conserva `Status` de CourseRevision y `Decision` de CourseReview. Cada operación que modifica el curso incrementa el contador antes de guardar; SQLite compara atómicamente el valor anterior en el `UPDATE`. `UpdatedAtUtc` registra la hora real y no se usa como versión ni se adelanta artificialmente. Un conflicto se traduce a CourseStateConflictException (409). Esta protección cubre envíos duplicados, ediciones concurrentes con el envío, primeras actualizaciones simultáneas y decisiones administrativas tardías. La migración `AddCourseRowVersion` añade la columna con valor 1 a cursos históricos sin alterar revisiones ni auditorías. La creación de una revisión y el cambio del puntero de trabajo son atómicos; el envío guarda la solicitud y la transición juntos. Una decisión solo se aplica a una solicitud pendiente de la revisión de trabajo vigente.
 
-`GET /api/courses/{id}` y `PUT /api/courses/{id}` devuelven `ETag`. La edición requiere la etiqueta fuerte y específica de la lectura en `If-Match`. La falta de etiqueta o el comodín devuelven `428`; un valor obsoleto devuelve `412` sin escritura y uno sintácticamente inválido devuelve `400`. Ante `412`, volver a consultar, revisar las diferencias y reintentar sobre la nueva etiqueta. `409` identifica un estado incompatible con una etiqueta vigente. [RFC 6585](https://www.rfc-editor.org/rfc/rfc6585.html#section-3).
+`GET /api/courses/{id}` y `PUT /api/courses/{id}` devuelven `ETag` basado en el ID y el contador numérico `RowVersion`. La edición requiere la etiqueta fuerte y específica de la lectura en `If-Match`. La falta de etiqueta o el comodín devuelven `428`; un valor obsoleto devuelve `412` sin escritura y uno sintácticamente inválido devuelve `400`. Las etiquetas anteriores basadas en ticks dejan de ser válidas tras la migración; el cliente debe refrescarlas. Ante `412`, volver a consultar, revisar las diferencias y reintentar sobre la nueva etiqueta. `409` identifica un estado incompatible con una etiqueta vigente. [RFC 6585](https://www.rfc-editor.org/rfc/rfc6585.html#section-3).
 
 `POST /api/courses/{id}/recover-draft` exige la misma precondición. El Profesor propietario o Administrador obtiene un borrador con una versión nueva a partir del contenido rechazado. Se conservan la decisión, la revisión rechazada y la publicación anterior. `workingStatus` identifica el estado de la revisión incluso si `status` refleja pausa o finalización.
 
@@ -396,7 +404,7 @@ Un correo inexistente pasa por una verificación con un hash señuelo antes de d
 
 Los endpoints JSON devuelven `413` si el servidor rechaza el tamaño del cuerpo. Si la excepción llega a la aplicación, la respuesta usa `application/problem+json` y omite los detalles internos. El límite efectivo depende del servidor y del proxy. Los máximos funcionales de módulos y recursos se validan por separado.
 
-En `GET /api/reports/summary`, `timeZone` habilita el modo de fechas civiles. Con esa opción, `from` y `to` usan `AAAA-MM-DD` y la zona usa un identificador IANA. Se cuenta desde la medianoche de `from` hasta la siguiente a `to`, excluida. Se devuelve `timeZone` y las medianoches de ambas fechas seleccionadas convertidas a UTC. Una medianoche inexistente devuelve 400 y, si es ambigua, se usa su primera ocurrencia. Sin `timeZone` se conserva el contrato histórico.
+En `GET /api/reports/summary`, `timeZone` habilita el modo de fechas civiles. Con esa opción, `from` y `to` usan `AAAA-MM-DD` y la zona usa un identificador IANA. Se cuenta desde la medianoche de `from` hasta la siguiente a `to`, excluida. Se devuelve `timeZone` y las medianoches de ambas fechas seleccionadas convertidas a UTC. En este modo, el campo de respuesta `to` representa la medianoche inicial del último día seleccionado, no el límite exclusivo del recuento. Una medianoche inexistente devuelve 400 y, si es ambigua, se usa su primera ocurrencia. Sin `timeZone`, las entradas con `Z` o desplazamiento se convierten a UTC; las fechas sin zona se interpretan como UTC, nunca en la zona local del servidor. `from` es el instante inicial exacto; `to` conserva el instante UTC elegido y el filtro abarca hasta el final de su día UTC. En URLs, codificar `+` de un desplazamiento como `%2B`.
 
 ## Migraciones
 
@@ -465,7 +473,7 @@ Las suites EnrollmentCreationServiceTests, EnrollmentCreationIntegrationTests y 
 
 ## Bruno
 
-La colección contiene **58 requests** y dos environments: `local` para el puerto 5080 y `demo-temporal` para el 5081. El [README de Bruno](bruno/README.md) documenta preparación, arranque aislado, precondiciones, orden y limpieza.
+La colección contiene **59 requests** y dos environments: `local` para el puerto 5080 y `demo-temporal` para el 5081. El [README de Bruno](bruno/README.md) documenta preparación, arranque aislado, precondiciones, orden y limpieza.
 
 `00-Exposicion` contiene **19 requests**: autentica los tres roles, crea un curso de tres módulos, lo publica mediante auditoría, solicita y aprueba una inscripción y registra progreso hasta 100 %, incluida una repetición idempotente. Ejecutar esa carpeta completa en orden, una iteración y concurrencia 1. La guía separa el recorrido general del recorrido de rechazo y recuperación.
 

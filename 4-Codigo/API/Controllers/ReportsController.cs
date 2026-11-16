@@ -18,6 +18,10 @@ public sealed class ReportsController(IReportService service) : ControllerBase
     public async Task<IActionResult> GetSummary([FromQuery] DateTime? from, [FromQuery] DateTime? to,
         [FromQuery] string? timeZone, CancellationToken cancellationToken)
     {
+        // [ApiController] normally short-circuits invalid binding; keep the order explicit.
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
         if (!from.HasValue || !to.HasValue)
         {
             var message = !from.HasValue && !to.HasValue
@@ -29,7 +33,16 @@ public sealed class ReportsController(IReportService service) : ControllerBase
         }
 
         if (timeZone is null)
-            return Ok(await service.GetSummaryAsync(from.Value, to.Value, cancellationToken));
+        {
+            // Parse the original query as an instant. ASP.NET's DateTime binder can
+            // convert an explicit offset using the host's local time zone.
+            if (!DateTimeOffset.TryParse(Request.Query["from"], CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal, out var fromInstant) ||
+                !DateTimeOffset.TryParse(Request.Query["to"], CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal, out var toInstant))
+                throw new LumenValidationException("from y to deben ser fechas válidas.");
+            return Ok(await service.GetSummaryAsync(fromInstant.UtcDateTime, toInstant.UtcDateTime, cancellationToken));
+        }
 
         if (!DateOnly.TryParseExact(Request.Query["from"].ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out var start) ||

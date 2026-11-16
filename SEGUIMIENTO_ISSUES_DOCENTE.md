@@ -1,6 +1,6 @@
 # Seguimiento de issues docentes de LUMEN
 
-Registro maestro de las 20 issues docentes. Ronda 1: #14–#17 (ALTO), integrada en main. Ronda 2: #18–#25 (MEDIO), preparada en esta rama. Las ocho de riesgo BAJO siguen pendientes. Estado local; las issues de GitHub no se modifican.
+Registro maestro de las 20 issues docentes. Ronda 1: #14–#17 (ALTO) y Ronda 2: #18–#25 (MEDIO), integradas en main. Ronda 3: #26–#33 (BAJO), corregidas en `fix/issues-riesgo-bajo` sin commit, push ni merge. Estado local; las issues de GitHub no se modifican.
 
 La [matriz de trazabilidad](AUDITORIA_Y_PLAN_DE_CORRECCIONES.md#matriz-de-trazabilidad) vincula las correcciones verificadas con requerimientos, casos de uso, código, pruebas, Bruno/OpenAPI y documentos.
 
@@ -18,14 +18,14 @@ La [matriz de trazabilidad](AUDITORIA_Y_PLAN_DE_CORRECCIONES.md#matriz-de-trazab
 | [#23](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/23) | [GAP-05] Corregir Actor Principal en CU-01 Registrarse asignando Visitante | MEDIO | COMPLETADA |
 | [#24](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/24) | [GAP-07] Desacoplar documentalmente las metas divergentes de CU-12 | MEDIO | COMPLETADA |
 | [#25](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/25) | [SMELL-06] Desacoplar serialización de Snapshots del DTO de presentación | MEDIO | COMPLETADA |
-| [#26](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/26) | [BUG-MEN-01] Validar ModelState.IsValid en ReportsController | BAJO | PENDIENTE |
-| [#27](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/27) | [BUG-MEN-02] Incorporar cota superior de negocio al Cupo Máximo (MaxCapacity) | BAJO | PENDIENTE |
-| [#28](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/28) | [BUG-MEN-03] Homogeneizar la semántica del campo ToUtc en el DTO de Reportes | BAJO | PENDIENTE |
-| [#29](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/29) | [BUG-MEN-04] Reemplazar incremento artificial de ticks por token de versión numérico | BAJO | PENDIENTE |
-| [#30](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/30) | [BUG-MEN-05] Sanear búsqueda de cadenas de error SQLite en UserRepository | BAJO | PENDIENTE |
-| [#31](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/31) | [SMELL-05] Precompilar expresión regular de Código Postal con source generator | BAJO | PENDIENTE |
-| [#32](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/32) | [GAP-06] Documentar procedimiento de Bootstraping del Administrador inicial | BAJO | PENDIENTE |
-| [#33](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/33) | [GAP-08] Desacoplar precondiciones de Pausar y Reanudar en CU-14 | BAJO | PENDIENTE |
+| [#26](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/26) | [BUG-MEN-01] Validar ModelState.IsValid en ReportsController | BAJO | COMPLETADA |
+| [#27](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/27) | [BUG-MEN-02] Incorporar cota superior de negocio al Cupo Máximo (MaxCapacity) | BAJO | COMPLETADA |
+| [#28](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/28) | [BUG-MEN-03] Homogeneizar la semántica del campo ToUtc en el DTO de Reportes | BAJO | COMPLETADA |
+| [#29](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/29) | [BUG-MEN-04] Reemplazar incremento artificial de ticks por token de versión numérico | BAJO | COMPLETADA |
+| [#30](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/30) | [BUG-MEN-05] Sanear búsqueda de cadenas de error SQLite en UserRepository | BAJO | COMPLETADA |
+| [#31](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/31) | [SMELL-05] Precompilar expresión regular de Código Postal con source generator | BAJO | COMPLETADA |
+| [#32](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/32) | [GAP-06] Documentar procedimiento de Bootstraping del Administrador inicial | BAJO | COMPLETADA |
+| [#33](https://github.com/PracticasProfesionalizantes-I-2026/Grupo-N-10-BackendCursosOnline/issues/33) | [GAP-08] Desacoplar precondiciones de Pausar y Reanudar en CU-14 | BAJO | COMPLETADA |
 
 ## Detalle y trazabilidad
 
@@ -164,93 +164,101 @@ La [matriz de trazabilidad](AUDITORIA_Y_PLAN_DE_CORRECCIONES.md#matriz-de-trazab
 ### #26 — [BUG-MEN-01] Validar ModelState.IsValid en ReportsController
 
 - **Riesgo:** BAJO.
-- **Estado:** PENDIENTE.
-- **Archivos afectados:** `4-Codigo/API/Controllers/ReportsController.cs`.
-- **Corrección aplicada:** Pendiente de la ronda correspondiente.
-- **Pruebas ejecutadas:** No ejecutadas en esta ronda.
-- **Documentación sincronizada:** Pendiente.
-- **Dependencias:** Evaluar en su ronda.
-- **Observaciones:** No se modifica en la ronda de riesgo MEDIO.
+- **Estado:** COMPLETADA.
+- **Archivos afectados:** `ReportsController.cs`, pruebas de reportes.
+- **Corrección aplicada:** `ModelState` se comprueba antes de los parámetros ausentes; `[ApiController]` conserva su rechazo automático de binding.
+- **Pruebas ejecutadas:** `ReportsIntegrationTests` cubre formato inválido, tipos erróneos, ausencias, rango y permisos.
+- **Documentación sincronizada:** README y matriz.
+- **Dependencias:** Sin migración ni cambio del contrato de error.
+- **Observaciones:** Un formato inválido devuelve `ValidationProblemDetails` 400 antes del mensaje de parámetro faltante.
 
 ### #27 — [BUG-MEN-02] Incorporar cota superior de negocio al Cupo Máximo (MaxCapacity)
 
 - **Riesgo:** BAJO.
-- **Estado:** PENDIENTE.
-- **Archivos afectados:** `4-Codigo/BusinessLogic/Services/CourseService.cs`.
-- **Corrección aplicada:** Pendiente de la ronda correspondiente.
-- **Pruebas ejecutadas:** No ejecutadas en esta ronda.
-- **Documentación sincronizada:** Pendiente.
-- **Dependencias:** Evaluar en su ronda.
-- **Observaciones:** No se modifica en la ronda de riesgo MEDIO.
+- **Estado:** COMPLETADA.
+- **Archivos afectados:** `CourseValidator.cs`, pruebas, OpenAPI y documentación funcional.
+- **Corrección aplicada:** Creación y edición exigen cupo entre 1 y 10.000; se preserva el rechazo de reducción bajo ocupación aprobada.
+- **Pruebas ejecutadas:** `LowRiskIssueIntegrationTests`, `CourseUpdateServiceTests` y `ApprovedCapacityIntegrationTests`.
+- **Documentación sincronizada:** RF-09, CU-03, CU-05, consolidado y Word; README y OpenAPI.
+- **Dependencias:** Sin migración de datos para este límite.
+- **Observaciones:** 1, 9.999 y 10.000 admitidos; 0, negativo y 10.001 rechazados.
 
 ### #28 — [BUG-MEN-03] Homogeneizar la semántica del campo ToUtc en el DTO de Reportes
 
 - **Riesgo:** BAJO.
-- **Estado:** PENDIENTE.
-- **Archivos afectados:** `4-Codigo/BusinessLogic/Services/ReportService.cs`.
-- **Corrección aplicada:** Pendiente de la ronda correspondiente.
-- **Pruebas ejecutadas:** No ejecutadas en esta ronda.
-- **Documentación sincronizada:** Pendiente.
-- **Dependencias:** Evaluar en su ronda.
-- **Observaciones:** No se modifica en la ronda de riesgo MEDIO.
+- **Estado:** COMPLETADA.
+- **Archivos afectados:** `ReportsController.cs`, `ReportDTOs.cs`, OpenAPI, README y pruebas.
+- **Corrección aplicada:** `from` y `to` se interpretan explícitamente en UTC cuando no hay `timeZone`; `to` conserva el instante elegido, aunque el filtro termina al comenzar el día UTC siguiente. Con `timeZone`, `to` es la medianoche del último día civil convertido a UTC.
+- **Pruebas ejecutadas:** `ReportsIntegrationTests` cubre `Z`, `-03:00`, `+00:00`, ausencia de zona, cambio de día y rango; `TraceabilityContractIntegrationTests` cubre zona IANA.
+- **Documentación sincronizada:** DTO, OpenAPI, README y matriz.
+- **Dependencias:** Conserva el DTO público y la semántica de `timeZone`.
+- **Observaciones:** La conversión no depende de la zona local del servidor.
 
 ### #29 — [BUG-MEN-04] Reemplazar incremento artificial de ticks por token de versión numérico
 
 - **Riesgo:** BAJO.
-- **Estado:** PENDIENTE.
-- **Archivos afectados:** `4-Codigo/BusinessLogic/Services/CourseService.cs`.
-- **Corrección aplicada:** Pendiente de la ronda correspondiente.
-- **Pruebas ejecutadas:** No ejecutadas en esta ronda.
-- **Documentación sincronizada:** Pendiente.
-- **Dependencias:** Evaluar en su ronda.
-- **Observaciones:** No se modifica en la ronda de riesgo MEDIO.
+- **Estado:** COMPLETADA.
+- **Archivos afectados:** `Course`, `CourseRules`, servicios, configuración EF, ETag, migración, pruebas.
+- **Corrección aplicada:** `RowVersion` entero inicia en 1; cada escritura del curso incrementa el contador y EF compara el valor anterior en SQLite. `UpdatedAtUtc` queda como hora real sin ticks futuros.
+- **Pruebas ejecutadas:** `CourseConcurrencyIntegrationTests` y `LowRiskIssueIntegrationTests` cubren versión vigente/obsoleta, reintento, solicitudes concurrentes y migración de esquema previo.
+- **Documentación sincronizada:** README, modelo de datos y matriz.
+- **Dependencias:** Migración `AddCourseRowVersion`; los clientes refrescan ETags anteriores basados en ticks.
+- **Observaciones:** Conserva HTTP 412/428, recuperación de borrador e historial de auditoría.
 
 ### #30 — [BUG-MEN-05] Sanear búsqueda de cadenas de error SQLite en UserRepository
 
 - **Riesgo:** BAJO.
-- **Estado:** PENDIENTE.
-- **Archivos afectados:** `4-Codigo/DataAccess/Repositories/UserRepository.cs`.
-- **Corrección aplicada:** Pendiente de la ronda correspondiente.
-- **Pruebas ejecutadas:** No ejecutadas en esta ronda.
-- **Documentación sincronizada:** Pendiente.
-- **Dependencias:** Evaluar en su ronda.
-- **Observaciones:** No se modifica en la ronda de riesgo MEDIO.
+- **Estado:** COMPLETADA.
+- **Archivos afectados:** `UserRepository.cs`, `CourseRepository.cs`.
+- **Corrección aplicada:** Se elimina la comilla errónea en la coincidencia de `Users.NormalizedEmail`; se exige código extendido UNIQUE 2067. El trigger de cupo se acota al código 1811.
+- **Pruebas ejecutadas:** `RegistrationConcurrencyRegressionTests`, `ConcurrencyPersistenceFailureIntegrationTests` y `ApprovedCapacityIntegrationTests`.
+- **Documentación sincronizada:** Matriz y seguimiento.
+- **Dependencias:** SQLite no expone estructuradamente el nombre de la restricción; se conserva una coincidencia textual específica tras comprobar el código.
+- **Observaciones:** Fallos ajenos se propagan sin traducirse a duplicado.
 
 ### #31 — [SMELL-05] Precompilar expresión regular de Código Postal con source generator
 
 - **Riesgo:** BAJO.
-- **Estado:** PENDIENTE.
-- **Archivos afectados:** `4-Codigo/BusinessLogic/Services/ServiceGuard.cs`.
-- **Corrección aplicada:** Pendiente de la ronda correspondiente.
-- **Pruebas ejecutadas:** No ejecutadas en esta ronda.
-- **Documentación sincronizada:** Pendiente.
-- **Dependencias:** Evaluar en su ronda.
-- **Observaciones:** No se modifica en la ronda de riesgo MEDIO.
+- **Estado:** COMPLETADA.
+- **Archivos afectados:** `ServiceGuard.cs`.
+- **Corrección aplicada:** `GeneratedRegex` conserva el patrón postal anterior con timeout de 250 ms, sin dependencias nuevas.
+- **Pruebas ejecutadas:** `AccountValidationIntegrationTests` cubre CPA válidos e inválidos, longitudes y posiciones.
+- **Documentación sincronizada:** Matriz y seguimiento.
+- **Dependencias:** .NET 10 existente.
+- **Observaciones:** El mensaje de error y el conjunto de valores admitidos se conservan.
 
 ### #32 — [GAP-06] Documentar procedimiento de Bootstraping del Administrador inicial
 
 - **Riesgo:** BAJO.
-- **Estado:** PENDIENTE.
-- **Archivos afectados:** `1-Entrega Personal/1 - Informe/Lumen_Informe_General.md`.
-- **Corrección aplicada:** Pendiente de la ronda correspondiente.
-- **Pruebas ejecutadas:** No ejecutadas en esta ronda.
-- **Documentación sincronizada:** Pendiente.
-- **Dependencias:** Evaluar en su ronda.
-- **Observaciones:** No se modifica en la ronda de riesgo MEDIO.
+- **Estado:** COMPLETADA.
+- **Archivos afectados:** Informe General Markdown/Word y README backend.
+- **Corrección aplicada:** Se distingue siembra demo solo en Development/Testing de aprovisionamiento restringido del primer Administrador de Production; el segundo se crea con el endpoint interno existente.
+- **Pruebas ejecutadas:** `DemoSeedingIntegrationTests`, revisión de `DbInitializer` y cotejo Word/Markdown.
+- **Documentación sincronizada:** RF-06, README y matriz.
+- **Dependencias:** El repositorio no implementa un comando de bootstrap para Production; el procedimiento operativo debe aprobarse fuera de la API pública.
+- **Observaciones:** No se agregaron credenciales reales ni se habilitó un endpoint público.
 
 ### #33 — [GAP-08] Desacoplar precondiciones de Pausar y Reanudar en CU-14
 
 - **Riesgo:** BAJO.
-- **Estado:** PENDIENTE.
-- **Archivos afectados:** `1-Entrega Personal/2 - Requerimientos/1 - Casos de Uso/cu-14-pausar-o-reanudar-curso.md`.
-- **Corrección aplicada:** Pendiente de la ronda correspondiente.
-- **Pruebas ejecutadas:** No ejecutadas en esta ronda.
-- **Documentación sincronizada:** Pendiente.
-- **Dependencias:** Evaluar en su ronda.
-- **Observaciones:** No se modifica en la ronda de riesgo MEDIO.
+- **Estado:** COMPLETADA.
+- **Archivos afectados:** CU-14 específico y consolidado Markdown/Word.
+- **Corrección aplicada:** CU-14A exige publicación y estado operativo ACTIVO para pausar; CU-14B exige publicación y PAUSADO para reanudar. Cada meta tiene flujo, excepciones y postcondición propias.
+- **Pruebas ejecutadas:** `CourseClosureEnrollmentIntegrationTests`, revisión de endpoints y cotejo Word/Markdown.
+- **Documentación sincronizada:** CU-14, consolidado y matriz.
+- **Dependencias:** Se preserva el identificador histórico CU-14 y los endpoints existentes.
+- **Observaciones:** No se alteran los otros catorce casos ni CU-12A/B.
 
 ## Cierre de la Ronda 2 (16/11/2026)
 
 Estado local: **4 ALTO y 8 MEDIO COMPLETADAS; 8 BAJO PENDIENTES**. Las ocho issues de GitHub siguen abiertas; esta rama no hizo commit, push ni merge. La línea base pasó 102 pruebas unitarias y 317 de integración; la verificación final pasó 102 unitarias y 318 de integración tras agregar la regresión del endpoint de progreso, con build Release sin advertencias. El frontend pasó 12 pruebas, lint y build sin cambios de código. En SQLite temporal se aplicaron seis migraciones, `PRAGMA integrity_check` devolvió `ok` y dos snapshots nuevos registraron `SchemaVersion: 1`. Las pruebas de integración leyeron formatos con y sin versión, recuperaron borradores y rechazaron modificaciones de snapshots. Bruno aprobó 7 requests/8 tests de auditoría con dos administradores y 19 requests/54 tests de exposición y progreso. OpenAPI y Scalar respondieron HTTP 200; la operación de progreso conserva su ruta.
 
 Los dos Word se exportaron a PDF e inspeccionaron visualmente (11 y 23 páginas). El cotejo bidireccional con Markdown no encontró diferencias entre los 191 párrafos del Informe y los 638 del consolidado. El nuevo requerimiento RF-27b no renumera RF-27 ni cambia la API. El payload versionado reutiliza `ContentJson` sin migración ni reescritura de historial.
+
+## Cierre de la Ronda 3 (16/11/2026)
+
+Estado local: **20 issues docentes COMPLETADAS**: 4 ALTO y 8 MEDIO ya integradas en `main`, más 8 BAJO corregidas en `fix/issues-riesgo-bajo`. Las ocho issues de GitHub de esta ronda permanecen abiertas; no se hizo commit, push ni merge. La línea base pasó 102 unitarias y 318 integraciones. La verificación final pasó restore, build Release sin advertencias, 103 unitarias y 330 integraciones. El frontend pasó 12 pruebas, lint y build. OpenAPI y Scalar respondieron HTTP 200; el esquema describe cupo y semántica temporal.
+
+Bruno aprobó 63 requests y 111 tests: exposición (19/54), políticas y cupo (27/27), reportes incluido desplazamiento `-03:00` (6/8) y curso con ETag, 412/428, auditoría, pausa y reanudación (11/22). Una SQLite temporal nueva aplicó siete migraciones; `PRAGMA integrity_check` devolvió `ok`. La prueba de migración histórica conserva fecha y filas anteriores y añade `RowVersion=1` antes de verificar su avance. Los Word se exportaron a PDF e inspeccionaron visualmente (11 y 22 páginas); el cotejo bidireccional no encontró diferencias con los 192 párrafos del Informe ni con los 622 del consolidado Markdown.
+
+`RowVersion` cambia la codificación de ETag; un cliente debe refrescar una etiqueta previa basada en ticks antes de editar. El bootstrap de Production sigue siendo un procedimiento operativo restringido que el repositorio no implementa; la issue #32 era documental y el Informe no presenta ese comando como disponible. No se agregaron credenciales reales, scripts auxiliares en la raíz ni datos persistentes.

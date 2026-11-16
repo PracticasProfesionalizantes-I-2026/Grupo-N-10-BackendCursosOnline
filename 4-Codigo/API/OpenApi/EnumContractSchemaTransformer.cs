@@ -38,11 +38,18 @@ internal sealed class EnumContractSchemaTransformer : IOpenApiSchemaTransformer,
             "código postal de cuatro dígitos o CPA argentino, contraseña de 8 a 128 caracteres. El login de cuentas existentes conserva compatibilidad.";
         schemas[nameof(AdministratorCreateDTO)].Description = schemas[nameof(UserCreateDTO)].Description;
         schemas[nameof(CourseCreateDTO)].Description =
-            "Cupo positivo; hasta 100 módulos, 30 objetivos, 30 requisitos y 50 recursos por módulo. " +
+            "Cupo entre 1 y 10.000 alumnos; hasta 100 módulos, 30 objetivos, 30 requisitos y 50 recursos por módulo. " +
             "Cada objetivo o requisito admite 500 caracteres y cada recurso 2.000. Los límites escalares existentes también aplican.";
         schemas[nameof(CourseUpdateDTO)].Description =
             "Aplican los límites de creación. Un curso histórico que excede los nuevos topes puede reducir gradualmente el exceso, sin aumentarlo. " +
-            "El cupo no puede reducirse bajo la ocupación aprobada.";
+            "El cupo debe estar entre 1 y 10.000 y no puede reducirse bajo la ocupación aprobada.";
+        schemas[nameof(ReportSummaryResponseDTO)].Description =
+            "from y to son los instantes UTC interpretados de la consulta; to no es el límite exclusivo del recuento. " +
+            "Sin timeZone, el recuento empieza en from e incluye hasta el final del día UTC que contiene to. " +
+            "Con timeZone, ambos valores son las medianoches UTC de las fechas civiles IANA seleccionadas y el límite exclusivo " +
+            "es la medianoche del día siguiente en esa zona. Las entradas sin zona se interpretan en UTC.";
+        schemas[nameof(ReportSummaryResponseDTO)].Properties!["to"].Description =
+            "Instante UTC seleccionado como to; con timeZone es la medianoche civil convertida a UTC. El filtro incluye el día completo de to y termina en el inicio del día siguiente, exclusivo.";
         schemas[nameof(EnrollmentResponseDTO)].Description =
             "ResolutionReason contiene el motivo cuando la finalización rechaza automáticamente una solicitud pendiente.";
         schemas[nameof(UserCreateDTO)].Properties!["role"] = InputEnum(UserRole.Alumno, UserRole.Profesor);

@@ -15,14 +15,12 @@ internal static class CourseRules
         }
     }
 
-    internal static DateTime NextTimestamp(DateTime previous)
+    internal static DateTime Touch(Course course)
     {
-        var now = DateTime.UtcNow;
-        if (now > previous) return now;
-        if (previous == DateTime.MaxValue)
-        {
-            throw new CourseStateConflictException("La fecha de actualización del curso no permite registrar cambios.");
-        }
-        return previous.AddTicks(1);
+        if (course.RowVersion == long.MaxValue)
+            throw new CourseStateConflictException("La versión del curso no permite registrar más cambios.");
+        course.RowVersion++;
+        course.UpdatedAtUtc = DateTime.UtcNow;
+        return course.UpdatedAtUtc;
     }
 }

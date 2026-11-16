@@ -59,7 +59,7 @@ public sealed class CourseRepository(LumenDbContext context) : ICourseRepository
         var retainedIds = changes.Modules.Where(x => x.Id != Guid.Empty).Select(x => x.Id).ToHashSet();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
 
-        // Save the service's course timestamp first: a stale edit must fail before touching modules.
+        // Claim the numeric course version first: a stale edit must fail before touching modules.
         await SaveAsync(cancellationToken);
         foreach (var omitted in working.Modules.Where(x => !retainedIds.Contains(x.Id)).ToList())
         {
@@ -125,6 +125,7 @@ public sealed class CourseRepository(LumenDbContext context) : ICourseRepository
             throw new CourseStateConflictException("Otra operación ya creó la siguiente versión del curso.");
         }
         catch (DbUpdateException ex) when (ex.InnerException is SqliteException sqlite &&
+            sqlite.SqliteExtendedErrorCode == 1811 &&
             sqlite.Message.Contains("El cupo", StringComparison.Ordinal))
         {
             throw new CourseStateConflictException("El cupo no puede quedar por debajo de las inscripciones aprobadas.");

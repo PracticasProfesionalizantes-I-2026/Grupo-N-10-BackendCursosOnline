@@ -38,7 +38,7 @@ El backend implementa los **16 casos de uso** del proyecto:
 | Administración | Consulta de usuarios, creación interna de administradores y reportes de resumen por intervalo de fechas. | CU-09, CU-10 |
 | Catálogo y disponibilidad | Consulta del catálogo publicado para usuarios autenticados; pausa, reanudación y finalización de cursos según permisos. | CU-11, CU-14, CU-15 |
 
-CU-12 conserva su identificador histórico y distingue documentalmente CU-12A (estado de solicitudes e inscripciones) y CU-12B (acceso al contenido aprobado). RF-27b explicita la finalización idempotente de módulos en CU-16. Se mantienen los 16 casos originales y las rutas de la API.
+CU-12 conserva su identificador histórico y distingue documentalmente CU-12A (estado de solicitudes e inscripciones) y CU-12B (acceso al contenido aprobado). CU-14 distingue CU-14A (pausa) y CU-14B (reanudación), cada uno con sus propias condiciones. RF-27b explicita la finalización idempotente de módulos en CU-16. Se mantienen los 16 casos originales y las rutas de la API.
 
 ## Tecnologías utilizadas
 
@@ -125,7 +125,7 @@ La quinta ronda incorpora las políticas aprobadas de datos argentinos, límites
 El [seguimiento de auditoría](AUDITORIA_Y_PLAN_DE_CORRECCIONES.md) conserva los 33 hallazgos, la matriz de trazabilidad y la revisión de CU-01 a CU-16.
 
 El [seguimiento de las 20 issues docentes](SEGUIMIENTO_ISSUES_DOCENTE.md) registra las rondas por riesgo y la evidencia de cada corrección.
-La Ronda 2 deja verificadas las ocho issues de riesgo MEDIO (#18–#25) en la rama de trabajo; las ocho de riesgo BAJO permanecen pendientes.
+Las 20 issues docentes #14–#33 están verificadas localmente: las rondas ALTO y MEDIO ya están integradas en `main`; la ronda BAJO #26–#33 está preparada en `fix/issues-riesgo-bajo` para revisión. El backend limita el cupo a 1–10.000 alumnos y usa un contador numérico para la concurrencia de cursos. La guía del backend explica la migración y el aprovisionamiento del primer Administrador según el entorno.
 
 ## Prototipo frontend
 

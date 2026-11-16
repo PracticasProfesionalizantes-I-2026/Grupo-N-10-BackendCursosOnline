@@ -14,9 +14,9 @@ internal static class CourseValidator
         {
             throw new LumenValidationException("El curso y su lista de módulos deben ser válidos.");
         }
-        if (dto.MaxCapacity <= 0)
+        if (dto.MaxCapacity is <= 0 or > 10_000)
         {
-            throw new LumenValidationException("El cupo máximo debe ser mayor que cero.");
+            throw new LumenValidationException("El cupo debe estar entre 1 y 10.000 alumnos.");
         }
         ValidateCount(dto.Modules.Count, 100, baseline?.Modules.Count, "módulos");
         var revision = new CourseRevision
@@ -116,9 +116,9 @@ internal static class CourseValidator
         ServiceGuard.Required(validated.Category, "categoría");
         ServiceGuard.Required(validated.Level, "nivel");
         ServiceGuard.Required(validated.Modality, "modalidad");
-        if (validated.MaxCapacity <= 0)
+        if (validated.MaxCapacity is <= 0 or > 10_000)
         {
-            throw new LumenValidationException("El cupo máximo debe ser mayor que cero.");
+            throw new LumenValidationException("El cupo debe estar entre 1 y 10.000 alumnos.");
         }
         if (validated.Modules.Count == 0)
         {

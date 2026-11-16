@@ -40,8 +40,13 @@ namespace Lumen.Migrations.DatabaseMigrations
                     b.Property<Guid?>("PublishedRevisionId")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("UpdatedAtUtc")
+                    b.Property<long>("RowVersion")
                         .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(1L);
+
+                    b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("WorkingRevisionId")
@@ -231,7 +236,6 @@ namespace Lumen.Migrations.DatabaseMigrations
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("UpdatedAtUtc")
-                        .IsConcurrencyToken()
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Version")
@@ -265,11 +269,11 @@ namespace Lumen.Migrations.DatabaseMigrations
                     b.Property<DateTime>("RequestedAtUtc")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime?>("ResolvedAtUtc")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("ResolutionReason")
                         .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("ResolvedByUserId")

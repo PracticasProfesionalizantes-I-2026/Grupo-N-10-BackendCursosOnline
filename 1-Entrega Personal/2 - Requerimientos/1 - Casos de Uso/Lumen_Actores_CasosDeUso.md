@@ -61,7 +61,9 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 - CU-11 - Consultar Cursos Publicados
 
-- CU-14 - Pausar o Reanudar Curso
+- CU-14A - Pausar Curso
+
+- CU-14B - Reanudar Curso
 
 **Administrador:**
 
@@ -85,7 +87,9 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 - CU-13 - Cancelar Inscripción
 
-- CU-14 - Pausar o Reanudar Curso
+- CU-14A - Pausar Curso
+
+- CU-14B - Reanudar Curso
 
 - CU-15 - Finalizar Curso
 
@@ -291,7 +295,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 7. El Profesor o Administrador selecciona "Enviar a revisión".
 
-8. El sistema valida la información obligatoria y la existencia de al menos un módulo. Si el cuerpo de creación supera el límite de transporte, la API responde HTTP 413 y no crea el borrador. El cupo es positivo. Se admiten como máximo 100 módulos, 30 objetivos, 30 requisitos, 50 recursos por módulo y los máximos de texto aprobados; una entrada excedida recibe HTTP 400 sin guardar el curso.
+8. El sistema valida la información obligatoria y la existencia de al menos un módulo. Si el cuerpo de creación supera el límite de transporte, la API responde HTTP 413 y no crea el borrador. El cupo debe estar entre 1 y 10.000 alumnos. Se admiten como máximo 100 módulos, 30 objetivos, 30 requisitos, 50 recursos por módulo y los máximos de texto aprobados; una entrada excedida recibe HTTP 400 sin guardar el curso.
 
 9. El sistema cambia el curso a EN REVISIÓN y registra la solicitud de auditoría. En la API el guardado crea primero un BORRADOR con POST /api/courses y responde 201. El envío posterior mediante POST /api/courses/{id}/submit-review responde 200 y genera la auditoría. Si el envío falla, la creación ya confirmada se conserva como borrador. El prototipo representa el alta como Profesor. El alta administrativa está disponible en la API.
 
@@ -470,7 +474,7 @@ Estos casos describen el comportamiento funcional de LUMEN. El prototipo fronten
 
 5. El usuario modifica los datos del curso o sus módulos, con nombre, descripción, duración y contenido o recursos.
 
-6. El sistema valida los datos obligatorios y la existencia de al menos un módulo, y recalcula la duración total como suma de sus duraciones. Si el cuerpo del guardado supera el límite de transporte, la API responde HTTP 413 y conserva la revisión vigente. La edición permite reducir gradualmente colecciones o textos históricos que superan los topes nuevos, sin aumentar un exceso. El cupo no puede reducirse por debajo de las inscripciones aprobadas.
+6. El sistema valida los datos obligatorios y la existencia de al menos un módulo, y recalcula la duración total como suma de sus duraciones. Si el cuerpo del guardado supera el límite de transporte, la API responde HTTP 413 y conserva la revisión vigente. La edición permite reducir gradualmente colecciones o textos históricos que superan los topes nuevos, sin aumentar un exceso. El cupo debe estar entre 1 y 10.000 alumnos y no puede reducirse por debajo de las inscripciones aprobadas.
 
 7. El usuario confirma el envío de los cambios a revisión.
 
@@ -1046,86 +1050,39 @@ CU-12 conserva el identificador histórico de la consulta de inscripciones y el 
 
 4.1. El sistema restringe la operación y no modifica la inscripción.
 
-### CU-14 – Pausar o Reanudar Curso:
+### CU-14 – Pausar y Reanudar Curso:
 
 #### 1. Información General:
 
-- **Nombre:** Pausar o Reanudar Curso
+- **Nombre:** Pausar y Reanudar Curso
 
 - **Id / Código:** CU-14
 
-- **Descripción:** Permite pausar un curso PUBLICADO o reanudar un curso PAUSADO. El Profesor actúa solo sobre cursos propios y el Administrador desde la gestión general.
+- **Descripción:** Caso histórico que agrupa las transiciones separadas de CU-14A y CU-14B. El Profesor actúa sobre cursos propios y el Administrador desde la gestión general.
 
-- **Referencias funcionales:** RF-17; RN-03 y RN-12; permisos de pausa/reanudación y estados de cursos.
+- **Referencias funcionales:** RF-17; RN-03 y RN-12; permisos de pausa y reanudación.
 
 - **Autores / Fecha:** Astore Rodrigo, Ferrino Nahuel (Septiembre, 2026)
 
-#### 2. Participantes e Inicio:
+CU-14 conserva el identificador histórico. Pausar y reanudar son metas autónomas con condiciones distintas y usan los endpoints existentes.
 
-- **Actor principal:** Profesor / Administrador
+#### CU-14A — Pausar Curso
 
-- **Disparador:** El Profesor o Administrador selecciona "Pausar" o "Reanudar" sobre un curso que puede gestionar.
+- **Actor y objetivo:** Profesor propietario o Administrador autenticado; suspender nuevas solicitudes de inscripción sin borrar la publicación.
+- **Disparador:** el actor selecciona «Pausar» sobre un curso que puede gestionar.
+- **Precondiciones:** el curso tiene una versión publicada y estado operativo ACTIVO; si actúa el Profesor, es propietario. No se exige que la revisión de trabajo esté PUBLICADA.
+- **Flujo principal:** 1. El actor consulta sus cursos o la gestión general. 2. Selecciona un curso activo y confirma la pausa. 3. El sistema verifica rol, propiedad y estado. 4. `POST /api/courses/{id}/pause` devuelve HTTP 200 y cambia el estado operativo a PAUSADO. La publicación, el acceso de inscripciones aprobadas y las solicitudes pendientes se conservan; el Administrador puede resolver estas últimas si queda cupo. No se admiten solicitudes nuevas. Enviar o decidir una revisión no reanuda el curso.
+- **Excepciones:** rol sin permiso o curso ajeno, HTTP 403; curso inexistente, HTTP 404; sin publicación o estado incompatible, HTTP 409 sin transición; si el actor no confirma, no se envía solicitud.
+- **Postcondición:** el curso queda PAUSADO y no admite nuevas solicitudes; su publicación y las inscripciones existentes permanecen.
 
-#### 3. Condiciones Previas y Posteriores:
+#### CU-14B — Reanudar Curso
 
-**Precondiciones:**
-
-- El usuario debe haber iniciado sesión como Profesor o Administrador.
-
-- El curso debe pertenecer al Profesor cuando ese sea el actor.
-
-- Para pausar, el curso está PUBLICADO; para reanudar, está PAUSADO.
-
-**Postcondiciones:**
-
-- Al pausar, el curso pasa de PUBLICADO a PAUSADO y deja de admitir nuevas solicitudes de inscripción.
-
-- Al reanudar, el curso pasa de PAUSADO a PUBLICADO y vuelve a admitir nuevas solicitudes.
-
-- La operación cambia la disponibilidad del curso; no aprueba inscripciones ni sustituye la auditoría de modificaciones.
-
-#### 4. Flujo de Eventos:
-
-**Flujo principal:**
-
-1. El Profesor accede a sus cursos o el Administrador a la gestión de cursos.
-
-2. El sistema muestra los cursos que puede gestionar y sus estados.
-
-3. El actor selecciona un curso PUBLICADO y solicita pausarlo.
-
-4. El sistema verifica los permisos y el estado del curso.
-
-5. El actor confirma la pausa.
-
-6. El sistema cambia el curso a PAUSADO e informa que no admite nuevas solicitudes de inscripción. La pausa conserva la publicación y las inscripciones ya registradas. Enviar o decidir una revisión no reanuda el curso. Para volver a admitir solicitudes debe ejecutarse la reanudación. La pausa conserva las solicitudes anteriores y el Administrador puede aprobarlas si queda cupo o rechazarlas.
-
-**Flujos Alternativos:**
-
-**A1. Reanudar un curso PAUSADO**
-
-3.1. El actor selecciona un curso PAUSADO y solicita reanudarlo.
-
-3.2. El sistema verifica los permisos, la propiedad cuando actúa el Profesor y el estado PAUSADO.
-
-3.3. El actor confirma la reanudación.
-
-3.4. El sistema cambia el curso a PUBLICADO y vuelve a habilitar nuevas solicitudes de inscripción.
-
-**A2. Rol sin permiso o curso ajeno al Profesor**
-
-4.1. El sistema restringe la operación y conserva el estado del curso.
-
-**A3. Estado incompatible con la operación**
-
-4.1. El sistema detecta que el curso no está PUBLICADO para pausar o PAUSADO para reanudar.
-
-4.2. Muestra el estado actual y no realiza la transición.
-
-**A4. No confirmar la operación**
-
-5.1. El actor abandona la confirmación y el curso conserva su estado.
-
+- **Actor y objetivo:** Profesor propietario o Administrador autenticado; volver a admitir solicitudes en un curso pausado.
+- **Disparador:** el actor selecciona «Reanudar» sobre un curso que puede gestionar.
+- **Precondiciones:** el curso tiene una versión publicada y estado operativo PAUSADO; si actúa el Profesor, es propietario. No se exige que la revisión de trabajo esté PUBLICADA.
+- **Flujo principal:** 1. El actor consulta sus cursos o la gestión general. 2. Selecciona un curso pausado y confirma la reanudación. 3. El sistema verifica rol, propiedad y estado. 4. `POST /api/courses/{id}/resume` devuelve HTTP 200, cambia el estado operativo a ACTIVO y vuelve a admitir solicitudes de inscripción. No aprueba inscripciones ni sustituye la auditoría de modificaciones.
+- **Excepciones:** rol sin permiso o curso ajeno, HTTP 403; curso inexistente, HTTP 404; estado distinto de PAUSADO o falta de publicación, HTTP 409 sin transición; si el actor no confirma, no se envía solicitud.
+- **Postcondición:** el curso vuelve a estar operativo ACTIVO, conserva la publicación y admite nuevas solicitudes.
 ### CU-15 – Finalizar Curso:
 
 #### 1. Información General:

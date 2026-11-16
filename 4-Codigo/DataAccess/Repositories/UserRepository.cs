@@ -18,9 +18,10 @@ public sealed class UserRepository(LumenDbContext context) : IUserRepository
         }
         catch (DbUpdateException ex) when (ex.InnerException is SqliteException sqlite &&
             sqlite.SqliteExtendedErrorCode == 2067 &&
-            sqlite.Message.Contains("UNIQUE constraint failed: Users.NormalizedEmail'", StringComparison.Ordinal))
+            sqlite.Message.Contains("UNIQUE constraint failed: Users.NormalizedEmail", StringComparison.Ordinal))
         {
-            // Translate only this unique index, never other constraints or persistence errors.
+            // SQLite exposes the extended UNIQUE code but not the constraint name separately.
+            // Narrow the fallback message match to this column; other failures propagate.
             throw new DuplicateEmailException(user.Email);
         }
         return user;
